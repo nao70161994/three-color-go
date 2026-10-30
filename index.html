@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#131f27" />
+  <meta name="description" content="三色六角碁のローカル試作。石の数だけで勝負する3人用囲碁。" />
+  <title>三色六角碁 | Three Color Go</title>
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <div class="eyebrow">THREE COLOR HEX GO · PROTOTYPE</div>
+      <h1>三色六角碁 <span>◈</span></h1>
+      <p>3人で囲み、最後に残った石の数を競おう。</p>
+    </header>
+    <section class="status" aria-label="対局状況">
+      <div class="turn"><span id="turnStone" class="stone black"></span><div><small id="turnLabel">現在の手番</small><strong id="turnText">黒の番</strong></div></div>
+      <div class="counts" id="counts"></div>
+    </section>
+    <section class="boardPanel" aria-label="対局盤">
+      <svg id="board" class="board" viewBox="-235 -212 470 424" role="group" aria-label="六角形の囲碁盤"></svg>
+    </section>
+    <div class="actions">
+      <button id="passBtn" class="primary" type="button">パス</button>
+      <button id="undoBtn" type="button">一手戻す</button>
+      <button id="resetBtn" type="button">最初から</button>
+    </div>
+    <div class="message" id="message" aria-live="polite">黒から開始。空いているマスをタップしてください。</div>
+    <details class="rules">
+      <summary>ルールを見る</summary>
+      <ul>
+        <li>黒→白→赤の順番。3人で交代しながら1個ずつ置く。</li>
+        <li>隣り合う同色の石はつながる。石の呼吸点（空いている隣接マス）がすべてなくなれば取られる。</li>
+        <li>異なる2色が協力して残り1色を囲むこともできる。</li>
+        <li>自殺手は禁止。盤面を過去と同一に戻す着手も禁止。</li>
+        <li>3人が続けてパスすると終局。盤上に残った自分の石の数が最多の人の勝ち（同数は引き分け）。</li>
+        <li>陣地点、アゲハマ点、コミはなし。</li>
+      </ul>
+      <p>試作版：同じ端末で3人交代して遊びます。CPU・オンライン対戦・死に石の合意処理は未対応です。</p>
+    </details>
+    <footer>v0.1 · 石数得点ルールのプレイテスト用</footer>
+  </main>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
