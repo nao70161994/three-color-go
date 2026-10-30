@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>三色六角碁 · ブラウザ動作確認</title>
+<style>
+body{font:15px system-ui,sans-serif;background:#101a22;color:#eaf0f5;max-width:860px;margin:auto;padding:20px}
+#status{display:block;padding:14px;border:1px solid #60788a;border-radius:12px;margin:12px 0}
+iframe{width:min(100%,450px);height:750px;border:1px solid #4a6476;border-radius:15px}
+pre{white-space:pre-wrap} .ok{color:#a8e5bd}.fail{color:#ffaaaa}
+</style>
+</head>
+<body>
+<h1>三色六角碁 — ブラウザ動作確認</h1>
+<p>実際のゲーム画面を開き、UIと公開APIを使って操作します。右の開発者ツールがなくても結果を確認できます。</p>
+<output id="status" data-status="running">テスト中…</output>
+<pre id="log"></pre>
+<iframe id="game" title="テスト用の三色六角碁" src="../index.html"></iframe>
+<script>
+const status=document.getElementById('status');
+const log=document.getElementById('log');
+const frame=document.getElementById('game');
+const lines=[];
+const check=(condition,label)=>{
+  if(!condition) throw new Error(label);
+  lines.push('PASS: '+label);log.textContent=lines.join('\n');
+};
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function run(){
+  const win=frame.contentWindow, doc=frame.contentDocument, game=win.threeColorGo;
+  check(game && typeof game.getState==='function','AI操作用APIが存在');
+  check(game.reset({mode:'local',radius:2}).ok,'3人交代モードで初期化');
+  check(game.legalMoves().length===19,'半径2の合法手は19');
+  check(doc.querySelectorAll('g.cell').length===19,'画面に19マス表示');
+  doc.querySelector('g.cell[data-q="0"][data-r="0"]').dispatchEvent(new win.MouseEvent('click',{bubbles:true}));
+  check(game.getState().scores.black===1,'盤面クリックで黒石を置ける');
+  check(game.pass().ok,'白がパスできる');
+  check(game.play(1,0).ok,'赤が着手できる');
+  check(game.getState().scores.red===1,'赤石が得点に反映');
+  const record=game.exportRecord();
+  check(record.actions.length===3,'棋譜が出力できる');
+  check(game.undo().ok,'一手戻せる');
+  check(game.importRecord(record).ok,'棋譜を読み込める');
+  check(game.getState().scores.red===1,'棋譜から同じ盤面を復元');
+  check(!game.importRecord({radius:2,actions:[{type:'play',q:500,r:500}]}).ok,'不正な棋譜を拒否');
+  check(game.reset({mode:'cpu',radius:2}).ok,'1人+CPU2人モードに切り替え');
+  check(game.play(0,0).ok,'人間が着手できる');
+  await sleep(850);
+  check(game.getState().moveCount===3,'CPUが白と赤の2手を実行');
+  check(game.getState().currentPlayer==='black','CPU後は黒の手番に戻る');
+  check(game.reset({mode:'local',radius:2}).ok,'自動対局の準備');
+  const result=game.autoPlay(50,12);
+  check(result.ok && result.state.ended,'CPU自動対局が終局まで進む');
+  check(Object.values(result.state.scores).reduce((a,b)=>a+b,0)<=19,'盤面の点数が正当');
+  status.className='ok';status.dataset.status='passed';status.textContent='PASS — '+lines.length+'件のブラウザ操作テスト成功';
+}
+frame.addEventListener('load',()=>{
+  run().catch(e=>{
+    status.className='fail';status.dataset.status='failed';status.textContent='FAIL: '+e.message;
+    lines.push('FAIL: '+e.stack);log.textContent=lines.join('\n');
+  });
+},{once:true});
+setTimeout(()=>{
+  if(status.dataset.status!=='passed'&&status.dataset.status!=='failed'){
+    status.className='fail';status.dataset.status='failed';status.textContent='FAIL: 読み込みタイムアウト';
+  }
+},12000);
+</script>
+</body>
+</html>
