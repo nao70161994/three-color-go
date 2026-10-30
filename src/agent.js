@@ -34,6 +34,9 @@ export function seededRandom(seed = 1) {
 
 /** A lightweight tactical opponent, not a strong Go AI. Returns {q,r} or null (pass). */
 export function chooseMove(state, random = Math.random) {
+  // Prototype heuristic: avoid endless capture cycles; bots pass after two boardfuls of moves.
+  // This is an AI policy only, not an extra mandatory end condition for human games.
+  if (state.moveCount >= pointsOnBoard(state.radius).length * 2) return null;
   const options = legalMoves(state);
   if (!options.length) return null;
   const own = COLORS[state.turn];
