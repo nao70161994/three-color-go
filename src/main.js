@@ -57,6 +57,9 @@ function scheduleBots() {
   },240);
 }
 function drawBoard() {
+  const xExtent=SIZE*ROOT3*state.radius+SIZE+4;
+  const yExtent=SIZE*1.5*state.radius+SIZE+4;
+  boardSvg.setAttribute('viewBox',[-xExtent,-yExtent,2*xExtent,2*yExtent].join(' '));
   boardSvg.replaceChildren();
   for (const {q,r} of pointsOnBoard(state.radius)) {
     const [x,y]=center(q,r), key=pointKey(q,r),color=state.board[key];
