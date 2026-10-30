@@ -6,6 +6,8 @@
   "description": "三色六角碁：石数得点方式の試作",
   "scripts": {
     "start": "python3 -m http.server 8000",
-    "test": "node --test"
+    "test": "node --test",
+    "build:standalone": "node scripts/build-standalone.mjs",
+    "check:standalone": "node scripts/build-standalone.mjs --check"
   }
 }
