@@ -31,3 +31,8 @@ button.primary{background:#dfa953;color:#1e2226;border-color:#eabc6e}button.prim
 .rules summary{cursor:pointer;font-weight:800;color:#ebf1f5;font-size:14px}.rules ul{padding-left:21px}
 footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
 @media(max-width:500px){.app{padding:16px 10px 30px}.status{padding:11px 13px}.counts{gap:8px}.turn strong{font-size:16px}.count strong{font-size:18px}.boardPanel{padding:4px;border-radius:16px}.actions{gap:7px}button{padding:13px 5px;font-size:13px}}
+
+.settings{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-bottom:10px;font-size:13px;color:#d7e6ea}
+.settings select{appearance:none;color:#eaf1f4;background:#253b49;border:1px solid #63828d;border-radius:10px;padding:10px 13px;font:inherit;max-width:100%;cursor:pointer}
+.settings select:focus-visible{outline:2px solid #eabc6e;outline-offset:2px}
+@media(max-width:500px){.settings{justify-content:space-between}.settings select{font-size:13px;max-width:75%}}
