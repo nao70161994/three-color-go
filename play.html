@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#131f27" />
+  <meta name="description" content="三色六角碁のローカル試作。石の数だけで勝負する3人用囲碁。" />
+  <title>三色六角碁 | Three Color Go · オフライン版</title>
+  <style>
+:root { font-family: system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; color-scheme:dark; background:#111a22; color:#eaf1f4; }
+* {box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -15%,#284959,#111a22 66%)}
+.app{max-width:850px;margin:0 auto;padding:25px 18px 34px}
+.header{text-align:center;margin:5px 0 23px}
+.eyebrow{font-size:10px;letter-spacing:.25em;color:#84bdc6;font-weight:700}
+h1{font-weight:800;letter-spacing:.06em;font-size:clamp(30px,7vw,45px);margin:9px 0 7px}h1 span{color:#f3bf6b}
+.header p{color:#b1c3cc;font-size:14px;margin:0}
+.status{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#1e303c;border:1px solid #3a5764;border-radius:18px;padding:16px;margin-bottom:14px}
+.turn{display:flex;align-items:center;gap:11px}.turn small{display:block;font-size:11px;color:#92adb9}.turn strong{display:block;font-size:18px;margin-top:4px;white-space:nowrap}
+.stone{display:inline-block;flex-shrink:0;width:31px;height:31px;border-radius:50%;box-shadow:inset -3px -5px 6px #0004,0 2px 7px #0006}
+.stone.black,.piece.black{fill:#17191d;background:linear-gradient(140deg,#555b65,#121417 67%);stroke:#c4d7da}
+.stone.white,.piece.white{fill:#f4f0e4;background:linear-gradient(135deg,#fff,#d6d1c6);stroke:#959b9d}
+.stone.red,.piece.red{fill:#cf564b;background:linear-gradient(135deg,#f48972,#b92b34);stroke:#f8d8b5}
+.stone.tiny{width:12px;height:12px;box-shadow:none}.counts{display:flex;gap:12px}
+.count{display:grid;grid-template-columns:12px auto;grid-template-rows:auto auto;column-gap:6px;align-items:center;min-width:42px}
+.count .stone{grid-row:1;grid-column:1}.count small{grid-row:1;grid-column:2;font-size:12px;color:#c1d0d8}
+.count strong{grid-row:2;grid-column:2;font-size:22px;font-variant-numeric:tabular-nums}
+.boardPanel{background:linear-gradient(150deg,#2b4855,#172a35);border:1px solid #425f6e;border-radius:24px;padding:12px;box-shadow:0 20px 45px #0005;}
+.board{width:100%;display:block;max-height:65vh;touch-action:manipulation}
+.hex{fill:#dfb979;stroke:#836143;stroke-width:1.4;transition:fill .12s;cursor:pointer}
+.cell:hover .hex,.cell:focus-visible .hex{fill:#f3d095}
+.cell:focus-visible{outline:none}.cell:focus-visible .hex{stroke:#fff;stroke-width:2.5}
+.piece{stroke-width:1.6;pointer-events:none;filter:drop-shadow(0 3px 2px #523b39aa)}
+.actions{display:flex;gap:10px;margin:16px 0 10px}
+button{appearance:none;border:1px solid #577381;color:#eaf1f4;background:#253b49;border-radius:12px;font-size:14px;font-weight:700;padding:13px;flex:1;cursor:pointer}
+button:hover:not(:disabled){background:#365364}button:disabled{opacity:.35;cursor:not-allowed}
+button.primary{background:#dfa953;color:#1e2226;border-color:#eabc6e}button.primary:hover:not(:disabled){background:#f6c476}
+.message{color:#b8d2df;min-height:30px;font-size:13px;text-align:center;padding:7px}
+.rules{background:#1b2b35;border:1px solid #36515e;border-radius:15px;margin-top:13px;padding:14px 18px;color:#bccbd0;font-size:13px;line-height:1.8}
+.rules summary{cursor:pointer;font-weight:800;color:#ebf1f5;font-size:14px}.rules ul{padding-left:21px}
+footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
+@media(max-width:500px){.app{padding:16px 10px 30px}.status{padding:11px 13px}.counts{gap:8px}.turn strong{font-size:16px}.count strong{font-size:18px}.boardPanel{padding:4px;border-radius:16px}.actions{gap:7px}button{padding:13px 5px;font-size:13px}}
+
+.settings{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-bottom:10px;font-size:13px;color:#d7e6ea}
+.settings select{appearance:none;color:#eaf1f4;background:#253b49;border:1px solid #63828d;border-radius:10px;padding:10px 13px;font:inherit;max-width:100%;cursor:pointer}
+.settings select:focus-visible{outline:2px solid #eabc6e;outline-offset:2px}
+@media(max-width:500px){.settings{justify-content:space-between}.settings select{font-size:13px;max-width:75%}}
+
+</style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <div class="eyebrow">THREE COLOR HEX GO · PROTOTYPE</div>
+      <h1>三色六角碁 <span>◈</span></h1>
+      <p>3色で囲み、最後に残った石の数を競おう。</p>
+    </header>
+    <div class="settings"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">1人で遊ぶ（CPU 2人）</option><option value="local">3人で交代</option></select></div>
+    <section class="status" aria-label="対局状況">
+      <div class="turn"><span id="turnStone" class="stone black"></span><div><small id="turnLabel">現在の手番</small><strong id="turnText">黒の番</strong></div></div>
+      <div class="counts" id="counts"></div>
+    </section>
+    <section class="boardPanel" aria-label="対局盤">
+      <svg id="board" class="board" viewBox="-235 -212 470 424" role="group" aria-label="六角形の囲碁盤"></svg>
+    </section>
+    <div class="actions">
+      <button id="passBtn" class="primary" type="button">パス</button>
+      <button id="undoBtn" type="button">一手戻す</button>
+      <button id="resetBtn" type="button">最初から</button>
+    </div>
+    <div class="message" id="message" aria-live="polite">黒から開始。空いているマスをタップしてください。</div>
+    <details class="rules">
+      <summary>ルールを見る</summary>
+      <ul>
+        <li>黒→白→赤の順番。3人で交代しながら1個ずつ置く。</li>
+        <li>隣り合う同色の石はつながる。石の呼吸点（空いている隣接マス）がすべてなくなれば取られる。</li>
+        <li>異なる2色が協力して残り1色を囲むこともできる。</li>
+        <li>自殺手は禁止。盤面を過去と同一に戻す着手も禁止。</li>
+        <li>3人が続けてパスすると終局。盤上に残った自分の石の数が最多の人の勝ち（同数は引き分け）。</li>
+        <li>陣地点、アゲハマ点、コミはなし。</li>
+      </ul>
+      <p>CPUは簡易AIです。オンライン対戦・死に石の合意処理は未対応です。</p>
+    </details>
+    <footer>v0.2 · ローカル対戦 / CPU対戦 / エージェントAPI対応</footer>
+  </main>
+  <script>
+/**
+ * Three-color hex Go (local prototype).
+ * Axial hex coordinates, six neighbors, stone-count scoring.
+ * No territory scoring or komi. Positional superko on stone placements.
+ */
+
+const COLORS = ['black', 'white', 'red'];
+const LABELS = { black: '黒', white: '白', red: '赤' };
+const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+
+function pointKey(q, r) { return `${q},${r}`; }
+
+function pointsOnBoard(radius = 4) {
+  const points = [];
+  for (let r = -radius; r <= radius; r++) {
+    for (let q = -radius; q <= radius; q++) {
+      if (Math.abs(q + r) <= radius) points.push({q, r});
+    }
+  }
+  return points;
+}
+
+function adjacentKeys(key, radius) {
+  const [q, r] = key.split(',').map(Number);
+  return DIRECTIONS.map(([dq, dr]) => [q+dq, r+dr])
+    .filter(([x, y]) => Math.max(Math.abs(x), Math.abs(y), Math.abs(x+y)) <= radius)
+    .map(([x,y]) => pointKey(x,y));
+}
+
+function boardHash(board) {
+  return Object.keys(board).sort().map(k => `${k}:${board[k]}`).join('|');
+}
+
+function createGame(radius = 4) {
+  if (!Number.isInteger(radius) || radius < 2 || radius > 10) throw new Error('盤面半径は2～10にしてください');
+  return {
+    radius,
+    board: {},
+    turn: 0,
+    passes: 0,
+    ended: false,
+    seen: [boardHash({})],
+    moveCount: 0,
+    lastAction: 'ゲーム開始'
+  };
+}
+
+function groupWithLiberties(board, start, radius) {
+  const color = board[start];
+  if (!color) return { stones: [], liberties: new Set() };
+  const pending = [start], visited = new Set([start]);
+  const liberties = new Set();
+  for (let i=0; i<pending.length; i++) {
+    const current = pending[i];
+    for (const next of adjacentKeys(current, radius)) {
+      if (!board[next]) liberties.add(next);
+      else if (board[next] === color && !visited.has(next)) {
+        visited.add(next);
+        pending.push(next);
+      }
+    }
+  }
+  return { stones: pending, liberties };
+}
+
+/** Pure legal move. Returns {ok, state, captured} or {ok:false, reason}. */
+function play(state, q, r) {
+  if (state.ended) return {ok:false, reason:'すでに終局しています'};
+  if (!Number.isInteger(q) || !Number.isInteger(r) ||
+      Math.max(Math.abs(q), Math.abs(r), Math.abs(q+r)) > state.radius) {
+    return {ok:false, reason:'盤外には置けません'};
+  }
+  const target = pointKey(q, r);
+  if (state.board[target]) return {ok:false, reason:'すでに石があります'};
+
+  const color = COLORS[state.turn];
+  const board = { ...state.board, [target]: color };
+  const captured = [];
+  const processed = new Set();
+  // Evaluate all adjacent opposing groups against the same post-placement board.
+  // Removing one group early must not grant liberties to another group that
+  // simultaneously reached zero liberties (a special case in three-color Go).
+  for (const neighbor of adjacentKeys(target, state.radius)) {
+    if (!board[neighbor] || board[neighbor] === color || processed.has(neighbor)) continue;
+    const group = groupWithLiberties(board, neighbor, state.radius);
+    group.stones.forEach(k => processed.add(k));
+    if (group.liberties.size === 0) captured.push(...group.stones);
+  }
+  captured.forEach(k => delete board[k]);
+  if (groupWithLiberties(board, target, state.radius).liberties.size === 0) {
+    return {ok:false, reason:'自殺手は禁止です'};
+  }
+  const hash = boardHash(board);
+  if (state.seen.includes(hash)) return {ok:false, reason:'全局同形禁止により置けません'};
+  const next = {
+    ...state, board, turn:(state.turn+1)%3, passes:0,
+    moveCount: state.moveCount + 1,
+    seen: [...state.seen, hash],
+    lastAction: `${LABELS[color]}が着手${captured.length ? `（${captured.length}石取り）` : ''}`
+  };
+  return {ok:true, state:next, captured};
+}
+
+function pass(state) {
+  if (state.ended) return {ok:false, reason:'すでに終局しています'};
+  const passes = state.passes + 1;
+  return {ok:true, state: {
+    ...state, passes, turn:(state.turn+1)%3,
+    ended: passes >= 3,
+    moveCount: state.moveCount + 1,
+    lastAction: passes >= 3 ? '3人連続パスで終局' : `${LABELS[COLORS[state.turn]]}がパス`
+  }};
+}
+
+function scores(state) {
+  const count = {black:0, white:0, red:0};
+  Object.values(state.board).forEach(color => { count[color]++; });
+  return count;
+}
+
+function winner(state) {
+  if (!state.ended) return [];
+  const s = scores(state), max = Math.max(...Object.values(s));
+  return COLORS.filter(c => s[c] === max);
+}
+
+
+/** Read-only, JSON-serializable view for an AI agent or test harness. */
+function snapshot(state) {
+  return {
+    version: 1,
+    radius: state.radius,
+    board: { ...state.board },
+    currentPlayer: state.ended ? null : COLORS[state.turn],
+    moveCount: state.moveCount,
+    consecutivePasses: state.passes,
+    ended: state.ended,
+    scores: scores(state),
+    winners: winner(state),
+    lastAction: state.lastAction
+  };
+}
+
+function legalMoves(state) {
+  if (state.ended) return [];
+  return pointsOnBoard(state.radius).filter(({q,r}) => {
+    const key = pointKey(q,r);
+    return !state.board[key] && play(state,q,r).ok;
+  });
+}
+
+function seededRandom(seed = 1) {
+  let n = (Number(seed) >>> 0) || 1;
+  return () => {
+    n ^= n << 13; n ^= n >>> 17; n ^= n << 5;
+    return (n >>> 0) / 4294967296;
+  };
+}
+
+/** A lightweight tactical opponent, not a strong Go AI. Returns {q,r} or null (pass). */
+function chooseMove(state, random = Math.random) {
+  // Prototype heuristic: avoid endless capture cycles; bots pass after two boardfuls of moves.
+  // This is an AI policy only, not an extra mandatory end condition for human games.
+  if (state.moveCount >= pointsOnBoard(state.radius).length * 2) return null;
+  const options = legalMoves(state);
+  if (!options.length) return null;
+  const own = COLORS[state.turn];
+  let best = null, bestValue = -Infinity;
+  for (const {q,r} of options) {
+    const result = play(state,q,r);
+    const neighbors = adjacentKeys(pointKey(q,r),state.radius);
+    const adjacentFriends = neighbors.filter(k => state.board[k]===own).length;
+    const nearbyEnemies = neighbors.filter(k => state.board[k] && state.board[k]!==own).length;
+    const afterLiberties = neighbors.filter(k => !result.state.board[k]).length;
+    const value = result.captured.length*22 + adjacentFriends*1.4
+      + nearbyEnemies*.2 + afterLiberties*.5 - (Math.abs(q)+Math.abs(r)+Math.abs(q+r))*.08
+      + random()*1.4;
+    if (value > bestValue) {bestValue=value; best={q,r};}
+  }
+  return best;
+}
+
+function simulate({radius=3, seed=1, maxTurns=400}={}) {
+  const random = seededRandom(seed);
+  let state = createGame(radius);
+  const history = [];
+  while (!state.ended && history.length < maxTurns) {
+    const color = COLORS[state.turn];
+    const move = chooseMove(state,random);
+    const result = move ? play(state,move.q,move.r) : pass(state);
+    if (!result.ok) throw new Error(result.reason);
+    history.push({player:color, ...(move || {pass:true}), captured:result.captured?.length ?? 0});
+    state = result.state;
+  }
+  return {state:snapshot(state), history, truncated:!state.ended};
+}
+
+
+const boardSvg = document.getElementById('board');
+const countsEl = document.getElementById('counts');
+const turnStoneEl = document.getElementById('turnStone');
+const turnTextEl = document.getElementById('turnText');
+const turnLabelEl = document.getElementById('turnLabel');
+const msgEl = document.getElementById('message');
+const modeEl = document.getElementById('mode');
+const passBtn = document.getElementById('passBtn');
+const undoBtn = document.getElementById('undoBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+const SIZE = 29, ROOT3 = Math.sqrt(3);
+let state = createGame(4);
+let mode = 'cpu', past = [], actions = [], botTimer = null;
+const STORAGE = 'three-color-go.v2';
+
+function center(q,r) { return [SIZE*ROOT3*(q+r/2), SIZE*1.5*r]; }
+function vertices(x,y) {
+  return Array.from({length:6},(_,i)=>{
+    const a = (Math.PI/180)*(60*i-90);
+    return (x+SIZE*Math.cos(a)).toFixed(2)+','+(y+SIZE*Math.sin(a)).toFixed(2);
+  }).join(' ');
+}
+function el(name,attrs={}) {
+  const node=document.createElementNS('http://www.w3.org/2000/svg',name);
+  Object.entries(attrs).forEach(([k,v])=>node.setAttribute(k,String(v)));
+  return node;
+}
+function stopBots() { if (botTimer !== null) clearTimeout(botTimer); botTimer=null; }
+function save() {
+  try { localStorage.setItem(STORAGE,JSON.stringify({version:1,mode,radius:state.radius,actions})); }
+  catch { /* Storage may be blocked in private mode. */ }
+}
+function commit(result,action, schedule=true) {
+  if (!result.ok) { msgEl.textContent=result.reason; return {ok:false,reason:result.reason}; }
+  stopBots();
+  past.push(state); state=result.state; actions.push(action);
+  save(); render();
+  if (schedule) scheduleBots();
+  return {ok:true,captured:result.captured ?? [],state:snapshot(state)};
+}
+function place(q,r,schedule=true) {
+  return commit(play(state,q,r),{type:'play',q,r},schedule);
+}
+function doPass(schedule=true) { return commit(pass(state),{type:'pass'},schedule); }
+function permittedForHuman() { return mode==='local' || state.turn===0; }
+function scheduleBots() {
+  stopBots();
+  if (mode!=='cpu' || state.ended || state.turn===0) return;
+  botTimer=setTimeout(()=>{
+    botTimer=null;
+    const move=chooseMove(state);
+    if (move) place(move.q,move.r); else doPass();
+  },240);
+}
+function drawBoard() {
+  const xExtent=SIZE*ROOT3*state.radius+SIZE+4;
+  const yExtent=SIZE*1.5*state.radius+SIZE+4;
+  boardSvg.setAttribute('viewBox',[-xExtent,-yExtent,2*xExtent,2*yExtent].join(' '));
+  boardSvg.replaceChildren();
+  for (const {q,r} of pointsOnBoard(state.radius)) {
+    const [x,y]=center(q,r), key=pointKey(q,r),color=state.board[key];
+    const g=el('g',{
+      class:'cell '+(color?'occupied':''),
+      role:'button', tabindex:state.ended?-1:0,
+      'data-q':q,'data-r':r,
+      'aria-label':q+','+r+' '+(color?LABELS[color]+'石':'空点')
+    });
+    g.appendChild(el('polygon',{points:vertices(x,y),class:'hex'}));
+    if (color) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.64,class:'piece '+color}));
+    function activate() {
+      if (!permittedForHuman()) {msgEl.textContent='CPUが考えています';return;}
+      place(q,r);
+    }
+    g.addEventListener('click',activate);
+    g.addEventListener('keydown',e=>{
+      if (e.key==='Enter'||e.key===' ') {e.preventDefault();activate();}
+    });
+    boardSvg.appendChild(g);
+  }
+}
+function render() {
+  const color=COLORS[state.turn],counts=scores(state);
+  turnStoneEl.className='stone '+color;
+  turnTextEl.textContent=state.ended?'対局終了':LABELS[color]+'の番'+(mode==='cpu'&&state.turn!==0?'（CPU）':'');
+  turnLabelEl.textContent=state.ended?'勝敗が決まりました':state.passes+'人連続パス · '+state.moveCount+'手';
+  modeEl.value=mode;
+  countsEl.replaceChildren();
+  for (const c of COLORS) {
+    const item=document.createElement('div');item.className='count';
+    const small=document.createElement('small');small.textContent=LABELS[c];
+    const strong=document.createElement('strong');strong.textContent=counts[c];
+    const dot=document.createElement('span');dot.className='stone tiny '+c;
+    item.append(dot,small,strong);countsEl.append(item);
+  }
+  drawBoard();
+  passBtn.disabled=state.ended || !permittedForHuman();
+  undoBtn.disabled=past.length===0;
+  if (state.ended) {
+    const winning=winner(state).map(c=>LABELS[c]).join('・');
+    msgEl.textContent='終局！ '+winning+(winner(state).length>1?'が同点':'の勝利')+'。黒 '+counts.black+' / 白 '+counts.white+' / 赤 '+counts.red+' 石';
+  } else {
+    msgEl.textContent=state.lastAction;
+  }
+}
+function reset({radius=4,nextMode=mode}={}) {
+  if (!['cpu','local'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
+  stopBots();
+  try {state=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
+  mode=nextMode;past=[];actions=[];save();render();scheduleBots();
+  return {ok:true,state:snapshot(state)};
+}
+function undo() {
+  stopBots();
+  if (!past.length) return {ok:false,reason:'戻せる手がありません'};
+  do {
+    state=past.pop();actions.pop();
+  } while (mode==='cpu' && past.length && state.turn!==0);
+  save();render();scheduleBots();
+  return {ok:true,state:snapshot(state)};
+}
+function loadRecord(record) {
+  stopBots();
+  if (!record || !Array.isArray(record.actions)) return {ok:false,reason:'actions配列がありません'};
+  let next;
+  try {next=createGame(record.radius ?? 4);} catch(e){return {ok:false,reason:e.message};}
+  const states=[], normalized=[];
+  if (record.actions.length>2000) return {ok:false,reason:'手数が多すぎます'};
+  for (const action of record.actions) {
+    if (!action || !['play','pass'].includes(action.type)) return {ok:false,reason:'未知の手です'};
+    const result=action.type==='pass'?pass(next):play(next,action.q,action.r);
+    if (!result.ok) return {ok:false,reason:'棋譜の'+(normalized.length+1)+'手目: '+result.reason};
+    states.push(next);next=result.state;
+    normalized.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
+  }
+  const nextMode=['cpu','local'].includes(record.mode)?record.mode:'local';
+  state=next;mode=nextMode;past=states;actions=normalized;
+  save();render();scheduleBots();
+  return {ok:true,state:snapshot(state)};
+}
+function restore() {
+  try {
+    const raw=localStorage.getItem(STORAGE);
+    if (!raw) return;
+    const record=JSON.parse(raw);
+    if (!record || record.version!==1 || !Array.isArray(record.actions)) return;
+    // Loading an invalid saved record must not prevent a new match.
+    loadRecord(record);
+  } catch { /* Ignore invalid / unavailable storage. */ }
+}
+passBtn.addEventListener('click',()=>{if (permittedForHuman()) doPass();});
+undoBtn.addEventListener('click',undo);
+resetBtn.addEventListener('click',()=>{
+  if (state.moveCount===0 || confirm('対局を最初からやり直しますか？')) reset();
+});
+modeEl.addEventListener('change',()=>{
+  const chosen=modeEl.value;
+  if (state.moveCount>0 && !confirm('モードを変えると対局を最初からやり直します。続けますか？')) {
+    modeEl.value=mode;return;
+  }
+  reset({nextMode:chosen});
+});
+
+/** Public browser automation interface. All actions use the same validated game engine as human moves. */
+window.threeColorGo = Object.freeze({
+  version: '0.2',
+  getState: ()=>snapshot(state),
+  legalMoves: ()=>legalMoves(state),
+  play: (q,r)=>place(q,r),
+  pass: ()=>doPass(),
+  undo,
+  reset: (options={})=>reset({radius:options.radius??4,nextMode:options.mode??'local'}),
+  setMode: (next)=>reset({radius:state.radius,nextMode:next}),
+  exportRecord: ()=>({version:1,radius:state.radius,mode,actions:actions.map(a=>({...a}))}),
+  importRecord: loadRecord,
+  autoPlay: (limit=100,seed=1)=>{
+    stopBots();
+    const rand=seededRandom(seed);
+    const count=Math.max(0,Math.min(500,Math.trunc(limit)||0));
+    let moves=0;
+    while (!state.ended && moves<count) {
+      const move=chooseMove(state,rand);
+      const result=move?place(move.q,move.r,false):doPass(false);
+      if (!result.ok) return {ok:false,reason:result.reason,moves};
+      moves++;
+    }
+    scheduleBots();
+    return {ok:true,moves,state:snapshot(state)};
+  }
+});
+
+render();restore();scheduleBots();
+
+</script>
+</body>
+</html>
