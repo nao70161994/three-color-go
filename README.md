@@ -12,6 +12,8 @@ GitHub Pages 公開設定完了後のURL：
 
 現時点でURLが開けない場合は、リポジトリの **Settings → Pages → Build and deployment → Source: GitHub Actions** を選択してください。公開後は `main` へのコミットで自動更新されます。対応ワークフローは `.github/workflows/pages.yml` です。
 
+**GitHub Pagesを設定する前でも**、[play.html](play.html) をダウンロードしてブラウザで開けば、外部ファイルやネット接続なしで遊べます。Androidではダウンロードした `play.html` をブラウザで開いてください。ブラウザによってはローカルファイルへのアクセスが制限される場合があります。
+
 ローカルでも遊べます。
 
 ```sh
