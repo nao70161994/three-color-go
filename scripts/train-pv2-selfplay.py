@@ -84,7 +84,8 @@ def dump_model(model, metadata):
             "bias": [round(float(v), 7) for v in bias],
         }
     return {
-        "version": "pv2-group-selfplay-seed{}-g{}".format(metadata["seed"], metadata["games"]),
+        "version": "pv2-reward-{}-seed{}-g{}".format(metadata["rewardProfile"], metadata["seed"], metadata["games"]),
+        "rewardProfile": metadata["rewardProfile"],
         "architecture": ARCH,
         "training": "MCTS self-play policy targets + terminal 3-player result",
         "metadata": metadata, "layers": layers
@@ -98,6 +99,8 @@ def main():
     parser.add_argument("--simulations", type=int, default=16)
     parser.add_argument("--seed", type=int, default=20261031)
     parser.add_argument("--radii", default="2,3,4")
+    parser.add_argument("--reward-profile", choices=("winner", "blend", "margin"),
+                        default="blend")
     parser.add_argument("--learning-rate", type=float, default=0.002)
     parser.add_argument("--out", type=Path,
                         default=ROOT / "reports" / "pv2-candidate.json")
@@ -123,7 +126,8 @@ def main():
         for iteration in range(args.iterations):
             radius = radii[iteration % len(radii)]
             snapshot.write_text(json.dumps(dump_model(model, {
-                "seed": args.seed, "games": all_games
+                "seed": args.seed, "games": all_games,
+                "rewardProfile": args.reward_profile
             })), encoding="utf-8")
             game_seed = (args.seed + iteration * 100003) % 4294967296
             command = [
@@ -135,7 +139,8 @@ def main():
             output = subprocess.run(command, capture_output=True,
                                     text=True, cwd=ROOT, check=True)
             games = [json.loads(line) for line in output.stdout.splitlines()]
-            if len(games) != args.games or not all(g["ended"] for g in games):
+            if (len(games) != args.games or not all(g["ended"] for g in games) or
+                    not all(g["rewardProfile"] == args.reward_profile for g in games)):
                 raise RuntimeError("Incomplete MCTS self-play trajectory")
             samples = [sample for game in games for sample in game["examples"]]
             if not samples:
@@ -169,12 +174,14 @@ def main():
             all_examples += len(samples)
             print(json.dumps({
                 "iteration": iteration + 1, "radius": radius,
+                "rewardProfile": args.reward_profile,
                 "games": len(games), "examples": len(samples),
                 "loss": round(sum(losses) / len(losses), 5)
             }), flush=True)
 
     metadata = {
         "seed": args.seed, "games": all_games, "examples": all_examples,
+        "rewardProfile": args.reward_profile,
         "iterations": args.iterations, "radii": radii,
         "simulations": args.simulations, "learning_rate": args.learning_rate
     }
