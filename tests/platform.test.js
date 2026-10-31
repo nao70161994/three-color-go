@@ -95,7 +95,13 @@ test('never-ready host is removed and guests can be matched again',async()=>{
   try{
     const lobby=new Matchmaker(ctx,{});
     for(const i of [31,32,33])await lobby.fetch(req('/join',ticket(i),'POST'));
-    time+=26000;
+    // Guests continue heartbeating while the host becomes unresponsive.
+    for(const step of [10000,10000]){
+      time+=step;
+      await lobby.fetch(req('/status',ticket(32)));
+      await lobby.fetch(req('/status',ticket(33)));
+    }
+    time+=6000;
     const guest=await (await lobby.fetch(req('/status',ticket(32)))).json();
     assert.equal(guest.status,'waiting');
     assert.equal(guest.room,null);
