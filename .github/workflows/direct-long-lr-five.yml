@@ -1,0 +1,190 @@
+name: direct five learning rates long horizon study
+on:
+  push:
+    branches: [exp/direct-lr-long-horizon-five-rates]
+  pull_request:
+    paths:
+      - scripts/train-direct-policy.py
+      - scripts/report-direct-learning-curves.mjs
+      - scripts/compare-direct-lr-long.mjs
+      - tests/direct-lr-long.test.js
+      - .github/workflows/direct-long-lr-five.yml
+  workflow_dispatch:
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: node --test tests/direct-policy.test.js tests/direct-lr-long.test.js
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Check restart is identical to uninterrupted training including Adam states
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          python scripts/train-direct-policy.py --iterations 4 --games 2 \
+            --radii 2,3 --seed 711 --checkpoint-every 2 --learning-rate .00001 \
+            --out reports/full.json > /dev/null
+          python scripts/train-direct-policy.py --iterations 2 --games 2 \
+            --radii 2,3 --seed 711 --checkpoint-every 2 --learning-rate .00001 \
+            --out reports/split.json > /dev/null
+          python scripts/train-direct-policy.py --iterations 4 --games 2 \
+            --radii 2,3 --seed 711 --checkpoint-every 2 --learning-rate .00001 \
+            --resume reports/split-iter0002.pt \
+            --out reports/resumed.json > /dev/null
+          python scripts/check-pv2-parity.py reports/resumed.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path('reports/full.json').read_text())
+          b=json.loads(Path('reports/resumed.json').read_text())
+          assert a==b, 'Resume must preserve model, optimizer, seeds and results'
+          PY
+  sweep:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include:
+          - rate: "0.001"
+            key: lr001
+          - rate: "0.0003"
+            key: lr0003
+          - rate: "0.0001"
+            key: lr0001
+          - rate: "0.00003"
+            key: lr00003
+          - rate: "0.00001"
+            key: lr00001
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Train 2560 selfplay games and save complete Adam/RNG state each 320 games
+        env:
+          RATE: ${{ matrix.rate }}
+          KEY: ${{ matrix.key }}
+        run: |
+          set -euo pipefail
+          mkdir -p "reports/$KEY"
+          python scripts/train-direct-policy.py --iterations 320 --games 8 \
+            --radii 2,3,4 --seed 20261101 --temperature 1 \
+            --batch-size 32 --epochs 1 --entropy .015 \
+            --learning-rate "$RATE" --checkpoint-every 40 \
+            --out "reports/$KEY/model.json" \
+            | tee "reports/$KEY/training.jsonl"
+      - name: Verify PyTorch and JavaScript numerical parity
+        env:
+          KEY: ${{ matrix.key }}
+        run: python scripts/check-pv2-parity.py "reports/$KEY/model.json"
+      - name: Evaluate every 320 games on 4 CPU pairings and 6 balanced seat permutations
+        env:
+          KEY: ${{ matrix.key }}
+        run: |
+          set -euo pipefail
+          for i in 40 80 120 160 200 240 280 320; do
+            printf -v iteration '%04d' "$i"
+            for radius in 3 4; do
+              if [[ "$radius" == 3 ]]; then seed=20261121; else seed=20261122; fi
+              for group in hard-balanced balanced-balanced tactical-guarded baseline-baseline; do
+                opponents=$(echo "$group" | tr '-' ',')
+                node scripts/benchmark-direct-matchups.mjs \
+                  --model "reports/$KEY/model-iter$iteration.json" \
+                  --radius "$radius" --games 12 --seed "$seed" \
+                  --opponents "$opponents" \
+                  --out "reports/$KEY/eval-iter$iteration-r$radius-$group.json" > /dev/null
+              done
+            done
+          done
+      - name: Evaluate final weights with unused holdout seeds, 24 games per pairing
+        env:
+          KEY: ${{ matrix.key }}
+        run: |
+          set -euo pipefail
+          for radius in 3 4; do
+            if [[ "$radius" == 3 ]]; then seed=20261221; else seed=20261222; fi
+            for group in hard-balanced balanced-balanced tactical-guarded baseline-baseline; do
+              opponents=$(echo "$group" | tr '-' ',')
+              node scripts/benchmark-direct-matchups.mjs \
+                --model "reports/$KEY/model.json" \
+                --radius "$radius" --games 24 --seed "$seed" \
+                --opponents "$opponents" \
+                --out "reports/$KEY/holdout-r$radius-$group.json" > /dev/null
+            done
+          done
+      - name: Generate each rate's checkpoint/capture learning curves
+        env:
+          KEY: ${{ matrix.key }}
+        run: |
+          node scripts/report-direct-learning-curves.mjs \
+            --training-log "reports/$KEY/training.jsonl" \
+            --eval-prefix "reports/$KEY/eval" --checkpoint-every 40 \
+            --iterations 320 --games 12 \
+            --groups hard-balanced,balanced-balanced,tactical-guarded,baseline-baseline \
+            --out "reports/$KEY/learning-curve-summary.json" > /dev/null
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lr-long-${{ matrix.key }}
+          path: reports/${{ matrix.key }}/
+          retention-days: 30
+  compare:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: sweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: lr-long-*
+          path: collected/reports
+          merge-multiple: false
+      - name: Combine all five rates without promoting any neural model
+        run: |
+          set -euo pipefail
+          # Artifacts downloaded as collected/reports/lr-long-KEY/.
+          mkdir -p grouped/reports
+          for key in lr001 lr0003 lr0001 lr00003 lr00001; do
+            mkdir -p "grouped/reports/$key"
+            cp -a "collected/reports/lr-long-$key/." "grouped/reports/$key/"
+          done
+          node scripts/compare-direct-lr-long.mjs \
+            --root grouped --out grouped/five-learning-rates.json \
+            | tee grouped/comparison.md
+          cat grouped/comparison.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: five-learning-rate-comparison
+          path: |
+            grouped/five-learning-rates.json
+            grouped/five-learning-rates.md
+          retention-days: 30
