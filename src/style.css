@@ -18,10 +18,10 @@ h1{font-weight:800;letter-spacing:.06em;font-size:clamp(30px,7vw,45px);margin:9p
 .count strong{grid-row:2;grid-column:2;font-size:22px;font-variant-numeric:tabular-nums}
 .boardPanel{background:linear-gradient(150deg,#2b4855,#172a35);border:1px solid #425f6e;border-radius:24px;padding:12px;box-shadow:0 20px 45px #0005;}
 .board{width:100%;display:block;max-height:65vh;touch-action:manipulation}
-.hex{fill:#dfb979;stroke:#836143;stroke-width:1.4;transition:fill .12s;cursor:pointer}
+.hex{fill:#e1bb82;stroke:#a98458;stroke-width:.9;stroke-linejoin:round;transition:fill .12s;cursor:pointer}
 .cell:hover .hex,.cell:focus-visible .hex{fill:#f3d095}
 .cell:focus-visible{outline:none}.cell:focus-visible .hex{stroke:#fff;stroke-width:2.5}
-.piece{stroke-width:1.6;pointer-events:none;filter:drop-shadow(0 3px 2px #523b39aa)}
+.piece{stroke-width:1.6;pointer-events:none;filter:drop-shadow(0 2px 2.5px #30251ebc)}
 .actions{display:flex;gap:10px;margin:16px 0 10px}
 button{appearance:none;border:1px solid #577381;color:#eaf1f4;background:#253b49;border-radius:12px;font-size:14px;font-weight:700;padding:13px;flex:1;cursor:pointer}
 button:hover:not(:disabled){background:#365364}button:disabled{opacity:.35;cursor:not-allowed}
@@ -100,7 +100,7 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
 
 /* v1.0 touch-safe zoom and v1.2 online lobby */
 .onlinePanel,.studyPanel{border:1px solid #587889;border-radius:14px;background:#213540;padding:12px;margin:10px 0;color:#dce8ed}
-.onlinePanel[hidden],.studyPanel[hidden],.moveConfirm[hidden]{display:none}
+.onlinePanel[hidden],.studyPanel[hidden]{display:none}
 .onlineActions,.studyActions{display:flex;gap:8px;flex-wrap:wrap;margin:11px 0}
 .onlineActions button,.studyActions button{min-width:120px}
 .onlinePanel label{display:block;margin:10px 0 5px;font-weight:700;font-size:12px}
@@ -113,9 +113,6 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
 button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #ffe095;outline-offset:2px}
 .onlinePanel button{font-size:12px;padding:11px 8px}
 .studyPanel pre{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;font-size:12px}
-.moveConfirm{position:sticky;top:0;z-index:4;background:#eecb78;color:#172b33;padding:8px 10px;border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700}
-.moveConfirm button{background:#273b48;color:#f3e3af;min-width:100px;flex:0 0 auto;padding:7px}
-.hintSelected{fill:none;stroke:#ffce52;stroke-width:4;stroke-dasharray:4 3;pointer-events:none}
 .board{touch-action:pan-x pan-y}
 @media(max-width:500px){.onlineActions button,.studyActions button{min-width:calc(50% - 5px)}.onlinePanel{padding:10px}.studyActions{gap:6px}}
 
@@ -124,3 +121,42 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
 .savedMatches button{flex:0 1 auto;padding:10px;font-size:12px}
 .onlineActions button[hidden],.savedMatches input[hidden]{display:none}
 @media(max-width:500px){.savedMatches select{width:100%}.savedMatches button{flex:1 1 45%}}
+
+/* v1.4.1: keep the full hex board visible without crowding small screens. */
+.boardPanel{
+  background:radial-gradient(ellipse at 50% 35%,#2b4652 0%,#192f3b 78%);
+  border-color:#4b6875;
+  box-shadow:0 12px 30px #0003;
+}
+.boardViewTools{
+  margin:0 0 9px;
+  background:#203643;
+  border:1px solid #496b7b;
+  border-radius:12px;
+  padding:7px 9px;
+}
+.boardViewTools button{
+  background:#dfb568;
+  color:#17232b;
+  border-color:#f0cb86;
+  padding:9px 13px;
+  min-width:125px;
+}
+.boardViewTools button:hover:not(:disabled){background:#f4cb83}
+.boardViewTools span{font-size:11px;line-height:1.45}
+@media(max-width:500px){
+  .app{padding:10px 8px 24px}
+  .header{margin:0 0 13px}
+  .eyebrow{font-size:9px;letter-spacing:.16em}
+  h1{font-size:clamp(27px,7vw,35px);margin:5px 0 4px}
+  .header p{font-size:12px}
+  .settings{margin-bottom:8px}
+  .boardSizeSetting{margin:0 0 8px}
+  .boardSizeSetting span{font-size:10px}
+  .status{margin-bottom:8px;padding:9px 11px;border-radius:13px}
+  .turn .stone{width:28px;height:28px}
+  .boardPanel{padding:3px;border-radius:14px}
+  .boardViewTools{gap:7px}
+  .boardViewTools button{width:auto;min-width:110px;flex:0 0 auto;font-size:12px}
+  .boardViewTools span{flex:1 1 120px}
+}

@@ -27,10 +27,10 @@ h1{font-weight:800;letter-spacing:.06em;font-size:clamp(30px,7vw,45px);margin:9p
 .count strong{grid-row:2;grid-column:2;font-size:22px;font-variant-numeric:tabular-nums}
 .boardPanel{background:linear-gradient(150deg,#2b4855,#172a35);border:1px solid #425f6e;border-radius:24px;padding:12px;box-shadow:0 20px 45px #0005;}
 .board{width:100%;display:block;max-height:65vh;touch-action:manipulation}
-.hex{fill:#dfb979;stroke:#836143;stroke-width:1.4;transition:fill .12s;cursor:pointer}
+.hex{fill:#e1bb82;stroke:#a98458;stroke-width:.9;stroke-linejoin:round;transition:fill .12s;cursor:pointer}
 .cell:hover .hex,.cell:focus-visible .hex{fill:#f3d095}
 .cell:focus-visible{outline:none}.cell:focus-visible .hex{stroke:#fff;stroke-width:2.5}
-.piece{stroke-width:1.6;pointer-events:none;filter:drop-shadow(0 3px 2px #523b39aa)}
+.piece{stroke-width:1.6;pointer-events:none;filter:drop-shadow(0 2px 2.5px #30251ebc)}
 .actions{display:flex;gap:10px;margin:16px 0 10px}
 button{appearance:none;border:1px solid #577381;color:#eaf1f4;background:#253b49;border-radius:12px;font-size:14px;font-weight:700;padding:13px;flex:1;cursor:pointer}
 button:hover:not(:disabled){background:#365364}button:disabled{opacity:.35;cursor:not-allowed}
@@ -109,7 +109,7 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
 
 /* v1.0 touch-safe zoom and v1.2 online lobby */
 .onlinePanel,.studyPanel{border:1px solid #587889;border-radius:14px;background:#213540;padding:12px;margin:10px 0;color:#dce8ed}
-.onlinePanel[hidden],.studyPanel[hidden],.moveConfirm[hidden]{display:none}
+.onlinePanel[hidden],.studyPanel[hidden]{display:none}
 .onlineActions,.studyActions{display:flex;gap:8px;flex-wrap:wrap;margin:11px 0}
 .onlineActions button,.studyActions button{min-width:120px}
 .onlinePanel label{display:block;margin:10px 0 5px;font-weight:700;font-size:12px}
@@ -122,9 +122,6 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
 button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #ffe095;outline-offset:2px}
 .onlinePanel button{font-size:12px;padding:11px 8px}
 .studyPanel pre{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;font-size:12px}
-.moveConfirm{position:sticky;top:0;z-index:4;background:#eecb78;color:#172b33;padding:8px 10px;border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700}
-.moveConfirm button{background:#273b48;color:#f3e3af;min-width:100px;flex:0 0 auto;padding:7px}
-.hintSelected{fill:none;stroke:#ffce52;stroke-width:4;stroke-dasharray:4 3;pointer-events:none}
 .board{touch-action:pan-x pan-y}
 @media(max-width:500px){.onlineActions button,.studyActions button{min-width:calc(50% - 5px)}.onlinePanel{padding:10px}.studyActions{gap:6px}}
 
@@ -133,6 +130,45 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
 .savedMatches button{flex:0 1 auto;padding:10px;font-size:12px}
 .onlineActions button[hidden],.savedMatches input[hidden]{display:none}
 @media(max-width:500px){.savedMatches select{width:100%}.savedMatches button{flex:1 1 45%}}
+
+/* v1.4.1: keep the full hex board visible without crowding small screens. */
+.boardPanel{
+  background:radial-gradient(ellipse at 50% 35%,#2b4652 0%,#192f3b 78%);
+  border-color:#4b6875;
+  box-shadow:0 12px 30px #0003;
+}
+.boardViewTools{
+  margin:0 0 9px;
+  background:#203643;
+  border:1px solid #496b7b;
+  border-radius:12px;
+  padding:7px 9px;
+}
+.boardViewTools button{
+  background:#dfb568;
+  color:#17232b;
+  border-color:#f0cb86;
+  padding:9px 13px;
+  min-width:125px;
+}
+.boardViewTools button:hover:not(:disabled){background:#f4cb83}
+.boardViewTools span{font-size:11px;line-height:1.45}
+@media(max-width:500px){
+  .app{padding:10px 8px 24px}
+  .header{margin:0 0 13px}
+  .eyebrow{font-size:9px;letter-spacing:.16em}
+  h1{font-size:clamp(27px,7vw,35px);margin:5px 0 4px}
+  .header p{font-size:12px}
+  .settings{margin-bottom:8px}
+  .boardSizeSetting{margin:0 0 8px}
+  .boardSizeSetting span{font-size:10px}
+  .status{margin-bottom:8px;padding:9px 11px;border-radius:13px}
+  .turn .stone{width:28px;height:28px}
+  .boardPanel{padding:3px;border-radius:14px}
+  .boardViewTools{gap:7px}
+  .boardViewTools button{width:auto;min-width:110px;flex:0 0 auto;font-size:12px}
+  .boardViewTools span{flex:1 1 120px}
+}
 
 </style>
   <link rel="manifest" href="./manifest.webmanifest" />
@@ -182,14 +218,13 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
       <div class="turn"><span id="turnStone" class="stone black"></span><div><small id="turnLabel">現在の手番</small><strong id="turnText">黒の番</strong></div></div>
       <div class="counts" id="counts"></div>
     </section>
+    <div id="boardViewTools" class="boardViewTools" hidden>
+      <button id="boardZoom" type="button" aria-pressed="false">拡大して打つ</button>
+      <span>盤面をタップして着手 · 拡大中は上下左右へスクロール</span>
+    </div>
     <section id="boardPanel" class="boardPanel" aria-label="対局盤">
-      <div id="moveConfirm" class="moveConfirm" hidden>選択した場所をもう一度タップして着手 <button id="moveCancel" type="button">キャンセル</button></div>
       <svg id="board" class="board" viewBox="-235 -212 470 424" role="group" aria-label="六角形の囲碁盤"></svg>
     </section>
-    <div id="boardViewTools" class="boardViewTools" hidden>
-      <button id="boardZoom" type="button" aria-pressed="false">拡大して操作</button>
-      <span>大きな盤面は拡大表示にして左右上下にスクロールできます</span>
-    </div>
     <div class="boardTools" aria-label="盤面の表示設定">
       <button id="legalToggle" type="button" aria-pressed="false">合法手を表示: OFF</button>
       <button id="dangerToggle" type="button" aria-pressed="true">危険な石を表示: ON</button>
@@ -243,7 +278,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
       </ul>
       <p>「むずかしい」は相手2人の応手を先読みします。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
     </details>
-    <footer>v1.4 · マッチング耐障害性・棋譜バックアップ・大型盤面CPU改善 · オンライン対戦は試験版</footer>
+    <footer>v1.4.1 · 1タップ着手・スマホ盤面改善 · オンライン対戦は試験版</footer>
   </main>
   <script>window.THREE_COLOR_MATCH_URL="";</script>
   <script>
@@ -1102,8 +1137,6 @@ const onlineLeaveEl=document.getElementById('onlineLeave');
 const onlineRoomEl=document.getElementById('onlineRoom');
 const onlineCopyEl=document.getElementById('onlineCopy');
 const onlineStatusEl=document.getElementById('onlineStatus');
-const moveConfirmEl=document.getElementById('moveConfirm');
-const moveCancelEl=document.getElementById('moveCancel');
 const copyRecordEl=document.getElementById('copyRecord');
 const copyAnalysisEl=document.getElementById('copyAnalysis');
 const studyPanelEl=document.getElementById('studyPanel');
@@ -1146,7 +1179,7 @@ let mode = 'cpu', past = [], actions = [], botTimer = null;
 let cpuLevel = 'hard', showLegal = false, showDanger = true;
 let spectatorPaused = false, spectatorSpeed = 600, zoomBoard = false, zoomBoardExplicit = false;
 let replay = null, network = null, netMessage = '部屋を作るか招待URLで参加してください';
-let pendingMove = null, pinchStart = null, zoomScale = 1;
+let pinchStart = null, zoomScale = 1;
 let matchCancellation=null, matchTicket=null, currentMatchId=null;
 let randomAttempt=null, keyboardFocusKey='0,0', suppressBoardClickUntil=0;
 let aiWorker=null, aiGeneration=0;
@@ -1228,7 +1261,7 @@ function syncOnlineDelta(action,expected){
   if(!result.ok)return false;
   past.push(state);state=result.state;
   actions.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
-  pendingMove=null;save();render();return true;
+  save();render();return true;
 }
 function syncOnlineRecord(remote) {
   if(!remote||!Array.isArray(remote.actions)||remote.actions.length>MAX_ONLINE_ACTIONS)return;
@@ -1283,7 +1316,7 @@ function commit(result,action, schedule=true) {
   if (!result.ok) { msgEl.textContent=result.reason; return {ok:false,reason:result.reason}; }
   stopBots();
   const expected=state.moveCount;
-  past.push(state); state=result.state; actions.push(action);pendingMove=null;
+  past.push(state); state=result.state; actions.push(action);
   save(); render();updateMatchList();
   if(mode==='online' && network?.status().host)network.broadcastMove(action,expected);
   if (schedule) scheduleBots();
@@ -1431,8 +1464,7 @@ function drawBoard(){
   const last=hints.lastMove?pointKey(hints.lastMove.q,hints.lastMove.r):null;
   for(const {q,r} of pointsOnBoard(view.radius)){
     const key=pointKey(q,r),color=view.board[key]||'';
-    const selected=!!pendingMove&&pendingMove.q===q&&pendingMove.r===r;
-    const signature=[color,legal.has(key),danger.has(key),last===key,selected,view.ended].join('|');
+    const signature=[color,legal.has(key),danger.has(key),last===key,view.ended].join('|');
     let item=cellCache.get(key);
     if(!item){
       const g=el('g',{class:'cell',role:'button','data-q':q,'data-r':r,tabindex:0});
@@ -1442,12 +1474,6 @@ function drawBoard(){
           msgEl.textContent=replay?'棋譜を再生中です':mode==='online'?'接続と自分の手番を確認してください':'CPUの手番です';
           return;
         }
-        if(visibleState().radius>=8 && (!pendingMove||pendingMove.q!==q||pendingMove.r!==r)){
-          pendingMove={q,r};moveConfirmEl.hidden=false;
-          moveConfirmEl.firstChild.textContent=' ('+q+','+r+') をもう一度タップして着手 ';
-          drawBoard();return;
-        }
-        pendingMove=null;moveConfirmEl.hidden=true;
         if(mode==='online'){
           const outcome=sendOnlineAction({type:'play',q,r});
           if(!outcome.ok)msgEl.textContent=outcome.reason;
@@ -1478,11 +1504,10 @@ function drawBoard(){
       +(danger.has(key)?' 危険・呼吸点1':'')+(last===key?' 直前の着手':'')
       +(legal.has(key)?' 合法手':''));
     const children=[el('polygon',{points:vertices(x,y),class:'hex'})];
-    if(color)children.push(el('circle',{cx:x,cy:y,r:SIZE*.64,class:'piece '+color}));
+    if(color)children.push(el('circle',{cx:x,cy:y,r:SIZE*.72,class:'piece '+color}));
     if(legal.has(key))children.push(el('circle',{cx:x,cy:y,r:SIZE*.17,class:'hintLegal'}));
     if(danger.has(key))children.push(el('circle',{cx:x,cy:y,r:SIZE*.79,class:'hintDanger'}));
     if(last===key)children.push(el('circle',{cx:x,cy:y,r:SIZE*.91,class:'hintLast'}));
-    if(selected)children.push(el('circle',{cx:x,cy:y,r:SIZE*.95,class:'hintSelected'}));
     g.replaceChildren(...children);
   }
 }
@@ -1531,7 +1556,7 @@ function render() {
   spectatorSpeedEl.value=String(spectatorSpeed);
   spectatorSpeedEl.disabled=!!replay;
   boardViewToolsEl.hidden=view.radius<8 && !zoomBoard;
-  boardZoomEl.textContent=zoomBoard?'全体表示にする':'拡大して操作';
+  boardZoomEl.textContent=zoomBoard?'全体表示へ戻す':'拡大して打つ';
   boardZoomEl.setAttribute('aria-pressed',String(zoomBoard));
   legalToggleEl.textContent='合法手を表示: '+(showLegal?'ON':'OFF');
   dangerToggleEl.textContent='危険な石を表示: '+(showDanger?'ON':'OFF');
@@ -1547,7 +1572,6 @@ function render() {
   }
   drawBoard();
   passBtn.disabled=view.ended || !permittedForHuman();
-  moveConfirmEl.hidden=!pendingMove || view.ended;
   undoBtn.disabled=!!replay || mode==='online' || past.length===0;
   resetBtn.disabled=!!replay || isGuest();
   if (view.ended) {
@@ -1570,7 +1594,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   }
   replay=null;state=next;keyboardFocusKey='0,0';
   mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
-  past=[];actions=[];pendingMove=null;lastCpuDecision=null;currentMatchId=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
+  past=[];actions=[];lastCpuDecision=null;currentMatchId=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
   if(nextMode==='online'&&network?.status().host)network.broadcast();
   updateMatchList();
   return {ok:true,state:snapshot(state)};
@@ -1606,7 +1630,7 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
   stopBots();
   if(mode==='online' && !networkSync){network?.close();network=null;}
   replay=null;
-  state=next;mode=nextMode;pendingMove=null;cpuLevel=nextLevel;
+  state=next;mode=nextMode;cpuLevel=nextLevel;
   if(!networkSync)currentMatchId=null;
   spectatorSpeed=[180,600,1200].includes(record.spectatorSpeed)?record.spectatorSpeed:600;
   spectatorPaused=nextMode==='bots' ? (!resumeSavedBots || record.spectatorPaused===true) : false;
@@ -1649,7 +1673,6 @@ passBtn.addEventListener('click',()=>{
   if(!permittedForHuman())return;
   if(mode==='online')sendOnlineAction({type:'pass'});else doPass();
 });
-moveCancelEl.addEventListener('click',()=>{pendingMove=null;moveConfirmEl.hidden=true;drawBoard();});
 onlineCreateEl.addEventListener('click',async()=>{
   try{
     const net=await ensureNetwork();
@@ -1834,7 +1857,7 @@ boardSvg.addEventListener('touchmove',e=>{
   boardSvg.style.width=Math.round(Math.max(700,xExtent*1.7)*zoomScale)+'px';
   boardSvg.style.maxHeight='none';
   boardViewToolsEl.hidden=false;
-  boardZoomEl.textContent='全体表示にする';
+  boardZoomEl.textContent='全体表示へ戻す';
   boardZoomEl.setAttribute('aria-pressed','true');
   save();
 },{passive:false});
@@ -1875,7 +1898,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.4.0',
+  version: '1.4.1',
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),
   explainPosition: ()=>explainPosition(state),
