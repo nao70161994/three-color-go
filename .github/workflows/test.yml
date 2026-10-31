@@ -112,3 +112,36 @@ jobs:
           name: balance-report-v0.6
           path: reports/*.json
           retention-days: 30
+
+  strength:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 9-game seat-rotated strong CPU benchmark
+        run: node scripts/strength-report.mjs --games 9 --radius 3 --seed 20261031 --out reports/strong-v0.7.json > /tmp/strength.json
+      - name: Publish outcome, not assumptions
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const r=JSON.parse(fs.readFileSync('/tmp/strength.json','utf8'));
+          if(r.finished+r.truncated!==r.games)process.exit(1);
+          const summary=[
+            '## v0.7: Strong lookahead versus two v0.6 balanced CPUs',
+            'Games: '+r.games+'; finished: '+r.finished+'; incomplete: '+r.truncated,
+            'Strong CPU winning share: '+r.winShare+'; win rate (ties split): '+r.winRate,
+            'Per seat: '+JSON.stringify(r.seats),
+            'Average moves: '+r.averageTurns,
+            'Caution: small sample and AI-only results, not proven human-play strength.'
+          ].join('\n')+'\n';
+          console.log(summary);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,summary);
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strength-v0.7
+          path: reports/strong-v0.7.json
+          retention-days: 30
