@@ -40,14 +40,14 @@ export function groupInfo(board, start, radius) {
 }
 
 /**
- * Small enclosed eye-space: one or two connected empty cells whose entire
+ * Small enclosed eye-space: up to eight connected empty cells whose entire
  * boundary is one existing friendly group. This is strategic guidance only:
  * the game engine must still consider such placements LEGAL for human players.
  *
  * Do not block moves in a shared hollow of disconnected friendly groups:
  * filling those points can be necessary to connect the groups.
- * Do not auto-protect larger internal empty areas; these may be playable
- * space in a stone-count scoring game.
+ * Larger (>8) enclosed areas can remain playable in stone-count scoring.
+ * Once reduced to 8 cells, the bot protects the remaining enclosed space.
  */
 export function isOwnEye(state,q,r,color=COLORS[state.turn]) {
   if(!COLORS.includes(color) || !Number.isInteger(q) || !Number.isInteger(r) ||
@@ -61,7 +61,7 @@ export function isOwnEye(state,q,r,color=COLORS[state.turn]) {
       if(!occupant){
         if(!seen.has(neighbor)) {
           seen.add(neighbor);
-          if(seen.size>2)return false;
+          if(seen.size>8)return false;
           queue.push(neighbor);
         }
       } else if(occupant!==color)return false;
@@ -73,9 +73,31 @@ export function isOwnEye(state,q,r,color=COLORS[state.turn]) {
   return [...boundary].every(key=>group.has(key));
 }
 
-/** Strategic (not rules-engine) list; a CPU may pass when only its own eyes remain. */
-export function safeCpuMoves(state){
-  return legalMoves(state).filter(({q,r})=>!isOwnEye(state,q,r));
+/**
+ * Strategic bot veto, never a legality rule. Avoid enclosed eyes AND
+ * immediate self-atari: a move that leaves the newly connected own group
+ * with one liberty and risks losing more stones than it just captured.
+ * Use a previously computed play() result where available.
+ */
+export function isUnsafeCpuMove(state,q,r,result=undefined) {
+  if(isOwnEye(state,q,r))return true;
+  const outcome=result ?? play(state,q,r);
+  if(!outcome.ok)return true;
+  const group=groupInfo(outcome.state.board,pointKey(q,r),state.radius);
+  return group.liberties.length===1 &&
+    group.stones.length > (outcome.captured?.length ?? 0);
+}
+
+/** Legal moves suitable for a CPU; passes remain available if none exist. */
+export function safeCpuMoves(state) {
+  if(state.ended)return [];
+  const available=[];
+  for(const {q,r} of pointsOnBoard(state.radius)) {
+    if(state.board[pointKey(q,r)] || isOwnEye(state,q,r))continue;
+    const outcome=play(state,q,r);
+    if(outcome.ok && !isUnsafeCpuMove(state,q,r,outcome))available.push({q,r});
+  }
+  return available;
 }
 
 /**
