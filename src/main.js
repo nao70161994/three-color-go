@@ -652,6 +652,8 @@ onlineRandomEl.addEventListener('click',async()=>{
           const id=secureToken();
           await net.joinRoom(match.room,id);
           if(!isActive())break;
+          await service.connected(ticket).catch(()=>{});
+          if(!isActive())break;
           netMessage='ランダムマッチの対局に参加しました';
         }
         matchTicket={ticket,service};
