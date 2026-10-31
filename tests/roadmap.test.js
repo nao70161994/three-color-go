@@ -88,3 +88,43 @@ test('host-authoritative three-person network validates turns and syncs guests',
   assert.equal(red.actions.length,3);
   guest1.close();guest2.close();host.close();
 });
+
+
+test('protocol v2 broadcasts deltas and resynchronizes rejected increments',async()=>{
+  nodes.clear();
+  let state=createGame(2),actions=[];
+  const record=()=>({radius:2,mode:'online',actions:actions.map(a=>({...a}))});
+  let host;
+  host=createOnlineSession({Peer:FakePeer,getRecord:record,
+    applyMove:(action,seat,expected)=>{
+      if(state.turn!==seat||state.moveCount!==expected)return {ok:false,reason:'wrong turn'};
+      const res=action.type==='pass'?pass(state):play(state,action.q,action.r);
+      if(res.ok){state=res.state;actions.push(action);host.broadcastMove(action,expected);}
+      return res;
+    },receiveRecord:()=>{}});
+  const room=await host.createRoom();
+  const seen={w:0,r:0},full={w:0,r:0};
+  const mk=(k,refuse)=>createOnlineSession({Peer:FakePeer,getRecord:()=>({}),
+    applyMove:()=>{throw Error('client cannot commit a move');},
+    receiveRecord:record=>{full[k]=record.actions.length;},
+    receiveDelta:(action,expected)=>{
+      seen[k]++;
+      if(refuse())return false;
+      assert.ok(['play','pass'].includes(action.type));
+      assert.ok(Number.isSafeInteger(expected));
+      return true;
+    }});
+  let refuseWhite=false;
+  const white=mk('w',()=>refuseWhite),red=mk('r',()=>false);
+  await Promise.all([white.joinRoom(room.room),red.joinRoom(room.room)]);
+  assert.equal(host.submit({type:'play',q:0,r:0},0).ok,true);
+  await tick();await tick();
+  assert.equal(seen.w,1);assert.equal(seen.r,1);
+  assert.equal(full.w,0);
+  refuseWhite=true;
+  assert.equal(white.submit({type:'pass'},1).ok,true);
+  await tick();await tick();
+  assert.equal(seen.w,2);assert.equal(seen.r,2);
+  assert.equal(full.w,2,'failed delta must request a full resync');
+  white.close();red.close();host.close();
+});

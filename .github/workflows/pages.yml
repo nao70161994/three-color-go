@@ -1,7 +1,7 @@
 name: Deploy playable site
 on:
   workflow_run:
-    workflows: [tests]
+    workflows: [Deploy random matchmaking]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -26,6 +26,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      # The upstream Worker workflow only runs after main's tests succeed.
+      # Publish frontend after the new API is already deployed.
       - name: Configure matchmaking service
         env:
           MATCHMAKER_URL: ${{ vars.MATCHMAKER_URL }}

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#131f27" />
-  <meta name="description" content="三色六角碁のローカル試作。石の数だけで勝負する3人用囲碁。" />
+  <meta name="description" content="黒・白・赤の3人で遊ぶ六角碁。CPU・ローカル・オンラインランダム対戦に対応。" />
   <title>三色六角碁 | Three Color Go</title>
   <link rel="stylesheet" href="./src/style.css" />
   <link rel="manifest" href="./manifest.webmanifest" />
@@ -29,8 +29,11 @@
         <button id="onlineRandom" type="button">ランダムマッチ</button>
         <button id="onlineCancel" type="button" hidden>マッチング中止</button>
       </div>
-      <label for="matchEndpoint">ランダムマッチサーバー（初回設定）</label>
-      <input id="matchEndpoint" type="url" autocomplete="off" placeholder="https://three-color-go-matchmaker.***.workers.dev" />
+      <details class="advancedNetwork">
+        <summary>詳細設定（マッチングサーバー）</summary>
+        <label for="matchEndpoint">サーバーURL（通常は変更不要）</label>
+        <input id="matchEndpoint" type="url" autocomplete="off" placeholder="https://three-color-go-matchmaker.***.workers.dev" />
+      </details>
       <label for="onlineRoom">部屋ID / 招待URL</label>
       <input id="onlineRoom" type="text" autocomplete="off" placeholder="招待URLまたは部屋ID" />
       <button id="onlineCopy" type="button">招待URLをコピー</button>
@@ -78,6 +81,7 @@
     </section>
     <div class="studyActions">
       <button id="copyRecord" type="button">棋譜をコピー</button>
+      <button id="downloadRecord" type="button">棋譜JSONを保存</button>
       <button id="copyAnalysis" type="button">対局分析をコピー</button>
       <button id="lastMoveJump" type="button">最新の着手へ移動</button>
     </div>
@@ -111,7 +115,7 @@
       </ul>
       <p>「むずかしい」は相手2人の応手を先読みします。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
     </details>
-    <footer>v1.3 · PWA・ランダムマッチ・安定化・オンライン3人対戦・397/469マス・拡大表示 · ローカル対戦 / CPU対戦 / エージェントAPI対応</footer>
+    <footer>v1.4 · マッチング耐障害性・棋譜バックアップ・大型盤面CPU改善 · オンライン対戦は試験版</footer>
   </main>
   <script src="./match-config.js"></script>
   <script type="module" src="./src/main.js"></script>

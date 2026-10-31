@@ -76,9 +76,9 @@ export function createOnlineSession({Peer,getRecord,applyMove,receiveRecord,rece
     const p=peer=new Peer(hostId);p.on('connection',hostConn);
     return new Promise((resolve,reject)=>{
       let done=false;
-      const timeout=setTimeout(()=>{if(!done){done=true;reject(Error('部屋作成がタイムアウトしました'));}},20000);
+      const timeout=setTimeout(()=>{if(!done){done=true;p.destroy();reject(Error('部屋作成がタイムアウトしました'));}},20000);
       p.on('open',()=>{if(done)return;done=true;clearTimeout(timeout);connected=true;message='招待リンクを共有してください';notify();resolve(status());});
-      p.on('error',e=>{message='接続エラー: '+e.message;notify();if(!done){done=true;clearTimeout(timeout);reject(e);}});
+      p.on('error',e=>{message='接続エラー: '+e.message;notify();if(!done){done=true;clearTimeout(timeout);p.destroy();reject(e);}});
     });
   }
   function joinRoom(room,providedToken=token()){
@@ -88,12 +88,12 @@ export function createOnlineSession({Peer,getRecord,applyMove,receiveRecord,rece
     const p=peer=new Peer();
     return new Promise((resolve,reject)=>{
       let done=false;
-      const timeout=setTimeout(()=>{if(!done){done=true;reject(Error('ホストへの接続がタイムアウトしました'));}},20000);
+      const timeout=setTimeout(()=>{if(!done){done=true;p.destroy();reject(Error('ホストへの接続がタイムアウトしました'));}},20000);
       p.on('error',e=>{message='接続エラー: '+e.message;notify();if(!done){done=true;clearTimeout(timeout);reject(e);}});
       p.on('open',()=>{
         const conn=connection=p.connect(room,{reliable:true,serialization:'json'});
         conn.on('open',()=>send(conn,{type:'hello',token:providedToken}));
-        conn.on('close',()=>{connected=false;message='接続が切れました';notify();if(!done){done=true;clearTimeout(timeout);reject(Error(message));}});
+        conn.on('close',()=>{connected=false;peerCount=0;message='接続が切れました';notify();if(!done){done=true;clearTimeout(timeout);p.destroy();reject(Error(message));}});
         conn.on('error',e=>{message=e.message;notify();if(!done){done=true;clearTimeout(timeout);reject(e);}});
         conn.on('data',msg=>{
           if(!msg || msg.v!==ONLINE_PROTOCOL)return;

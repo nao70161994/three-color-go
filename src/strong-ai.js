@@ -45,7 +45,20 @@ function candidates(state, player, width, random) {
   let shortlist=points;
   if(state.radius>=8) {
     const board=state.board;
-    shortlist=points.filter(({q,r})=>!board[pointKey(q,r)]).map(({q,r})=>{
+    // Always consider critical liberties before the proximity shortlist.
+    // Otherwise a large-board CPU can overlook an endangered group far away.
+    const urgent=new Set(),seen=new Set();
+    for(const [key,color] of Object.entries(board)){
+      if(seen.has(key))continue;
+      const group=groupInfo(board,key,state.radius);
+      group.stones.forEach(stone=>seen.add(stone));
+      if(group.liberties.length<=(color===player?2:1))
+        group.liberties.forEach(liberty=>urgent.add(liberty));
+    }
+    const tactical=[...urgent].slice(0,24).map(key=>{
+      const [q,r]=key.split(',').map(Number);return {q,r};
+    });
+    const local=points.filter(({q,r})=>!board[pointKey(q,r)]).map(({q,r})=>{
       const key=pointKey(q,r);
       const neighbors=adjacentKeys(key,state.radius);
       const friends=neighbors.filter(n=>board[n]===player).length;
@@ -53,6 +66,9 @@ function candidates(state, player, width, random) {
       const distance=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r));
       return {q,r,priority:friends*1.7+enemies*2.2-distance*.07+random()*.15};
     }).sort((a,b)=>b.priority-a.priority).slice(0,24);
+    const selected=new Map();
+    for(const move of [...tactical,...local])selected.set(pointKey(move.q,move.r),move);
+    shortlist=[...selected.values()].slice(0,48);
   }
   const evaluate=(selected)=>{
     for(const {q,r} of selected) {

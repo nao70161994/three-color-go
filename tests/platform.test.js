@@ -33,9 +33,11 @@ test('durable-object matchmaking groups exactly three, waits for host readiness 
   assert.equal(ready.room,a.room);assert.equal(ready.hostReady,true);
   const fourth=await (await lobby.fetch(req('/join',ticket(4),'POST'))).json();
   assert.equal(fourth.status,'waiting');
+  await lobby.fetch(req('/connected',ids[1],'POST'));
+  await lobby.fetch(req('/connected',ids[2],'POST'));
   await lobby.fetch(req('/leave',ids[0],'POST'));
-  const formerlyMatched=await (await lobby.fetch(req('/status',ids[1]))).json();
-  assert.equal(formerlyMatched.status,'waiting');
+  const formerlyMatched=await lobby.fetch(req('/status',ids[1]));
+  assert.equal(formerlyMatched.status,404,'connected guests must not become phantom queue players');
 });
 test('matchmaker browser adapter validates URL and request format',async()=>{
   assert.throws(()=>makeMatchmaker(''),/URL|未設定|Invalid/);
@@ -67,4 +69,57 @@ test('PWA assets include install icons, service worker, offline game shell and w
   assert.match(sw,/cache|caches/i);
   assert.match(readFileSync('index.html','utf8'),/rel="manifest"/);
   assert.match(readFileSync('src\/main.js','utf8'),/serviceWorker\.register/);
+});
+
+
+test('abandoned waiting tabs expire before three-person matching',async()=>{
+  storage.clear();
+  const real=Date.now;let time=1000;Date.now=()=>time;
+  try{
+    const lobby=new Matchmaker(ctx,{});
+    await lobby.fetch(req('/join',ticket(21),'POST'));
+    time+=13000;
+    await lobby.fetch(req('/join',ticket(22),'POST'));
+    await lobby.fetch(req('/join',ticket(23),'POST'));
+    const stale=await lobby.fetch(req('/status',ticket(21)));
+    assert.equal(stale.status,404);
+    const alive=await (await lobby.fetch(req('/status',ticket(22)))).json();
+    assert.equal(alive.status,'waiting');
+    await lobby.fetch(req('/join',ticket(24),'POST'));
+    assert.equal((await (await lobby.fetch(req('/status',ticket(22)))).json()).status,'matched');
+  }finally{Date.now=real;}
+});
+test('never-ready host is removed and guests can be matched again',async()=>{
+  storage.clear();
+  const real=Date.now;let time=1000;Date.now=()=>time;
+  try{
+    const lobby=new Matchmaker(ctx,{});
+    for(const i of [31,32,33])await lobby.fetch(req('/join',ticket(i),'POST'));
+    // Guests continue heartbeating while the host becomes unresponsive.
+    for(const step of [10000,10000]){
+      time+=step;
+      await lobby.fetch(req('/status',ticket(32)));
+      await lobby.fetch(req('/status',ticket(33)));
+    }
+    time+=6000;
+    const guest=await (await lobby.fetch(req('/status',ticket(32)))).json();
+    assert.equal(guest.status,'waiting');
+    assert.equal(guest.room,null);
+    await lobby.fetch(req('/join',ticket(34),'POST'));
+    assert.equal((await (await lobby.fetch(req('/status',ticket(32)))).json()).status,'matched');
+  }finally{Date.now=real;}
+});
+test('single IP cannot flood the public lobby with new tickets',async()=>{
+  storage.clear();const lobby=new Matchmaker(ctx,{});
+  const ip='203.0.113.9';
+  for(let i=41;i<47;i++){
+    const response=await lobby.fetch(new Request(endpoint+'/join',{method:'POST',
+      headers:{'cf-connecting-ip':ip,'content-type':'application/json'},
+      body:JSON.stringify({ticket:ticket(i)})}));
+    assert.equal(response.status,200);
+  }
+  const reject=await lobby.fetch(new Request(endpoint+'/join',{method:'POST',
+    headers:{'cf-connecting-ip':ip,'content-type':'application/json'},
+    body:JSON.stringify({ticket:ticket(47)})}));
+  assert.equal(reject.status,429);
 });
