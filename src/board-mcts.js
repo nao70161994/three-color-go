@@ -5,6 +5,7 @@
  * Terminal values split tied victories, one unit total across three players.
  */
 import {COLORS,pointsOnBoard,play,pass,winner} from './game.js';
+import {isUnsafeCpuMove} from './agent.js';
 import {BOARD_PASS,boardIndex,boardPredict} from './board-pv.js';
 
 export function terminalShares(state){
@@ -18,12 +19,15 @@ function policyOptions(state,prediction){
   if(state.moveCount<cells.length*2){
     for(const {q,r} of cells){
       const result=play(state,q,r);
-      if(result.ok)options.push({index:boardIndex(q,r),move:{q,r},
+      if(result.ok&&!isUnsafeCpuMove(state,q,r,result))options.push({index:boardIndex(q,r),move:{q,r},
         next:result.state,logit:prediction.policyLogits[boardIndex(q,r)]});
     }
   }
+  // Passing remains a rule-legal human action. This *bot policy* reserves
+  // it for positions without safe candidates or after the two-board-length
+  // move budget, exactly as the existing CPUs do.
   const passed=pass(state);
-  if(passed.ok)options.push({index:BOARD_PASS,move:null,
+  if(passed.ok&&options.length===0)options.push({index:BOARD_PASS,move:null,
     next:passed.state,logit:prediction.policyLogits[BOARD_PASS]});
   const largest=Math.max(...options.map(x=>x.logit));
   const weights=options.map(x=>Math.exp(x.logit-largest));
