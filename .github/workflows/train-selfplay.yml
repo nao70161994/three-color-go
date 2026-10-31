@@ -1,0 +1,66 @@
+name: train teacher-free neural candidate
+on:
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: Self-play training iterations
+        type: number
+        default: 30
+      games:
+        description: Games per iteration
+        type: number
+        default: 12
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install training dependencies
+        run: python -m pip install numpy torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Generate teacher-free self-play model (not deployed)
+        env:
+          ITERATIONS: ${{ inputs.iterations }}
+          GAMES: ${{ inputs.games }}
+        run: |
+          python scripts/train-selfplay-rl.py --iterations "$ITERATIONS" --games "$GAMES" \
+            --seed 20261031 --radii 2,3,4 --out reports/neural-rl-candidate.json \
+            | tee reports/selfplay-training.jsonl
+      - name: Evaluate against actual hard CPU on held-out seeds
+        run: |
+          node scripts/benchmark-neural.mjs --model reports/neural-rl-candidate.json \
+            --games 60 --radius 3 --seed 20261101 --out reports/neural-r3.json
+          node scripts/benchmark-neural.mjs --model reports/neural-rl-candidate.json \
+            --games 60 --radius 4 --seed 20261102 --out reports/neural-r4.json
+      - name: Publish evaluation
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync,appendFileSync} from 'node:fs';
+          const reports=[3,4].map(radius=>JSON.parse(readFileSync('reports/neural-r'+radius+'.json','utf8')));
+          const lines=['## Teacher-free self-play candidate (not deployed)',
+            '| Radius | Finished | Neural ahead vs hard | Hard ahead | Average margin | Win-share | Gate |',
+            '|---|---:|---:|---:|---:|---:|---|',
+            ...reports.map(r=>'| '+r.radius+' | '+r.finished+'/'+r.games+' | '+r.neuralAhead+
+              ' | '+r.hardAhead+' | '+r.averageNeuralMinusHard+' | '+
+              r.stats.neural.winShareRate+' | '+(r.promotionReady?'pass':'fail')+' |'),
+            'Model not automatically installed or deployed.'];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: teacher-free-neural-candidate
+          path: |
+            reports/neural-rl-candidate.json
+            reports/neural-r3.json
+            reports/neural-r4.json
+            reports/selfplay-training.jsonl
+          retention-days: 30
