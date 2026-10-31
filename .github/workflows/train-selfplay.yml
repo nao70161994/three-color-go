@@ -1,5 +1,11 @@
 name: train teacher-free neural candidate
 on:
+  pull_request:
+    paths:
+      - scripts/train-selfplay-rl.py
+      - scripts/selfplay-trajectories.mjs
+      - src/neural-ai.js
+      - .github/workflows/train-selfplay.yml
   workflow_dispatch:
     inputs:
       iterations:
@@ -12,6 +18,7 @@ on:
         default: 12
 jobs:
   train:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -66,3 +73,34 @@ jobs:
             reports/neural-r4.json
             reports/selfplay-training.jsonl
           retention-days: 30
+
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Smoke test real REINFORCE updates with random initialization
+        run: |
+          python scripts/train-selfplay-rl.py --iterations 2 --games 3 --radii 2,3 \
+            --seed 1234 --out reports/selfplay-smoke-candidate.json
+          node scripts/benchmark-neural.mjs --model reports/selfplay-smoke-candidate.json \
+            --games 6 --radius 2 --seed 5678 --out reports/selfplay-smoke-benchmark.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: teacher-free-training-smoke
+          path: |
+            reports/selfplay-smoke-candidate.json
+            reports/selfplay-smoke-benchmark.json
+          retention-days: 7
