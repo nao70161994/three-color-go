@@ -9,6 +9,7 @@
  */
 import {COLORS,createGame,pointsOnBoard,pointKey,adjacentKeys,play,pass,winner} from './game.js';
 import {safeCpuMoves,seededRandom} from './agent.js';
+import {PV2_ARCH,evaluatePV2} from './pv2-ai.js';
 
 export const PV_ARCH='hex-neighbor-pv-16-v1';
 const H=16;
@@ -67,6 +68,7 @@ export function encodePVState(state){
     })};
 }
 export function evaluatePV(state,model){
+  if(model?.architecture===PV2_ARCH)return evaluatePV2(state,model);
   checkModel(model);
   const points=pointsOnBoard(state.radius);
   const indexes=new Map(points.map(({q,r},i)=>[pointKey(q,r),i]));
