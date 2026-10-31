@@ -39,6 +39,31 @@ export function groupInfo(board, start, radius) {
   return {stones:queue,liberties:[...liberties]};
 }
 
+/**
+ * Look one opponent move ahead for instant captures of vulnerable friendly groups.
+ * This is deliberately bounded to atari liberties (not a full game-tree search).
+ */
+function threatenedStones(next,own) {
+  const seen=new Set();
+  let risk=0;
+  for(const key of Object.keys(next.board)) {
+    if(next.board[key]!==own || seen.has(key)) continue;
+    const group=groupInfo(next.board,key,next.radius);
+    for(const stone of group.stones)seen.add(stone);
+    if(group.liberties.length===1) {
+      const [q,r]=group.liberties[0].split(',').map(Number);
+      // The next player's immediate legal capture is the most urgent danger.
+      const enemy=play(next,q,r);
+      if(enemy.ok && enemy.captured.some(k=>group.stones.includes(k))) {
+        risk+=Math.min(12,group.stones.length)*1.0;
+      } else {
+        // Other opponent may still attack later, but it is not a forced next move.
+        risk+=Math.min(12,group.stones.length)*.45;
+      }
+    } else if(group.liberties.length===2)risk+=Math.min(8,group.stones.length)*.12;
+  }
+  return risk;
+}
 function baselineValue(state,result,q,r,random) {
   const own=COLORS[state.turn], neighbors=adjacentKeys(pointKey(q,r),state.radius);
   const friends=neighbors.filter(k=>state.board[k]===own).length;
@@ -82,14 +107,14 @@ function tacticalValue(state,result,q,r,random,atRisk) {
  */
 export function chooseMove(state, random=Math.random, strategy='tactical') {
   if(state.ended) return null;
-  if(!['baseline','tactical'].includes(strategy)) throw new Error('Unknown AI strategy');
+  if(!['baseline','tactical','guarded'].includes(strategy)) throw new Error('Unknown AI strategy');
   // Stop bots from cycling forever; this is a bot policy, NOT a forced game rule.
   if(state.moveCount>=pointsOnBoard(state.radius).length*2)return null;
   const options=legalMoves(state);
   if(!options.length)return null;
   const own=COLORS[state.turn];
   const atRisk=[], visited=new Set();
-  if(strategy==='tactical') {
+  if(strategy!=='baseline') {
     for(const key of Object.keys(state.board)) {
       if(state.board[key]!==own||visited.has(key))continue;
       const g=groupInfo(state.board,key,state.radius);
@@ -101,9 +126,14 @@ export function chooseMove(state, random=Math.random, strategy='tactical') {
   for(const {q,r} of options) {
     const result=play(state,q,r);
     if(!result.ok)continue;
-    const value=strategy==='baseline'
+    const base=strategy==='baseline'
       ? baselineValue(state,result,q,r,random)
       : tacticalValue(state,result,q,r,random,atRisk);
+    // Guarded mode does a targeted one-reply capture check and avoids exposing
+    // other own groups. The penalty is limited; immediate captures still matter.
+    const value=strategy==='guarded'
+      ? base - threatenedStones(result.state,own)*9
+      : base;
     if(value>bestValue){bestValue=value;best={q,r};}
   }
   return best;
@@ -132,7 +162,7 @@ function jointCapture(before,after,captured,radius) {
 export function simulate({radius=3,seed=1,maxTurns=400,strategies=['tactical','tactical','tactical']}={}) {
   if(!Number.isInteger(maxTurns)||maxTurns<1)throw new Error('maxTurns must be positive');
   if(!Array.isArray(strategies)||strategies.length!==3||
-      strategies.some(p=>!['baseline','tactical'].includes(p)))throw new Error('Invalid strategies');
+      strategies.some(p=>!['baseline','tactical','guarded'].includes(p)))throw new Error('Invalid strategies');
   const random=seededRandom(seed);
   let state=createGame(radius);
   const history=[];
@@ -178,7 +208,7 @@ export function dangerGroups(state) {
  */
 export function chooseDifficultyMove(state,random=Math.random,level='hard') {
   if(!['easy','normal','hard'].includes(level))throw new Error('Unknown CPU level');
-  if(level==='hard')return chooseMove(state,random,'tactical');
+  if(level==='hard')return chooseMove(state,random,'guarded');
   if(level==='normal')return chooseMove(state,random,'baseline');
   if(state.ended || state.moveCount>=pointsOnBoard(state.radius).length*2)return null;
   const moves=legalMoves(state);

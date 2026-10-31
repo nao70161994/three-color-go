@@ -19,6 +19,10 @@
       <div class="setting"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">1人で遊ぶ（CPU 2人）</option><option value="local">3人で交代</option></select></div>
       <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option></select></div>
     </div>
+    <div class="boardSizeSetting"><label for="boardSize">盤面サイズ</label>
+      <select id="boardSize"><option value="2">小（19マス）</option><option value="3">中（37マス）</option><option value="4" selected>標準（61マス）</option><option value="5">大（91マス）</option></select>
+      <span>変更すると新しい対局になります</span>
+    </div>
     <section class="status" aria-label="対局状況">
       <div class="turn"><span id="turnStone" class="stone black"></span><div><small id="turnLabel">現在の手番</small><strong id="turnText">黒の番</strong></div></div>
       <div class="counts" id="counts"></div>
@@ -36,6 +40,21 @@
       <button id="undoBtn" type="button">一手戻す</button>
       <button id="resetBtn" type="button">最初から</button>
     </div>
+    <div class="replayLaunch">
+      <button id="replayOpen" type="button">棋譜を再生</button>
+    </div>
+    <section id="replayPanel" class="replayPanel" aria-label="棋譜再生" hidden>
+      <div class="replayHeader"><strong>棋譜再生</strong><output id="replayLabel" aria-live="polite">0 / 0手</output></div>
+      <input id="replaySlider" type="range" min="0" max="0" value="0" aria-label="再生位置" />
+      <div class="replayActions">
+        <button id="replayStart" type="button">最初</button>
+        <button id="replayPrev" type="button">前へ</button>
+        <button id="replayNext" type="button">次へ</button>
+        <button id="replayEnd" type="button">最後</button>
+        <button id="replayClose" class="primary" type="button">対局へ戻る</button>
+      </div>
+      <p>棋譜再生中は対局が一時停止します。盤面や対局データは変更されません。</p>
+    </section>
     <div class="message" id="message" aria-live="polite">黒から開始。空いているマスをタップしてください。</div>
     <details class="rules">
       <summary>ルールを見る</summary>
@@ -46,10 +65,11 @@
         <li>自殺手は禁止。盤面を過去と同一に戻す着手も禁止。</li>
         <li>3人が続けてパスすると終局。盤上に残った自分の石の数が最多の人の勝ち（同数は引き分け）。</li>
         <li>陣地点、アゲハマ点、コミはなし。</li>
+        <li>棋譜を再生すると手番や点数も過去の状態で確認でき、対局へ戻ると続きから遊べます。</li>
       </ul>
       <p>CPUは3段階の簡易AIです。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦・死に石の合意処理は未対応です。</p>
     </details>
-    <footer>v0.4 · 盤面ガイド・CPU難易度選択 · ローカル対戦 / CPU対戦 / エージェントAPI対応</footer>
+    <footer>v0.5 · 棋譜再生・盤面サイズ選択・CPU思考改善 · ローカル対戦 / CPU対戦 / エージェントAPI対応</footer>
   </main>
   <script type="module" src="./src/main.js"></script>
 </body>
