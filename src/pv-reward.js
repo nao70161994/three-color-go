@@ -28,7 +28,7 @@ export function terminalPVReward(state,profile='winner'){
     // Normalized pairwise STONE MARGINS, not absolute stone shares.
     // Translation-invariant: [20,10,5] equals [120,110,105].
     // Scale by max score spread to avoid board-size dominated logits.
-    const spread=Math.max(1,...counts)-Math.min(...counts);
+    const spread=Math.max(1,Math.max(...counts)-Math.min(...counts));
     const centered=counts.map(n=>2*n/spread);
     const top=Math.max(...centered);
     const exps=centered.map(n=>Math.exp(n-top));
