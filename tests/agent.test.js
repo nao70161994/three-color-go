@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createGame, pass, play, pointKey, scores, winner } from '../src/game.js';
-import { chooseMove, legalMoves, seededRandom, simulate, snapshot } from '../src/agent.js';
+import { chooseMove, chooseDifficultyMove, dangerGroups, legalMoves, seededRandom, simulate, snapshot } from '../src/agent.js';
 
 test('agents can inspect the initial board and legal moves',()=>{
   const state=createGame(3);
@@ -77,4 +77,35 @@ test('JSONL process lets external AI agents play, inspect and export',()=>{
   assert.equal(responses[4].state.currentPlayer,'red');
   assert.equal(responses[5].state.currentPlayer,'white');
   assert.equal(responses[6].record.actions.length,1);
+});
+
+
+test('v0.4: exactly one liberty is reported as danger but not as certain death',()=>{
+  const state=createGame(3);
+  state.board={
+    '0,0':'black', '1,0':'white','1,-1':'red','0,-1':'white',
+    '-1,0':'red','-1,1':'white'
+  };
+  const groups=dangerGroups(state);
+  const black=groups.find(g=>g.color==='black');
+  assert.ok(black);
+  assert.deepEqual(black.stones,['0,0']);
+  assert.deepEqual(black.liberties,['0,1']);
+  assert.deepEqual(dangerGroups(createGame(3)),[]);
+});
+
+test('v0.4: easy / normal / hard difficulty moves are valid, seeded and nonmutating',()=>{
+  const empty=createGame(3), before=JSON.stringify(empty);
+  for(const level of ['easy','normal','hard']) {
+    const first=chooseDifficultyMove(empty,seededRandom(11),level);
+    const second=chooseDifficultyMove(empty,seededRandom(11),level);
+    assert.deepEqual(first,second,level);
+    assert.equal(play(empty,first.q,first.r).ok,true,level);
+  }
+  assert.equal(JSON.stringify(empty),before);
+  assert.throws(()=>chooseDifficultyMove(empty,seededRandom(3),'fake'),/Unknown CPU level/);
+  const ended={...empty,ended:true};
+  for(const level of ['easy','normal','hard']) {
+    assert.equal(chooseDifficultyMove(ended,seededRandom(11),level),null);
+  }
 });

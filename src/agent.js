@@ -150,3 +150,37 @@ export function simulate({radius=3,seed=1,maxTurns=400,strategies=['tactical','t
   }
   return {state:snapshot(state),history,truncated:!state.ended,seed,strategies:[...strategies]};
 }
+
+/**
+ * Explain endangered groups without implying that a capture is inevitable.
+ * "Danger" means exactly one liberty, not that the group is necessarily lost.
+ */
+export function dangerGroups(state) {
+  const visited=new Set(), result=[];
+  for(const key of Object.keys(state.board)) {
+    if(visited.has(key))continue;
+    const group=groupInfo(state.board,key,state.radius);
+    for(const stone of group.stones)visited.add(stone);
+    if(group.liberties.length===1) {
+      result.push({
+        color:state.board[key],
+        stones:[...group.stones],
+        liberties:[...group.liberties]
+      });
+    }
+  }
+  return result;
+}
+
+/**
+ * Human-facing CPU levels. Names are relative heuristic presets, not an Elo rating.
+ * Keep chooseMove(...,'tactical') as the default for agent/analysis compatibility.
+ */
+export function chooseDifficultyMove(state,random=Math.random,level='hard') {
+  if(!['easy','normal','hard'].includes(level))throw new Error('Unknown CPU level');
+  if(level==='hard')return chooseMove(state,random,'tactical');
+  if(level==='normal')return chooseMove(state,random,'baseline');
+  if(state.ended || state.moveCount>=pointsOnBoard(state.radius).length*2)return null;
+  const moves=legalMoves(state);
+  return moves.length ? moves[Math.min(moves.length-1, Math.floor(random()*moves.length))] : null;
+}

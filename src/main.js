@@ -1,5 +1,5 @@
 import { COLORS, LABELS, pointsOnBoard, pointKey, createGame, play, pass, scores, winner } from './game.js';
-import { chooseMove, legalMoves, seededRandom, snapshot } from './agent.js';
+import { chooseMove, chooseDifficultyMove, dangerGroups, legalMoves, seededRandom, snapshot } from './agent.js';
 
 const boardSvg = document.getElementById('board');
 const countsEl = document.getElementById('counts');
@@ -8,6 +8,10 @@ const turnTextEl = document.getElementById('turnText');
 const turnLabelEl = document.getElementById('turnLabel');
 const msgEl = document.getElementById('message');
 const modeEl = document.getElementById('mode');
+const cpuLevelEl = document.getElementById('cpuLevel');
+const cpuSettingEl = document.getElementById('cpuSetting');
+const legalToggleEl = document.getElementById('legalToggle');
+const dangerToggleEl = document.getElementById('dangerToggle');
 const passBtn = document.getElementById('passBtn');
 const undoBtn = document.getElementById('undoBtn');
 const resetBtn = document.getElementById('resetBtn');
@@ -15,6 +19,7 @@ const resetBtn = document.getElementById('resetBtn');
 const SIZE = 29, ROOT3 = Math.sqrt(3);
 let state = createGame(4);
 let mode = 'cpu', past = [], actions = [], botTimer = null;
+let cpuLevel = 'hard', showLegal = false, showDanger = true;
 const STORAGE = 'three-color-go.v2';
 
 function center(q,r) { return [SIZE*ROOT3*(q+r/2), SIZE*1.5*r]; }
@@ -31,7 +36,7 @@ function el(name,attrs={}) {
 }
 function stopBots() { if (botTimer !== null) clearTimeout(botTimer); botTimer=null; }
 function save() {
-  try { localStorage.setItem(STORAGE,JSON.stringify({version:1,mode,radius:state.radius,actions})); }
+  try { localStorage.setItem(STORAGE,JSON.stringify({version:1,mode,radius:state.radius,cpuLevel,showLegal,showDanger,actions})); }
   catch { /* Storage may be blocked in private mode. */ }
 }
 function commit(result,action, schedule=true) {
@@ -52,15 +57,56 @@ function scheduleBots() {
   if (mode!=='cpu' || state.ended || state.turn===0) return;
   botTimer=setTimeout(()=>{
     botTimer=null;
-    const move=chooseMove(state);
+    const move=chooseDifficultyMove(state,Math.random,cpuLevel);
     if (move) place(move.q,move.r); else doPass();
   },240);
+}
+function mostRecentMove() {
+  // A played stone can later be captured; never highlight an empty cell.
+  for (let i=actions.length-1; i>=0; i--) {
+    const action=actions[i];
+    if (action.type!=='play') continue;
+    return state.board[pointKey(action.q,action.r)]===COLORS[i%3]
+      ? {q:action.q,r:action.r} : null;
+  }
+  return null;
+}
+function boardHints() {
+  const threats=dangerGroups(state);
+  const lastMove=mostRecentMove();
+  return {
+    lastMove,
+    dangerGroups:threats,
+    legal: showLegal && !state.ended ? legalMoves(state) : []
+  };
+}
+function setHints(options={}) {
+  if (typeof options!=='object' || !options ||
+      ('legal' in options && typeof options.legal!=='boolean') ||
+      ('danger' in options && typeof options.danger!=='boolean')) {
+    return {ok:false,reason:'表示設定にはtrue/falseを指定してください'};
+  }
+  if('legal' in options)showLegal=options.legal;
+  if('danger' in options)showDanger=options.danger;
+  save();render();
+  return {ok:true,legal:showLegal,danger:showDanger};
+}
+function setCpuLevel(value) {
+  if (!['easy','normal','hard'].includes(value))
+    return {ok:false,reason:'不明なCPU難易度'};
+  cpuLevel=value;
+  save();render();scheduleBots();
+  return {ok:true,cpuLevel};
 }
 function drawBoard() {
   const xExtent=SIZE*ROOT3*state.radius+SIZE+4;
   const yExtent=SIZE*1.5*state.radius+SIZE+4;
   boardSvg.setAttribute('viewBox',[-xExtent,-yExtent,2*xExtent,2*yExtent].join(' '));
   boardSvg.replaceChildren();
+  const hints=boardHints();
+  const legalKeys=new Set(hints.legal.map(p=>pointKey(p.q,p.r)));
+  const dangerKeys=showDanger ? new Set(hints.dangerGroups.flatMap(g=>g.stones)) : new Set();
+  const lastKey=hints.lastMove ? pointKey(hints.lastMove.q,hints.lastMove.r) : null;
   for (const {q,r} of pointsOnBoard(state.radius)) {
     const [x,y]=center(q,r), key=pointKey(q,r),color=state.board[key];
     const g=el('g',{
@@ -68,9 +114,15 @@ function drawBoard() {
       role:'button', tabindex:state.ended?-1:0,
       'data-q':q,'data-r':r,
       'aria-label':q+','+r+' '+(color?LABELS[color]+'石':'空点')
+        +(dangerKeys.has(key)?' 危険・呼吸点1':'')
+        +(lastKey===key?' 直前の着手':'')
+        +(legalKeys.has(key)?' 合法手':'')
     });
     g.appendChild(el('polygon',{points:vertices(x,y),class:'hex'}));
     if (color) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.64,class:'piece '+color}));
+    if (legalKeys.has(key)) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.17,class:'hintLegal'}));
+    if (dangerKeys.has(key)) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.79,class:'hintDanger'}));
+    if (lastKey===key) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.91,class:'hintLast'}));
     function activate() {
       if (!permittedForHuman()) {msgEl.textContent='CPUが考えています';return;}
       place(q,r);
@@ -88,6 +140,12 @@ function render() {
   turnTextEl.textContent=state.ended?'対局終了':LABELS[color]+'の番'+(mode==='cpu'&&state.turn!==0?'（CPU）':'');
   turnLabelEl.textContent=state.ended?'勝敗が決まりました':state.passes+'人連続パス · '+state.moveCount+'手';
   modeEl.value=mode;
+  cpuLevelEl.value=cpuLevel;
+  cpuSettingEl.hidden=mode!=='cpu';
+  legalToggleEl.textContent='合法手を表示: '+(showLegal?'ON':'OFF');
+  dangerToggleEl.textContent='危険な石を表示: '+(showDanger?'ON':'OFF');
+  legalToggleEl.setAttribute('aria-pressed',String(showLegal));
+  dangerToggleEl.setAttribute('aria-pressed',String(showDanger));
   countsEl.replaceChildren();
   for (const c of COLORS) {
     const item=document.createElement('div');item.className='count';
@@ -106,11 +164,12 @@ function render() {
     msgEl.textContent=state.lastAction;
   }
 }
-function reset({radius=4,nextMode=mode}={}) {
+function reset({radius=4,nextMode=mode,nextLevel=cpuLevel}={}) {
   if (!['cpu','local'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
+  if (!['easy','normal','hard'].includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
   stopBots();
   try {state=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
-  mode=nextMode;past=[];actions=[];save();render();scheduleBots();
+  mode=nextMode;cpuLevel=nextLevel;past=[];actions=[];save();render();scheduleBots();
   return {ok:true,state:snapshot(state)};
 }
 function undo() {
@@ -123,7 +182,6 @@ function undo() {
   return {ok:true,state:snapshot(state)};
 }
 function loadRecord(record) {
-  stopBots();
   if (!record || !Array.isArray(record.actions)) return {ok:false,reason:'actions配列がありません'};
   let next;
   try {next=createGame(record.radius ?? 4);} catch(e){return {ok:false,reason:e.message};}
@@ -137,7 +195,12 @@ function loadRecord(record) {
     normalized.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
   }
   const nextMode=['cpu','local'].includes(record.mode)?record.mode:'local';
-  state=next;mode=nextMode;past=states;actions=normalized;
+  const nextLevel=['easy','normal','hard'].includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
+  const nextShowLegal=typeof record.showLegal==='boolean'?record.showLegal:showLegal;
+  const nextShowDanger=typeof record.showDanger==='boolean'?record.showDanger:showDanger;
+  stopBots();
+  state=next;mode=nextMode;cpuLevel=nextLevel;
+  showLegal=nextShowLegal;showDanger=nextShowDanger;past=states;actions=normalized;
   save();render();scheduleBots();
   return {ok:true,state:snapshot(state)};
 }
@@ -156,6 +219,9 @@ undoBtn.addEventListener('click',undo);
 resetBtn.addEventListener('click',()=>{
   if (state.moveCount===0 || confirm('対局を最初からやり直しますか？')) reset();
 });
+cpuLevelEl.addEventListener('change',()=>setCpuLevel(cpuLevelEl.value));
+legalToggleEl.addEventListener('click',()=>setHints({legal:!showLegal}));
+dangerToggleEl.addEventListener('click',()=>setHints({danger:!showDanger}));
 modeEl.addEventListener('change',()=>{
   const chosen=modeEl.value;
   if (state.moveCount>0 && !confirm('モードを変えると対局を最初からやり直します。続けますか？')) {
@@ -166,15 +232,21 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '0.3',
+  version: '0.4',
   getState: ()=>snapshot(state),
   legalMoves: ()=>legalMoves(state),
+  getPresentation: ()=>({
+    mode,cpuLevel,showLegal,showDanger,
+    ...boardHints()
+  }),
+  setHints,
+  setCpuLevel,
   play: (q,r)=>place(q,r),
   pass: ()=>doPass(),
   undo,
-  reset: (options={})=>reset({radius:options.radius??4,nextMode:options.mode??'local'}),
+  reset: (options={})=>reset({radius:options.radius??4,nextMode:options.mode??'local',nextLevel:options.cpuLevel??cpuLevel}),
   setMode: (next)=>reset({radius:state.radius,nextMode:next}),
-  exportRecord: ()=>({version:1,radius:state.radius,mode,actions:actions.map(a=>({...a}))}),
+  exportRecord: ()=>({version:1,radius:state.radius,mode,cpuLevel,showLegal,showDanger,actions:actions.map(a=>({...a}))}),
   importRecord: loadRecord,
   autoPlay: (limit=100,seed=1)=>{
     stopBots();
@@ -182,7 +254,7 @@ window.threeColorGo = Object.freeze({
     const count=Math.max(0,Math.min(500,Math.trunc(limit)||0));
     let moves=0;
     while (!state.ended && moves<count) {
-      const move=chooseMove(state,rand);
+      const move=chooseDifficultyMove(state,rand,cpuLevel);
       const result=move?place(move.q,move.r,false):doPass(false);
       if (!result.ok) return {ok:false,reason:result.reason,moves};
       moves++;
