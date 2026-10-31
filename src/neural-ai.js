@@ -2,16 +2,16 @@ import {COLORS,adjacentKeys,play,pointKey,pointsOnBoard} from './game.js';
 import {groupInfo,isUnsafeCpuMove} from './agent.js';
 import {NEURAL_MODEL} from './neural-weights.js';
 
-// A 3-hidden-layer trained policy evaluator, not an LLM or a remote service.
+// Compact offline policy evaluator. Self-play candidates can be benchmarked before promotion.
 // Features are local to one candidate and color-relative, so one network
 // works on every supported board radius and for all three player colors.
-let decoded=null;
+const decodedModels=new WeakMap();
 export function neuralModelInfo(){
-  return {version:NEURAL_MODEL.version,shape:[12,24,16,8,1],source:NEURAL_MODEL.teacher};
+  return {version:NEURAL_MODEL.version,shape:[12,24,16,8,1],source:NEURAL_MODEL.training??NEURAL_MODEL.teacher};
 }
-function layers(){
-  if(decoded)return decoded;
-  decoded=NEURAL_MODEL.layers.map(layer=>{
+function layers(model=NEURAL_MODEL){
+  if(decodedModels.has(model))return decodedModels.get(model);
+  const decoded=model.layers.map(layer=>{
     const bytes=atob(layer.weights);
     if(bytes.length!==layer.rows*layer.cols||layer.bias.length!==layer.rows)
       throw Error('Neural model dimensions invalid');
@@ -20,13 +20,14 @@ function layers(){
       ? bytes.charCodeAt(i)-256 : bytes.charCodeAt(i);
     return {...layer,weights};
   });
+  decodedModels.set(model,decoded);
   return decoded;
 }
-export function neuralScore(features){
+export function neuralScore(features,model=NEURAL_MODEL){
   if(features.length!==12||features.some(n=>!Number.isFinite(n)))
     throw Error('Expected 12 finite policy features');
   let values=features;
-  for(const [index,layer] of layers().entries()){
+  for(const [index,layer] of layers(model).entries()){
     const out=new Array(layer.rows);
     for(let row=0;row<layer.rows;row++){
       let value=layer.bias[row],start=row*layer.cols;
@@ -38,7 +39,7 @@ export function neuralScore(features){
   }
   return values[0];
 }
-function features(state,q,r,played){
+export function neuralMoveFeatures(state,q,r,played){
   const {board,radius,turn}=state,own=COLORS[turn],key=pointKey(q,r);
   const neighbors=adjacentKeys(key,radius);
   const before=board,after=played.state.board;
@@ -104,29 +105,33 @@ function shortlist(state,random){
   for(const p of ranked){if(urgent.size>=48)break;urgent.set(pointKey(p.q,p.r),p);}
   return [...urgent.values()];
 }
-export function chooseNeuralMove(state,random=Math.random,inspection=null){
-  if(state.ended)return null;
-  const cells=3*state.radius*(state.radius+1)+1;
-  if(state.moveCount>=cells*2)return null;
-  const own=COLORS[state.turn];
-  const counts=new Map(COLORS.map(c=>[c,0]));
-  for(const color of Object.values(state.board))counts.set(color,(counts.get(color)||0)+1);
-  let best=null,bestValue=-Infinity;const ranked=[];
-  const evaluate=points=>{
+/**
+ * The same legal/safety filters and candidate features are used by inference
+ * and offline self-play. Stochastic training selects among these candidates.
+ */
+export function neuralCandidates(state,random=Math.random){
+  if(state.ended||state.moveCount>=pointsOnBoard(state.radius).length*2)return [];
+  const collect=points=>{
+    const options=[];
     for(const {q,r} of points){
       if(state.board[pointKey(q,r)])continue;
       const played=play(state,q,r);
       if(!played.ok||isUnsafeCpuMove(state,q,r,played))continue;
-      const x=features(state,q,r,played);
-      const value=neuralScore(x);
-      if(value>bestValue){bestValue=value;best={q,r};}
-      if(inspection)ranked.push({q,r,score:Math.round(value*1000)/1000});
+      options.push({q,r,features:neuralMoveFeatures(state,q,r,played)});
     }
+    return options;
   };
-  const candidates=shortlist(state,random);
-  evaluate(candidates);
-  // Avoid a false pass when a shortlist contains only unsafe/illegal moves.
-  if(!best&&state.radius>=8)evaluate(pointsOnBoard(state.radius));
+  const options=collect(shortlist(state,random));
+  return options.length||state.radius<8?options:collect(pointsOnBoard(state.radius));
+}
+export function chooseNeuralMove(state,random=Math.random,inspection=null,model=NEURAL_MODEL){
+  let best=null,bestValue=-Infinity;
+  const ranked=[];
+  for(const {q,r,features} of neuralCandidates(state,random)){
+    const value=neuralScore(features,model);
+    if(value>bestValue){bestValue=value;best={q,r};}
+    if(Array.isArray(inspection))ranked.push({q,r,score:Math.round(value*1000)/1000});
+  }
   if(Array.isArray(inspection))
     inspection.push(...ranked.sort((a,b)=>b.score-a.score).slice(0,5));
   return best;
