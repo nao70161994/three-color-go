@@ -121,8 +121,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: 9-game seat-rotated strong CPU benchmark
-        run: node scripts/strength-report.mjs --games 9 --radius 3 --seed 20261031 --out reports/strong-v0.7.json > /tmp/strength.json
+      - name: 60-game seat-rotated strong CPU benchmark
+        run: node scripts/strength-report.mjs --games 60 --radius 3 --seed 20261031 --out reports/strong-v0.7.json > /tmp/strength.json
       - name: Publish outcome, not assumptions
         run: |
           node --input-type=module <<'JS'
