@@ -30,7 +30,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function run(){
   const win=frame.contentWindow, doc=frame.contentDocument, game=win.threeColorGo;
   check(game && typeof game.getState==='function','AI操作用APIが存在');
-  check(game.version==='1.4.1','公開APIのバージョンがv1.4.1');
+  check(game.version==='1.5.0','公開APIのバージョンがv1.4.1');
   check(doc.querySelector('#boardSize').value==='4','初期サイズは半径4・61マス');
   check(doc.querySelector('#replayOpen').disabled,'棋譜が空なら再生ボタンは無効');
   check(doc.querySelector('#boardSize option[value="3"]').textContent.includes('小（37マス）'),'新しい小サイズは37マス');
@@ -94,6 +94,14 @@ async function run(){
   check(game.explainPosition().scores.red===1,'局面の理由・危険度分析API');
   check(!game.importRecord({radius:2,actions:[{type:'play',q:500,r:500}]}).ok,'不正な棋譜を拒否');
   check(game.setCpuLevel('normal').ok && game.getPresentation().cpuLevel==='normal','CPU難易度を試合中にも切り替えられる');
+  check(!!doc.querySelector('#cpuLevel option[value="neural"]'),'学習CPUを選択肢に表示');
+  check(game.setCpuLevel('neural').ok&&game.getPresentation().cpuLevel==='neural','学習CPUへ切り替え');
+  check(game.getNeuralModelInfo().shape.join('-')==='12-24-16-8-1',
+    '保存済み学習モデルを読み込める');
+  check(game.reset({mode:'bots',radius:2,cpuLevel:'neural'}).ok,'学習CPUの観戦モードを起動');
+  check(game.pauseBots().ok&&game.stepBot().ok,'学習CPUが1手合法着手する');
+  check(game.reset({mode:'local',radius:2}).ok,'学習CPU検証後に通常対局へ戻れる');
+  check(game.setCpuLevel('normal').ok,'従来CPUへ戻せる');
   check(!game.setCpuLevel('invalid').ok && game.getPresentation().cpuLevel==='normal','不明な難易度は拒否する');
   check(!game.setHints({legal:'yes'}).ok,'不正な表示設定を拒否する');
   check(game.setHints({legal:true,danger:false}).ok,'ブラウザAPIから表示設定を操作できる');
@@ -263,7 +271,11 @@ async function run(){
   check(standalone.reset({mode:'local',radius:2}).ok,'オフライン版を初期化');
   check(standalone.play(0,0).ok,'オフライン版で着手できる');
   check(standalone.getState().scores.black===1,'オフライン版で得点を表示');
-  check(standalone.version==='1.4.1','オフライン版がv1.4.1へ同期している');
+  check(standalone.version==='1.5.0','オフライン版がv1.5.0へ同期している');
+  check(standalone.setCpuLevel('neural').ok,'単一HTML版でも学習済みCPUへ切り替え可能');
+  check(standalone.reset({mode:'bots',radius:2,cpuLevel:'neural'}).ok
+    && standalone.pauseBots().ok && standalone.stepBot().ok,
+    '単一HTMLオフライン版でも学習済みCPUが着手');
   check(standalone.setCpuLevel('easy').ok,'オフライン版でも難易度を変更できる');
   check(standalone.setHints({legal:true}).ok,'オフライン版でも合法手ガイドを切り替えられる');
   check(standalone.openReplay().ok && standalone.seekReplay(0).ok,
