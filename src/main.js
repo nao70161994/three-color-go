@@ -3,10 +3,17 @@ import { chooseMove, chooseDifficultyMove, dangerGroups, legalMoves, seededRando
 import { chooseStrongMove } from './strong-ai.js';
 import { analyzeRecord, formatAnalysis, explainPosition } from './insights.js';
 import { createOnlineSession, loadPeerJS, roomLink, validRoom, secureToken } from './online.js';
+import { makeMatchmaker } from './matchmaking.js';
 
 const boardSvg = document.getElementById('board');
 const onlinePanelEl=document.getElementById('onlinePanel');
 const onlineCreateEl=document.getElementById('onlineCreate');
+const onlineRandomEl=document.getElementById('onlineRandom');
+const onlineCancelEl=document.getElementById('onlineCancel');
+const matchEndpointEl=document.getElementById('matchEndpoint');
+const importRecordEl=document.getElementById('importRecord');
+const matchListEl=document.getElementById('matchList');
+const importFileEl=document.getElementById('importFile');
 const onlineJoinEl=document.getElementById('onlineJoin');
 const onlineLeaveEl=document.getElementById('onlineLeave');
 const onlineRoomEl=document.getElementById('onlineRoom');
@@ -57,9 +64,16 @@ let cpuLevel = 'hard', showLegal = false, showDanger = true;
 let spectatorPaused = false, spectatorSpeed = 600, zoomBoard = false, zoomBoardExplicit = false;
 let replay = null, network = null, netMessage = '部屋を作るか招待URLで参加してください';
 let pendingMove = null, pinchStart = null, zoomScale = 1;
+let matchCancellation=null, matchTicket=null, currentMatchId=null;
+let aiWorker=null, aiGeneration=0;
 let lastCpuDecision = null;
 const MAX_ONLINE_ACTIONS=1800;
 const STORAGE = 'three-color-go.v2';
+const ONLINE_STORAGE = 'three-color-go.online.v1';
+const MATCH_INDEX = 'three-color-go.matches.v1';
+const MATCH_PREFIX='three-color-go.match.';
+const MATCH_ENDPOINT_KEY='three-color-go.matchmaker-url';
+const MATCH_TIMEOUT=150000;
 
 function center(q,r) { return [SIZE*ROOT3*(q+r/2), SIZE*1.5*r]; }
 function vertices(x,y) {
@@ -73,7 +87,11 @@ function el(name,attrs={}) {
   Object.entries(attrs).forEach(([k,v])=>node.setAttribute(k,String(v)));
   return node;
 }
-function stopBots() { if (botTimer !== null) clearTimeout(botTimer); botTimer=null; }
+function stopBots(){
+  aiGeneration++;
+  if(botTimer!==null)clearTimeout(botTimer);
+  botTimer=null;
+}
 function visibleState() { return replay ? replay.frames[replay.index] : state; }
 function visibleActions() { return replay ? actions.slice(0,replay.index) : actions; }
 function getReplayState() {
@@ -106,7 +124,7 @@ function record() {
     zoomScale,actions:actions.map(a=>({...a}))};
 }
 function onlineStatus() {return network?network.status():{host:false,seat:null,room:null,connected:false,ready:false,message:netMessage};}
-function isGuest() {return mode==='online' && network?.status().connected && !network.status().host;}
+function isGuest() {return mode==='online' && !network?.status().host;}
 function applyNetworkMove(action,seat,expected) {
   if(mode!=='online' || !network?.status().host || state.ended || replay)
     return {ok:false,reason:'オンライン対局を操作できません'};
@@ -116,6 +134,15 @@ function applyNetworkMove(action,seat,expected) {
     return {ok:false,reason:'不明な着手'};
   if(action.type==='play')return place(action.q,action.r);
   return doPass();
+}
+function syncOnlineDelta(action,expected){
+  if(mode!=='online'||network?.status().host||replay||expected!==state.moveCount)return false;
+  if(!action||!['play','pass'].includes(action.type))return false;
+  const result=action.type==='pass'?pass(state):play(state,action.q,action.r);
+  if(!result.ok)return false;
+  past.push(state);state=result.state;
+  actions.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
+  pendingMove=null;save();render();return true;
 }
 function syncOnlineRecord(remote) {
   if(!remote||!Array.isArray(remote.actions)||remote.actions.length>MAX_ONLINE_ACTIONS)return;
@@ -133,7 +160,7 @@ async function ensureNetwork() {
   const Peer=await loadPeerJS();
   network=createOnlineSession({
     Peer,getRecord:record,applyMove:applyNetworkMove,
-    receiveRecord:syncOnlineRecord,onStatus:networkChanged
+    receiveRecord:syncOnlineRecord,receiveDelta:syncOnlineDelta,onStatus:networkChanged
   });
   return network;
 }
@@ -149,17 +176,29 @@ async function copyString(value) {
     return false;
   }
 }
-function save() {
-  try { localStorage.setItem(STORAGE,JSON.stringify({version:1,mode,radius:state.radius,cpuLevel,showLegal,showDanger,spectatorPaused,spectatorSpeed,zoomBoard,zoomBoardExplicit,actions})); }
-  catch { /* Storage may be blocked in private mode. */ }
+function save(){
+  try{
+    const data=JSON.stringify(record());
+    localStorage.setItem(mode==='online'?ONLINE_STORAGE:STORAGE,data);
+    if(mode!=='online'&&actions.length){
+      if(!currentMatchId)currentMatchId='m-'+Date.now().toString(36)+'-'+secureToken().slice(0,8);
+      localStorage.setItem(MATCH_PREFIX+currentMatchId,data);
+      const ids=JSON.parse(localStorage.getItem(MATCH_INDEX)||'[]').filter(id=>id!==currentMatchId);
+      ids.unshift(currentMatchId);
+      const old=ids.splice(30);
+      old.forEach(id=>localStorage.removeItem(MATCH_PREFIX+id));
+      localStorage.setItem(MATCH_INDEX,JSON.stringify(ids));
+    }
+  }catch{/* Private mode or quota exceeded; current match remains in memory. */}
 }
 function commit(result,action, schedule=true) {
   if(replay)return {ok:false,reason:'棋譜再生を終了してから着手してください'};
   if (!result.ok) { msgEl.textContent=result.reason; return {ok:false,reason:result.reason}; }
   stopBots();
+  const expected=state.moveCount;
   past.push(state); state=result.state; actions.push(action);pendingMove=null;
   save(); render();
-  if(mode==='online' && network?.status().host)network.broadcast();
+  if(mode==='online' && network?.status().host)network.broadcastMove(action,expected);
   if (schedule) scheduleBots();
   return {ok:true,captured:result.captured ?? [],state:snapshot(state)};
 }
@@ -173,7 +212,7 @@ function permittedForHuman() {
   if(mode==='cpu')return state.turn===0;
   if(mode==='online') {
     const info=onlineStatus();
-    return info.connected && info.seat===state.turn;
+    return info.connected && info.ready && info.seat===state.turn;
   }
   return false;
 }
@@ -217,14 +256,30 @@ function setBoardZoom(enabled) {
   if(zoomBoard)centerBoard();
   return {ok:true,zoom:zoomBoard};
 }
-function scheduleBots() {
+function scheduleBots(){
   stopBots();
-  if (replay || state.ended || !((mode==='cpu'&&state.turn!==0)||
-      (mode==='bots'&&!spectatorPaused))) return;
+  if(replay||state.ended||!((mode==='cpu'&&state.turn!==0)||(mode==='bots'&&!spectatorPaused)))return;
+  const generation=aiGeneration;
   botTimer=setTimeout(()=>{
     botTimer=null;
-    const move=botMove();
-    if (move) place(move.q,move.r); else doPass();
+    if(typeof Worker==='undefined'||location.protocol==='file:'){
+      const move=botMove();if(move)place(move.q,move.r);else doPass();return;
+    }
+    try{
+      if(!aiWorker){
+        aiWorker=new Worker(new URL('./src/ai-worker.js',location.href),{type:'module'});
+        aiWorker.onerror=()=>{aiWorker?.terminate();aiWorker=null;};
+      }
+      aiWorker.onmessage=e=>{
+        if(generation!==aiGeneration)return;
+        const {move,decision}=e.data||{};
+        if(decision)lastCpuDecision=decision;
+        if(move)place(move.q,move.r);else doPass();
+      };
+      aiWorker.postMessage({state,level:cpuLevel,generation});
+    }catch{
+      const move=botMove();if(move)place(move.q,move.r);else doPass();
+    }
   },mode==='bots'?spectatorSpeed:240);
 }
 function mostRecentMove(view=visibleState(),sequence=visibleActions()) {
@@ -396,7 +451,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   if(mode==='online' && nextMode!=='online') {network?.close();network=null;}
   replay=null;state=next;
   mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
-  past=[];actions=[];pendingMove=null;lastCpuDecision=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
+  past=[];actions=[];pendingMove=null;lastCpuDecision=null;currentMatchId=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
   if(nextMode==='online'&&network?.status().host)network.broadcast();
   return {ok:true,state:snapshot(state)};
 }
@@ -432,6 +487,7 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
   if(mode==='online' && !networkSync){network?.close();network=null;}
   replay=null;
   state=next;mode=nextMode;pendingMove=null;cpuLevel=nextLevel;
+  if(!networkSync)currentMatchId=null;
   spectatorSpeed=[180,600,1200].includes(record.spectatorSpeed)?record.spectatorSpeed:600;
   spectatorPaused=nextMode==='bots' ? (!resumeSavedBots || record.spectatorPaused===true) : false;
   // Old saves were automatically zoomed, not necessarily by user choice.
@@ -570,7 +626,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.2.0',
+  version: '1.3.0',
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),
   explainPosition: ()=>explainPosition(state),
