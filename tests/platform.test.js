@@ -1,0 +1,70 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {Matchmaker} from '../worker/src/index.js';
+import {makeMatchmaker} from '../src/matchmaking.js';
+import {validRoom} from '../src/online.js';
+
+const storage=new Map();
+const ctx={storage:{
+  async get(k){return storage.get(k);},
+  async put(k,v){storage.set(k,structuredClone(v));}
+}};
+const endpoint='https://example.workers.dev';
+const ticket=n=>n.toString(16).padStart(32,'0');
+function req(path,id,method='GET'){
+  return new Request(endpoint+path+(method==='GET'?'?ticket='+id:''),
+    {method,...(method==='POST'?{headers:{'content-type':'application/json'},
+      body:JSON.stringify({ticket:id})}:{})});
+}
+test('durable-object matchmaking groups exactly three, waits for host readiness and releases seats',async()=>{
+  storage.clear();const lobby=new Matchmaker(ctx,{});
+  const ids=[ticket(1),ticket(2),ticket(3)];
+  for(const id of ids){
+    const response=await lobby.fetch(req('/join',id,'POST'));assert.equal(response.status,200);
+  }
+  const a=await (await lobby.fetch(req('/status',ids[0]))).json();
+  const b=await (await lobby.fetch(req('/status',ids[1]))).json();
+  const c=await (await lobby.fetch(req('/status',ids[2]))).json();
+  assert.equal(a.seat,0);assert.equal(b.seat,1);assert.equal(c.seat,2);
+  assert.ok(validRoom(a.room));assert.equal(b.room,null);
+  await lobby.fetch(req('/ready',ids[0],'POST'));
+  const ready=await (await lobby.fetch(req('/status',ids[1]))).json();
+  assert.equal(ready.room,a.room);assert.equal(ready.hostReady,true);
+  const fourth=await (await lobby.fetch(req('/join',ticket(4),'POST'))).json();
+  assert.equal(fourth.status,'waiting');
+  await lobby.fetch(req('/leave',ids[0],'POST'));
+  const formerlyMatched=await (await lobby.fetch(req('/status',ids[1]))).json();
+  assert.equal(formerlyMatched.status,'waiting');
+});
+test('matchmaker browser adapter validates URL and request format',async()=>{
+  assert.throws(()=>makeMatchmaker(''),/URL|未設定|Invalid/);
+  assert.throws(()=>makeMatchmaker('http://not-local.test'),/HTTPS/);
+  const called=[];
+  const client=makeMatchmaker(endpoint,async(url,opts)=>{
+    called.push([url,opts.method,opts.body]);
+    return {ok:true,json:async()=>({ok:true,status:'waiting'})};
+  });
+  await client.join(ticket(5));await client.status(ticket(5));await client.leave(ticket(5));
+  assert.equal(called.length,3);
+  assert.match(called[0][0],/\/join$/);
+  assert.match(called[1][0],/\/status\?ticket=/);
+  assert.match(called[2][0],/\/leave$/);
+});
+test('PWA assets include install icons, service worker, offline game shell and worker',()=>{
+  const manifest=JSON.parse(readFileSync('manifest.webmanifest','utf8'));
+  assert.equal(manifest.display,'standalone');
+  assert.deepEqual(manifest.icons.filter(i=>i.type==='image/png').map(i=>i.sizes),['192x192','512x512']);
+  for(const n of [192,512]){
+    const data=readFileSync('icons/icon-'+n+'.png');
+    assert.equal(data.subarray(1,4).toString(),'PNG');
+    assert.equal(data.readUInt32BE(16),n);
+    assert.equal(data.readUInt32BE(20),n);
+  }
+  const sw=readFileSync('sw.js','utf8');
+  assert.match(sw,/src\/ai-worker\.js/);
+  assert.match(sw,/src\/matchmaking\.js/);
+  assert.match(sw,/cache|caches/i);
+  assert.match(readFileSync('index.html','utf8'),/rel="manifest"/);
+  assert.match(readFileSync('src\/main.js','utf8'),/serviceWorker\.register/);
+});
