@@ -8,8 +8,6 @@ on:
       - scripts/benchmark-direct-policy.mjs
       - tests/direct-policy.test.js
       - .github/workflows/direct-policy-selfplay.yml
-  push:
-    branches: [feat/three-player-stone-share-policy-gradient]
   workflow_dispatch:
 jobs:
   smoke:
@@ -44,7 +42,7 @@ jobs:
           path: reports/direct-smoke*.json
           retention-days: 7
   experiment:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
