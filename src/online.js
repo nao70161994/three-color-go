@@ -76,8 +76,9 @@ export function createOnlineSession({Peer,getRecord,applyMove,receiveRecord,rece
     const p=peer=new Peer(hostId);p.on('connection',hostConn);
     return new Promise((resolve,reject)=>{
       let done=false;
-      p.on('open',()=>{done=true;connected=true;message='招待リンクを共有してください';notify();resolve(status());});
-      p.on('error',e=>{message='接続エラー: '+e.message;notify();if(!done){done=true;reject(e);}});
+      const timeout=setTimeout(()=>{if(!done){done=true;reject(Error('部屋作成がタイムアウトしました'));}},20000);
+      p.on('open',()=>{if(done)return;done=true;clearTimeout(timeout);connected=true;message='招待リンクを共有してください';notify();resolve(status());});
+      p.on('error',e=>{message='接続エラー: '+e.message;notify();if(!done){done=true;clearTimeout(timeout);reject(e);}});
     });
   }
   function joinRoom(room,providedToken=token()){
@@ -87,19 +88,20 @@ export function createOnlineSession({Peer,getRecord,applyMove,receiveRecord,rece
     const p=peer=new Peer();
     return new Promise((resolve,reject)=>{
       let done=false;
-      p.on('error',e=>{message='接続エラー: '+e.message;notify();if(!done){done=true;reject(e);}});
+      const timeout=setTimeout(()=>{if(!done){done=true;reject(Error('ホストへの接続がタイムアウトしました'));}},20000);
+      p.on('error',e=>{message='接続エラー: '+e.message;notify();if(!done){done=true;clearTimeout(timeout);reject(e);}});
       p.on('open',()=>{
         const conn=connection=p.connect(room,{reliable:true,serialization:'json'});
         conn.on('open',()=>send(conn,{type:'hello',token:providedToken}));
-        conn.on('close',()=>{connected=false;message='接続が切れました';notify();});
-        conn.on('error',e=>{message=e.message;notify();if(!done){done=true;reject(e);}});
+        conn.on('close',()=>{connected=false;message='接続が切れました';notify();if(!done){done=true;clearTimeout(timeout);reject(Error(message));}});
+        conn.on('error',e=>{message=e.message;notify();if(!done){done=true;clearTimeout(timeout);reject(e);}});
         conn.on('data',msg=>{
           if(!msg || msg.v!==ONLINE_PROTOCOL)return;
-          if(msg.type==='full'){message='満席です';notify();if(!done){done=true;reject(Error(message));}}
+          if(msg.type==='full'){message='満席です';notify();if(!done){done=true;clearTimeout(timeout);reject(Error(message));}}
           if(msg.type==='welcome'){
             seat=msg.seat;connected=true;peerCount=msg.players||0;
             receiveRecord(msg.record);message='接続しました';notify();
-            if(!done){done=true;resolve({status:status(),token:providedToken});}
+            if(!done){done=true;clearTimeout(timeout);resolve({status:status(),token:providedToken});}
           }else if(msg.type==='sync' && connected){
             peerCount=msg.players;receiveRecord(msg.record);notify();
           }else if(msg.type==='delta' && connected){
