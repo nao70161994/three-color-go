@@ -1,0 +1,127 @@
+name: train full-board three-player MCTS candidate
+on:
+  pull_request:
+    paths:
+      - src/board-pv.js
+      - src/board-mcts.js
+      - scripts/selfplay-board.mjs
+      - scripts/train-board-mcts.py
+      - scripts/check-board-parity.py
+      - scripts/predict-board.mjs
+      - scripts/benchmark-board.mjs
+      - tests/board-mcts.test.js
+      - .github/workflows/train-board-mcts.yml
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: Self-play learning iterations
+        type: number
+        default: 20
+      games:
+        description: Three-player games per iteration
+        type: number
+        default: 4
+      simulations:
+        description: MCTS simulations per move
+        type: number
+        default: 12
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Train from zero without teacher data
+        run: |
+          python scripts/train-board-mcts.py --iterations 2 --games 2 \
+            --simulations 4 --radii 2,3 --seed 7001 \
+            --out reports/board-mcts-smoke.json
+      - name: Check JS/PyTorch numerical parity
+        run: python scripts/check-board-parity.py reports/board-mcts-smoke.json
+      - name: Validate 3-player CPU benchmark
+        run: |
+          node scripts/benchmark-board.mjs --model reports/board-mcts-smoke.json \
+            --games 6 --radius 2 --simulations 4 --seed 9001 \
+            --out reports/board-mcts-smoke-benchmark.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: board-policy-value-mcts-smoke
+          path: |
+            reports/board-mcts-smoke.json
+            reports/board-mcts-smoke-benchmark.json
+          retention-days: 14
+  train:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Generate and train model (never automatically deploy)
+        env:
+          ITERATIONS: ${{ inputs.iterations }}
+          GAMES: ${{ inputs.games }}
+          SIMULATIONS: ${{ inputs.simulations }}
+        run: |
+          set -o pipefail
+          mkdir -p reports
+          python scripts/train-board-mcts.py --iterations "$ITERATIONS" --games "$GAMES" \
+            --simulations "$SIMULATIONS" --radii 2,3,4 --seed 20261101 \
+            --out reports/board-mcts-candidate.json | tee reports/board-mcts-training.jsonl
+      - name: Verify exported model is identical in JS and Python
+        run: python scripts/check-board-parity.py reports/board-mcts-candidate.json
+      - name: Held-out benchmark against hard CPU
+        env:
+          SIMULATIONS: ${{ inputs.simulations }}
+        run: |
+          node scripts/benchmark-board.mjs --model reports/board-mcts-candidate.json \
+            --games 60 --radius 3 --simulations "$SIMULATIONS" --seed 20261111 \
+            --out reports/board-r3.json
+          node scripts/benchmark-board.mjs --model reports/board-mcts-candidate.json \
+            --games 60 --radius 4 --simulations "$SIMULATIONS" --seed 20261112 \
+            --out reports/board-r4.json
+      - name: Summary and promotion safety gate
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync,appendFileSync} from 'node:fs';
+          const reports=[3,4].map(r=>JSON.parse(readFileSync('reports/board-r'+r+'.json')));
+          const lines=['## Full-board Policy-Value MCTS (not deployed)',
+            '| Radius | Finished | Board beats hard (stones) | Hard ahead | Draw | Margin | Board win-share | Gate |',
+            '|---|---:|---:|---:|---:|---:|---:|---|',
+            ...reports.map(r=>'| '+r.radius+' | '+r.finished+' | '+r.boardAhead+' | '+
+              r.hardAhead+' | '+r.equal+' | '+r.meanBoardMinusHard+' | '+
+              r.agents.board.winShareRate+' | '+(r.promotionReady?'pass':'fail')+' |'),
+            'All values from actual seeded games. This run NEVER alters production weights.'];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: board-policy-value-mcts-candidate
+          path: |
+            reports/board-mcts-candidate.json
+            reports/board-mcts-training.jsonl
+            reports/board-r3.json
+            reports/board-r4.json
+          retention-days: 30
