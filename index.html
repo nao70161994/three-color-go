@@ -7,6 +7,8 @@
   <meta name="description" content="三色六角碁のローカル試作。石の数だけで勝負する3人用囲碁。" />
   <title>三色六角碁 | Three Color Go</title>
   <link rel="stylesheet" href="./src/style.css" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/app-icon.svg" type="image/svg+xml" />
 </head>
 <body>
   <main class="app">
@@ -24,7 +26,11 @@
         <button id="onlineCreate" type="button">部屋を作る（黒）</button>
         <button id="onlineJoin" type="button">部屋に参加する</button>
         <button id="onlineLeave" type="button">退室</button>
+        <button id="onlineRandom" type="button">ランダムマッチ</button>
+        <button id="onlineCancel" type="button" hidden>マッチング中止</button>
       </div>
+      <label for="matchEndpoint">ランダムマッチサーバー（初回設定）</label>
+      <input id="matchEndpoint" type="url" autocomplete="off" placeholder="https://three-color-go-matchmaker.***.workers.dev" />
       <label for="onlineRoom">部屋ID / 招待URL</label>
       <input id="onlineRoom" type="text" autocomplete="off" placeholder="招待URLまたは部屋ID" />
       <button id="onlineCopy" type="button">招待URLをコピー</button>
@@ -63,6 +69,13 @@
       <button id="undoBtn" type="button">一手戻す</button>
       <button id="resetBtn" type="button">最初から</button>
     </div>
+    <section class="savedMatches" aria-label="保存した対局">
+      <strong>保存した対局</strong>
+      <select id="matchList" aria-label="保存した対局を選択"></select>
+      <button id="loadMatch" type="button">選択した対局を再開</button>
+      <button id="importFile" type="button">棋譜JSONを読み込む</button>
+      <input id="importRecord" type="file" accept=".json,application/json" hidden />
+    </section>
     <div class="studyActions">
       <button id="copyRecord" type="button">棋譜をコピー</button>
       <button id="copyAnalysis" type="button">対局分析をコピー</button>
@@ -96,9 +109,9 @@
         <li>陣地点、アゲハマ点、コミはなし。</li>
         <li>棋譜を再生すると手番や点数も過去の状態で確認でき、対局へ戻ると続きから遊べます。</li>
       </ul>
-      <p>「むずかしい」は相手2人の応手を先読みします。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦・死に石の合意処理は未対応です。</p>
+      <p>「むずかしい」は相手2人の応手を先読みします。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
     </details>
-    <footer>v1.2 · AI分析・拡大操作・オンライン3人対戦・397/469マス・拡大表示 · ローカル対戦 / CPU対戦 / エージェントAPI対応</footer>
+    <footer>v1.3 · PWA・ランダムマッチ・安定化・オンライン3人対戦・397/469マス・拡大表示 · ローカル対戦 / CPU対戦 / エージェントAPI対応</footer>
   </main>
   <script type="module" src="./src/main.js"></script>
 </body>
