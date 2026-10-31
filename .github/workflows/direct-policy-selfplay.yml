@@ -8,6 +8,8 @@ on:
       - scripts/benchmark-direct-policy.mjs
       - tests/direct-policy.test.js
       - .github/workflows/direct-policy-selfplay.yml
+  push:
+    branches: [feat/three-player-stone-share-policy-gradient]
   workflow_dispatch:
 jobs:
   smoke:
@@ -42,7 +44,7 @@ jobs:
           path: reports/direct-smoke*.json
           retention-days: 7
   experiment:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -58,11 +60,11 @@ jobs:
       - run: |
           python -m pip install numpy
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-      - name: Train 108 three-player games with stone-share reward only
+      - name: Train 480 three-player games with stone-share reward only
         run: |
           set -o pipefail
           mkdir -p reports
-          python scripts/train-direct-policy.py --iterations 18 --games 6 \
+          python scripts/train-direct-policy.py --iterations 60 --games 8 \
             --radii 2,3,4 --seed 20261101 --temperature 1 \
             --out reports/direct-candidate.json | tee reports/direct-learning.jsonl
       - name: Check exported model JS/Torch numerical parity
