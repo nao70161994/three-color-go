@@ -73,6 +73,23 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
   .boardTools button{font-size:11px;padding:11px 5px}
 }
 
+/* v0.5 — accessible controls and non-destructive replay */
+.boardSizeSetting{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:-2px 0 12px;color:#d7e6ea;font-size:12px}
+.boardSizeSetting label{font-weight:700}
+.boardSizeSetting select{font:inherit;color:#eaf1f4;background:#253b49;border:1px solid #63828d;border-radius:10px;padding:9px 10px}
+.boardSizeSetting span{color:#92adba;font-size:11px}
+.replayLaunch{display:flex;justify-content:center;margin:10px 0 0}
+.replayLaunch button{max-width:260px}
+.replayPanel{padding:14px;margin:11px 0;background:#233541;border:1px solid #5c7b8b;border-radius:14px}
+.replayPanel[hidden]{display:none}
+.replayHeader{display:flex;justify-content:space-between;gap:10px;font-size:14px;margin-bottom:11px}
+.replayPanel input[type="range"]{display:block;width:100%;margin:12px 0 16px;accent-color:#e1b35c;min-height:23px}
+.replayActions{display:flex;gap:7px;flex-wrap:wrap}
+.replayActions button{font-size:12px;min-width:67px;padding:10px 5px}
+.replayPanel p{font-size:11px;color:#b8d1dc;margin:10px 0 0}
+.replayPanel button:focus-visible,.boardSizeSetting select:focus-visible{outline:3px solid #f0d080;outline-offset:2px}
+@media(max-width:500px){.replayActions{gap:6px}.replayActions button{min-width:calc(33.333% - 6px)}.boardSizeSetting span{flex-basis:100%}}
+
 </style>
 </head>
 <body>
@@ -85,6 +102,10 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
     <div class="settings">
       <div class="setting"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">1人で遊ぶ（CPU 2人）</option><option value="local">3人で交代</option></select></div>
       <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option></select></div>
+    </div>
+    <div class="boardSizeSetting"><label for="boardSize">盤面サイズ</label>
+      <select id="boardSize"><option value="2">小（19マス）</option><option value="3">中（37マス）</option><option value="4" selected>標準（61マス）</option><option value="5">大（91マス）</option></select>
+      <span>変更すると新しい対局になります</span>
     </div>
     <section class="status" aria-label="対局状況">
       <div class="turn"><span id="turnStone" class="stone black"></span><div><small id="turnLabel">現在の手番</small><strong id="turnText">黒の番</strong></div></div>
@@ -103,6 +124,21 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
       <button id="undoBtn" type="button">一手戻す</button>
       <button id="resetBtn" type="button">最初から</button>
     </div>
+    <div class="replayLaunch">
+      <button id="replayOpen" type="button">棋譜を再生</button>
+    </div>
+    <section id="replayPanel" class="replayPanel" aria-label="棋譜再生" hidden>
+      <div class="replayHeader"><strong>棋譜再生</strong><output id="replayLabel" aria-live="polite">0 / 0手</output></div>
+      <input id="replaySlider" type="range" min="0" max="0" value="0" aria-label="再生位置" />
+      <div class="replayActions">
+        <button id="replayStart" type="button">最初</button>
+        <button id="replayPrev" type="button">前へ</button>
+        <button id="replayNext" type="button">次へ</button>
+        <button id="replayEnd" type="button">最後</button>
+        <button id="replayClose" class="primary" type="button">対局へ戻る</button>
+      </div>
+      <p>棋譜再生中は対局が一時停止します。盤面や対局データは変更されません。</p>
+    </section>
     <div class="message" id="message" aria-live="polite">黒から開始。空いているマスをタップしてください。</div>
     <details class="rules">
       <summary>ルールを見る</summary>
@@ -113,10 +149,11 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
         <li>自殺手は禁止。盤面を過去と同一に戻す着手も禁止。</li>
         <li>3人が続けてパスすると終局。盤上に残った自分の石の数が最多の人の勝ち（同数は引き分け）。</li>
         <li>陣地点、アゲハマ点、コミはなし。</li>
+        <li>棋譜を再生すると手番や点数も過去の状態で確認でき、対局へ戻ると続きから遊べます。</li>
       </ul>
       <p>CPUは3段階の簡易AIです。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦・死に石の合意処理は未対応です。</p>
     </details>
-    <footer>v0.4 · 盤面ガイド・CPU難易度選択 · ローカル対戦 / CPU対戦 / エージェントAPI対応</footer>
+    <footer>v0.5 · 棋譜再生・盤面サイズ選択・CPU思考改善 · ローカル対戦 / CPU対戦 / エージェントAPI対応</footer>
   </main>
   <script>
 /**
@@ -285,6 +322,31 @@ function groupInfo(board, start, radius) {
   return {stones:queue,liberties:[...liberties]};
 }
 
+/**
+ * Look one opponent move ahead for instant captures of vulnerable friendly groups.
+ * This is deliberately bounded to atari liberties (not a full game-tree search).
+ */
+function threatenedStones(next,own) {
+  const seen=new Set();
+  let risk=0;
+  for(const key of Object.keys(next.board)) {
+    if(next.board[key]!==own || seen.has(key)) continue;
+    const group=groupInfo(next.board,key,next.radius);
+    for(const stone of group.stones)seen.add(stone);
+    if(group.liberties.length===1) {
+      const [q,r]=group.liberties[0].split(',').map(Number);
+      // The next player's immediate legal capture is the most urgent danger.
+      const enemy=play(next,q,r);
+      if(enemy.ok && enemy.captured.some(k=>group.stones.includes(k))) {
+        risk+=Math.min(12,group.stones.length)*1.0;
+      } else {
+        // Other opponent may still attack later, but it is not a forced next move.
+        risk+=Math.min(12,group.stones.length)*.45;
+      }
+    } else if(group.liberties.length===2)risk+=Math.min(8,group.stones.length)*.12;
+  }
+  return risk;
+}
 function baselineValue(state,result,q,r,random) {
   const own=COLORS[state.turn], neighbors=adjacentKeys(pointKey(q,r),state.radius);
   const friends=neighbors.filter(k=>state.board[k]===own).length;
@@ -328,14 +390,14 @@ function tacticalValue(state,result,q,r,random,atRisk) {
  */
 function chooseMove(state, random=Math.random, strategy='tactical') {
   if(state.ended) return null;
-  if(!['baseline','tactical'].includes(strategy)) throw new Error('Unknown AI strategy');
+  if(!['baseline','tactical','guarded'].includes(strategy)) throw new Error('Unknown AI strategy');
   // Stop bots from cycling forever; this is a bot policy, NOT a forced game rule.
   if(state.moveCount>=pointsOnBoard(state.radius).length*2)return null;
   const options=legalMoves(state);
   if(!options.length)return null;
   const own=COLORS[state.turn];
   const atRisk=[], visited=new Set();
-  if(strategy==='tactical') {
+  if(strategy!=='baseline') {
     for(const key of Object.keys(state.board)) {
       if(state.board[key]!==own||visited.has(key))continue;
       const g=groupInfo(state.board,key,state.radius);
@@ -347,9 +409,14 @@ function chooseMove(state, random=Math.random, strategy='tactical') {
   for(const {q,r} of options) {
     const result=play(state,q,r);
     if(!result.ok)continue;
-    const value=strategy==='baseline'
+    const base=strategy==='baseline'
       ? baselineValue(state,result,q,r,random)
       : tacticalValue(state,result,q,r,random,atRisk);
+    // Guarded mode does a targeted one-reply capture check and avoids exposing
+    // other own groups. The penalty is limited; immediate captures still matter.
+    const value=strategy==='guarded'
+      ? base - threatenedStones(result.state,own)*9
+      : base;
     if(value>bestValue){bestValue=value;best={q,r};}
   }
   return best;
@@ -378,7 +445,7 @@ function jointCapture(before,after,captured,radius) {
 function simulate({radius=3,seed=1,maxTurns=400,strategies=['tactical','tactical','tactical']}={}) {
   if(!Number.isInteger(maxTurns)||maxTurns<1)throw new Error('maxTurns must be positive');
   if(!Array.isArray(strategies)||strategies.length!==3||
-      strategies.some(p=>!['baseline','tactical'].includes(p)))throw new Error('Invalid strategies');
+      strategies.some(p=>!['baseline','tactical','guarded'].includes(p)))throw new Error('Invalid strategies');
   const random=seededRandom(seed);
   let state=createGame(radius);
   const history=[];
@@ -424,7 +491,7 @@ function dangerGroups(state) {
  */
 function chooseDifficultyMove(state,random=Math.random,level='hard') {
   if(!['easy','normal','hard'].includes(level))throw new Error('Unknown CPU level');
-  if(level==='hard')return chooseMove(state,random,'tactical');
+  if(level==='hard')return chooseMove(state,random,'guarded');
   if(level==='normal')return chooseMove(state,random,'baseline');
   if(state.ended || state.moveCount>=pointsOnBoard(state.radius).length*2)return null;
   const moves=legalMoves(state);
@@ -439,6 +506,16 @@ const turnTextEl = document.getElementById('turnText');
 const turnLabelEl = document.getElementById('turnLabel');
 const msgEl = document.getElementById('message');
 const modeEl = document.getElementById('mode');
+const boardSizeEl = document.getElementById('boardSize');
+const replayOpenEl = document.getElementById('replayOpen');
+const replayPanelEl = document.getElementById('replayPanel');
+const replaySliderEl = document.getElementById('replaySlider');
+const replayLabelEl = document.getElementById('replayLabel');
+const replayStartEl = document.getElementById('replayStart');
+const replayPrevEl = document.getElementById('replayPrev');
+const replayNextEl = document.getElementById('replayNext');
+const replayEndEl = document.getElementById('replayEnd');
+const replayCloseEl = document.getElementById('replayClose');
 const cpuLevelEl = document.getElementById('cpuLevel');
 const cpuSettingEl = document.getElementById('cpuSetting');
 const legalToggleEl = document.getElementById('legalToggle');
@@ -451,6 +528,7 @@ const SIZE = 29, ROOT3 = Math.sqrt(3);
 let state = createGame(4);
 let mode = 'cpu', past = [], actions = [], botTimer = null;
 let cpuLevel = 'hard', showLegal = false, showDanger = true;
+let replay = null;
 const STORAGE = 'three-color-go.v2';
 
 function center(q,r) { return [SIZE*ROOT3*(q+r/2), SIZE*1.5*r]; }
@@ -466,11 +544,38 @@ function el(name,attrs={}) {
   return node;
 }
 function stopBots() { if (botTimer !== null) clearTimeout(botTimer); botTimer=null; }
+function visibleState() { return replay ? replay.frames[replay.index] : state; }
+function visibleActions() { return replay ? actions.slice(0,replay.index) : actions; }
+function getReplayState() {
+  return replay ? {active:true,index:replay.index,total:actions.length,state:snapshot(visibleState())}
+    : {active:false,index:actions.length,total:actions.length,state:snapshot(state)};
+}
+function openReplay() {
+  if(replay) return {ok:true,...getReplayState()};
+  if(!actions.length)return {ok:false,reason:'まだ棋譜がありません'};
+  stopBots();
+  replay={frames:[...past,state],index:actions.length};
+  render();
+  return {ok:true,...getReplayState()};
+}
+function seekReplay(index) {
+  if(!replay) return {ok:false,reason:'再生を開始してください'};
+  if(!Number.isInteger(index)||index<0||index>actions.length)
+    return {ok:false,reason:'再生位置が不正です'};
+  replay.index=index;render();
+  return {ok:true,...getReplayState()};
+}
+function closeReplay() {
+  if(!replay) return {ok:false,reason:'再生していません'};
+  replay=null;render();scheduleBots();
+  return {ok:true,...getReplayState()};
+}
 function save() {
   try { localStorage.setItem(STORAGE,JSON.stringify({version:1,mode,radius:state.radius,cpuLevel,showLegal,showDanger,actions})); }
   catch { /* Storage may be blocked in private mode. */ }
 }
 function commit(result,action, schedule=true) {
+  if(replay)return {ok:false,reason:'棋譜再生を終了してから着手してください'};
   if (!result.ok) { msgEl.textContent=result.reason; return {ok:false,reason:result.reason}; }
   stopBots();
   past.push(state); state=result.state; actions.push(action);
@@ -482,33 +587,34 @@ function place(q,r,schedule=true) {
   return commit(play(state,q,r),{type:'play',q,r},schedule);
 }
 function doPass(schedule=true) { return commit(pass(state),{type:'pass'},schedule); }
-function permittedForHuman() { return mode==='local' || state.turn===0; }
+function permittedForHuman() { return !replay && (mode==='local' || state.turn===0); }
 function scheduleBots() {
   stopBots();
-  if (mode!=='cpu' || state.ended || state.turn===0) return;
+  if (replay || mode!=='cpu' || state.ended || state.turn===0) return;
   botTimer=setTimeout(()=>{
     botTimer=null;
     const move=chooseDifficultyMove(state,Math.random,cpuLevel);
     if (move) place(move.q,move.r); else doPass();
   },240);
 }
-function mostRecentMove() {
+function mostRecentMove(view=visibleState(),sequence=visibleActions()) {
   // A played stone can later be captured; never highlight an empty cell.
-  for (let i=actions.length-1; i>=0; i--) {
-    const action=actions[i];
+  for (let i=sequence.length-1; i>=0; i--) {
+    const action=sequence[i];
     if (action.type!=='play') continue;
-    return state.board[pointKey(action.q,action.r)]===COLORS[i%3]
+    return view.board[pointKey(action.q,action.r)]===COLORS[i%3]
       ? {q:action.q,r:action.r} : null;
   }
   return null;
 }
 function boardHints() {
-  const threats=dangerGroups(state);
-  const lastMove=mostRecentMove();
+  const view=visibleState();
+  const threats=dangerGroups(view);
+  const lastMove=mostRecentMove(view,visibleActions());
   return {
     lastMove,
     dangerGroups:threats,
-    legal: showLegal && !state.ended ? legalMoves(state) : []
+    legal: showLegal && !view.ended && !replay ? legalMoves(view) : []
   };
 }
 function setHints(options={}) {
@@ -530,16 +636,17 @@ function setCpuLevel(value) {
   return {ok:true,cpuLevel};
 }
 function drawBoard() {
-  const xExtent=SIZE*ROOT3*state.radius+SIZE+4;
-  const yExtent=SIZE*1.5*state.radius+SIZE+4;
+  const view=visibleState();
+  const xExtent=SIZE*ROOT3*view.radius+SIZE+4;
+  const yExtent=SIZE*1.5*view.radius+SIZE+4;
   boardSvg.setAttribute('viewBox',[-xExtent,-yExtent,2*xExtent,2*yExtent].join(' '));
   boardSvg.replaceChildren();
   const hints=boardHints();
   const legalKeys=new Set(hints.legal.map(p=>pointKey(p.q,p.r)));
   const dangerKeys=showDanger ? new Set(hints.dangerGroups.flatMap(g=>g.stones)) : new Set();
   const lastKey=hints.lastMove ? pointKey(hints.lastMove.q,hints.lastMove.r) : null;
-  for (const {q,r} of pointsOnBoard(state.radius)) {
-    const [x,y]=center(q,r), key=pointKey(q,r),color=state.board[key];
+  for (const {q,r} of pointsOnBoard(view.radius)) {
+    const [x,y]=center(q,r), key=pointKey(q,r),color=view.board[key];
     const g=el('g',{
       class:'cell '+(color?'occupied':''),
       role:'button', tabindex:state.ended?-1:0,
@@ -555,7 +662,7 @@ function drawBoard() {
     if (dangerKeys.has(key)) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.79,class:'hintDanger'}));
     if (lastKey===key) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.91,class:'hintLast'}));
     function activate() {
-      if (!permittedForHuman()) {msgEl.textContent='CPUが考えています';return;}
+      if (!permittedForHuman()) {msgEl.textContent=replay?'棋譜を再生中です':'CPUが考えています';return;}
       place(q,r);
     }
     g.addEventListener('click',activate);
@@ -566,12 +673,31 @@ function drawBoard() {
   }
 }
 function render() {
-  const color=COLORS[state.turn],counts=scores(state);
+  const view=visibleState();
+  const color=COLORS[view.turn],counts=scores(view);
   turnStoneEl.className='stone '+color;
-  turnTextEl.textContent=state.ended?'対局終了':LABELS[color]+'の番'+(mode==='cpu'&&state.turn!==0?'（CPU）':'');
-  turnLabelEl.textContent=state.ended?'勝敗が決まりました':state.passes+'人連続パス · '+state.moveCount+'手';
+  turnTextEl.textContent=view.ended?'対局終了':LABELS[color]+'の番'+(mode==='cpu'&&view.turn!==0?'（CPU）':'');
+  turnLabelEl.textContent=replay?'棋譜再生 · '+replay.index+' / '+actions.length+'手':view.ended?'勝敗が決まりました':view.passes+'人連続パス · '+view.moveCount+'手';
   modeEl.value=mode;
+  boardSizeEl.value=String(state.radius);
   cpuLevelEl.value=cpuLevel;
+  modeEl.disabled=!!replay;
+  boardSizeEl.disabled=!!replay;
+  cpuLevelEl.disabled=!!replay;
+  replayPanelEl.hidden=!replay;
+  replayOpenEl.disabled=!!replay || !actions.length;
+  if(replay) {
+    replaySliderEl.max=String(actions.length);
+    replaySliderEl.value=String(replay.index);
+    const move=replay.index?actions[replay.index-1]:null;
+    replayLabelEl.textContent=replay.index+' / '+actions.length+'手 · '+(
+      !move?'開始局面':move.type==='pass'?'パス':COLORS[(replay.index-1)%3]+
+      ' ('+move.q+','+move.r+')');
+    replayStartEl.disabled=replay.index===0;
+    replayPrevEl.disabled=replay.index===0;
+    replayNextEl.disabled=replay.index===actions.length;
+    replayEndEl.disabled=replay.index===actions.length;
+  }
   cpuSettingEl.hidden=mode!=='cpu';
   legalToggleEl.textContent='合法手を表示: '+(showLegal?'ON':'OFF');
   dangerToggleEl.textContent='危険な石を表示: '+(showDanger?'ON':'OFF');
@@ -586,24 +712,28 @@ function render() {
     item.append(dot,small,strong);countsEl.append(item);
   }
   drawBoard();
-  passBtn.disabled=state.ended || !permittedForHuman();
-  undoBtn.disabled=past.length===0;
-  if (state.ended) {
-    const winning=winner(state).map(c=>LABELS[c]).join('・');
-    msgEl.textContent='終局！ '+winning+(winner(state).length>1?'が同点':'の勝利')+'。黒 '+counts.black+' / 白 '+counts.white+' / 赤 '+counts.red+' 石';
+  passBtn.disabled=view.ended || !permittedForHuman();
+  undoBtn.disabled=!!replay || past.length===0;
+  resetBtn.disabled=!!replay;
+  if (view.ended) {
+    const winning=winner(view).map(c=>LABELS[c]).join('・');
+    msgEl.textContent='終局！ '+winning+(winner(view).length>1?'が同点':'の勝利')+'。黒 '+counts.black+' / 白 '+counts.white+' / 赤 '+counts.red+' 石';
   } else {
-    msgEl.textContent=state.lastAction;
+    msgEl.textContent=replay?'棋譜を再生中です · 対局は一時停止しています':view.lastAction;
   }
 }
-function reset({radius=4,nextMode=mode,nextLevel=cpuLevel}={}) {
+function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   if (!['cpu','local'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
   if (!['easy','normal','hard'].includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
+  let next;
+  try {next=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
   stopBots();
-  try {state=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
+  replay=null;state=next;
   mode=nextMode;cpuLevel=nextLevel;past=[];actions=[];save();render();scheduleBots();
   return {ok:true,state:snapshot(state)};
 }
 function undo() {
+  if(replay)return {ok:false,reason:'棋譜再生中は戻せません'};
   stopBots();
   if (!past.length) return {ok:false,reason:'戻せる手がありません'};
   do {
@@ -630,6 +760,7 @@ function loadRecord(record) {
   const nextShowLegal=typeof record.showLegal==='boolean'?record.showLegal:showLegal;
   const nextShowDanger=typeof record.showDanger==='boolean'?record.showDanger:showDanger;
   stopBots();
+  replay=null;
   state=next;mode=nextMode;cpuLevel=nextLevel;
   showLegal=nextShowLegal;showDanger=nextShowDanger;past=states;actions=normalized;
   save();render();scheduleBots();
@@ -646,6 +777,21 @@ function restore() {
   } catch { /* Ignore invalid / unavailable storage. */ }
 }
 passBtn.addEventListener('click',()=>{if (permittedForHuman()) doPass();});
+replayOpenEl.addEventListener('click',openReplay);
+replayCloseEl.addEventListener('click',closeReplay);
+replaySliderEl.addEventListener('input',()=>seekReplay(Number(replaySliderEl.value)));
+replayStartEl.addEventListener('click',()=>seekReplay(0));
+replayPrevEl.addEventListener('click',()=>seekReplay(replay.index-1));
+replayNextEl.addEventListener('click',()=>seekReplay(replay.index+1));
+replayEndEl.addEventListener('click',()=>seekReplay(actions.length));
+boardSizeEl.addEventListener('change',()=>{
+  const radius=Number(boardSizeEl.value);
+  if(state.moveCount>0 && !confirm('盤面サイズを変えると対局が最初からになります。よろしいですか？')) {
+    boardSizeEl.value=String(state.radius);return;
+  }
+  const result=reset({radius});
+  if(!result.ok){boardSizeEl.value=String(state.radius);msgEl.textContent=result.reason;}
+});
 undoBtn.addEventListener('click',undo);
 resetBtn.addEventListener('click',()=>{
   if (state.moveCount===0 || confirm('対局を最初からやり直しますか？')) reset();
@@ -663,11 +809,15 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '0.4',
+  version: '0.5',
   getState: ()=>snapshot(state),
+  getReplayState,
+  openReplay,
+  seekReplay,
+  closeReplay,
   legalMoves: ()=>legalMoves(state),
   getPresentation: ()=>({
-    mode,cpuLevel,showLegal,showDanger,
+    mode,cpuLevel,showLegal,showDanger,replay:!!replay,
     ...boardHints()
   }),
   setHints,
@@ -675,11 +825,12 @@ window.threeColorGo = Object.freeze({
   play: (q,r)=>place(q,r),
   pass: ()=>doPass(),
   undo,
-  reset: (options={})=>reset({radius:options.radius??4,nextMode:options.mode??'local',nextLevel:options.cpuLevel??cpuLevel}),
+  reset: (options={})=>reset({radius:options.radius??state.radius,nextMode:options.mode??'local',nextLevel:options.cpuLevel??cpuLevel}),
   setMode: (next)=>reset({radius:state.radius,nextMode:next}),
   exportRecord: ()=>({version:1,radius:state.radius,mode,cpuLevel,showLegal,showDanger,actions:actions.map(a=>({...a}))}),
   importRecord: loadRecord,
   autoPlay: (limit=100,seed=1)=>{
+    if(replay)return {ok:false,reason:'棋譜再生を終了してください'};
     stopBots();
     const rand=seededRandom(seed);
     const count=Math.max(0,Math.min(500,Math.trunc(limit)||0));
