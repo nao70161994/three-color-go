@@ -1,0 +1,146 @@
+name: direct policy learning-rate and multi-CPU study
+on:
+  pull_request:
+    paths:
+      - scripts/train-direct-policy.py
+      - scripts/benchmark-direct-matchups.mjs
+      - tests/direct-lr-study.test.js
+      - .github/workflows/direct-learning-rate-study.yml
+  workflow_dispatch:
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: node --test tests/direct-policy.test.js tests/direct-lr-study.test.js
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Verify diagnostics and no-search learning end-to-end
+        run: |
+          set -o pipefail
+          mkdir -p reports
+          python scripts/train-direct-policy.py --iterations 2 --games 2 \
+            --radii 2,3 --learning-rate 0.0001 --seed 711 \
+            --out reports/direct-lr-smoke.json | tee reports/lr-smoke.jsonl
+          python scripts/check-pv2-parity.py reports/direct-lr-smoke.json
+          python - <<'PY'
+          import json
+          rows=[json.loads(line) for line in open('reports/lr-smoke.jsonl')
+                if line.startswith('{')]
+          assert len(rows)==2
+          for r in rows:
+              assert r['learningRate']==.0001
+              assert 0<=r['policyEntropyNormalized']<=1.00001
+              assert r['policyKlOldToNew']>=-1e-6
+              assert r['valueMse']>=0
+              assert r['probeSamples']>0
+          PY
+  sweep:
+    if: github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rate: "0.001"
+            key: lr001
+          - rate: "0.0003"
+            key: lr0003
+          - rate: "0.0001"
+            key: lr0001
+          - rate: "0.00003"
+            key: lr00003
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Train 480 shared 3-seat games with fixed seed, differing ONLY in LR
+        env:
+          RATE: ${{ matrix.rate }}
+          KEY: ${{ matrix.key }}
+        run: |
+          set -o pipefail
+          mkdir -p reports
+          python scripts/train-direct-policy.py --iterations 60 --games 8 \
+            --radii 2,3,4 --seed 20261101 --temperature 1 \
+            --batch-size 32 --epochs 1 --entropy .015 \
+            --learning-rate "$RATE" --out "reports/direct-$KEY.json" \
+            | tee "reports/training-$KEY.jsonl"
+      - name: Check PyTorch↔JS model inference parity
+        env:
+          KEY: ${{ matrix.key }}
+        run: python scripts/check-pv2-parity.py "reports/direct-$KEY.json"
+      - name: Evaluate versus five CPU strategies, rotated through all 3 seats
+        env:
+          KEY: ${{ matrix.key }}
+        run: |
+          set -euo pipefail
+          for radius in 3 4; do
+            if [[ "$radius" == 3 ]]; then seed=20261121; else seed=20261122; fi
+            for group in hard-balanced balanced-balanced tactical-guarded baseline-baseline; do
+              opponents="${group//-/,}"
+              node scripts/benchmark-direct-matchups.mjs \
+                --model "reports/direct-$KEY.json" --radius "$radius" \
+                --games 12 --seed "$seed" --opponents "$opponents" \
+                --out "reports/eval-$KEY-r$radius-$group.json" > /dev/null
+            done
+          done
+      - name: Summarize learning stability and actual game strength
+        env:
+          KEY: ${{ matrix.key }}
+          RATE: ${{ matrix.rate }}
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync,appendFileSync} from 'node:fs';
+          const key=process.env.KEY,rate=process.env.RATE;
+          const trace=readFileSync('reports/training-'+key+'.jsonl','utf8')
+            .split('\n').filter(s=>s.startsWith('{')).map(JSON.parse);
+          if(trace.length!==60)throw Error('Incomplete training trace');
+          const mean=(arr)=>arr.reduce((a,b)=>a+b,0)/arr.length;
+          const groups=['hard-balanced','balanced-balanced','tactical-guarded','baseline-baseline'];
+          const results=[3,4].flatMap(radius=>groups.map(group=>
+            JSON.parse(readFileSync('reports/eval-'+key+'-r'+radius+'-'+group+'.json'))));
+          if(results.some(r=>r.finished!==r.games||r.truncated!==0))
+            throw Error('Incomplete evaluation matches');
+          const lines=['## Direct zero-search policy: LR '+rate,
+            'All 3 seats trained with final stone share, 480 shared-policy self-play games. Not deployed.',
+            'Mean KL(old||new) per iteration: '+mean(trace.map(r=>r.policyKlOldToNew)).toFixed(6),
+            'Final KL(old||new): '+trace.at(-1).policyKlOldToNew,
+            'Final policy entropy normalized: '+trace.at(-1).policyEntropyNormalized,
+            'Final stone-share value MSE: '+trace.at(-1).valueMse,
+            '| Radius | Opponents | Direct / 12 wins (share) | Direct stone share | Margin vs op1 | Margin vs op2 |',
+            '|---|---|---:|---:|---:|---:|',
+            ...results.map(r=>'| '+r.radius+' | '+r.opponents.join(' + ')+' | '+
+              r.directWinShareRate+' | '+r.directMeanStoneShare+' | '+
+              r.vsOp1.meanStoneMargin+' | '+r.vsOp2.meanStoneMargin+' |'),
+            'The four rate conditions use the same RNG seed, training budget, opponents and held-out evaluation seeds. Different model policies generate different self-play trajectories.'];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');
+          console.log(lines.join('\n'));
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: direct-lr-study-${{ matrix.key }}
+          path: reports/*
+          retention-days: 30
