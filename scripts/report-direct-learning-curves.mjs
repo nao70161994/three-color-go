@@ -8,7 +8,7 @@ import {dirname} from 'node:path';
 const args={};
 for(let i=2;i<process.argv.length;i+=2){
   const k=process.argv[i],v=process.argv[i+1];
-  if(!['--training-log','--eval-prefix','--out','--checkpoint-every','--iterations'].includes(k)||
+  if(!['--training-log','--eval-prefix','--out','--checkpoint-every','--iterations','--groups','--games'].includes(k)||
       v===undefined)throw Error('Unknown/missing '+k);
   args[k.slice(2)]=v;
 }
@@ -28,14 +28,20 @@ for(const row of rows){
   if(Math.abs(row.meanFinalStoneShares.reduce((a,b)=>a+b,0)-1)>1e-4)
     throw Error('Bad normalized terminal reward');
 }
-const groups=['baseline-baseline','hard-balanced'],radii=[3,4],checkpoints=[];
+const groups=(args.groups??'baseline-baseline,hard-balanced').split(',');
+const gamesPerMatch=Number(args.games??6);
+if(!groups.length||groups.some(g=>!['hard-balanced','balanced-balanced',
+    'tactical-guarded','baseline-baseline'].includes(g))||
+   !Number.isInteger(gamesPerMatch)||gamesPerMatch<6||gamesPerMatch>300||
+   gamesPerMatch%6!==0)throw Error('Invalid matchup groups/games');
+const radii=[3,4],checkpoints=[];
 for(let iteration=step;iteration<=iterations;iteration+=step){
   const parts=[];
   for(const radius of radii)for(const group of groups){
     const path=`${args['eval-prefix']}-iter${String(iteration).padStart(4,'0')}-r${radius}-${group}.json`;
     const result=JSON.parse(readFileSync(path,'utf8'));
     if(result.finished!==result.games||result.truncated!==0||
-       result.radius!==radius||result.games!==6)
+       result.radius!==radius||result.games!==gamesPerMatch)
       throw Error('Incomplete held-out evaluation '+path);
     parts.push({
       radius,opponents:result.opponents,
@@ -51,7 +57,7 @@ for(let iteration=step;iteration<=iterations;iteration+=step){
     evaluations:parts});
 }
 const mean=(xs)=>+(xs.reduce((a,b)=>a+b,0)/xs.length).toFixed(4);
-const byRadius=[2,3,4].map(radius=>{
+const byRadius=[...new Set(rows.map(r=>r.radius))].map(radius=>{
   const subset=rows.filter(r=>r.radius===radius);
   const n=Math.min(5,Math.floor(subset.length/2));
   const summary=(slice)=>({
@@ -66,8 +72,9 @@ const byRadius=[2,3,4].map(radius=>{
     first:summary(subset.slice(0,n)),last:summary(subset.slice(-n))};
 });
 const report={
+  matchupGroups:groups,evalGamesPerMatch:gamesPerMatch,
   experiment:'no-search three-player terminal stone shares',
-  caveat:'Selfplay mean stone share across 3 seats is mathematically 1/3 and not a strength metric. Independent fixed-opponent checkpoint matches are small (6 per group/size), not proof of convergence.',
+  caveat:'Selfplay mean stone share across 3 seats is mathematically 1/3 and not a strength metric. Independent fixed-opponent checkpoint matches are small (per group/size), not proof of convergence.',
   iterations,trainingGames:rows.at(-1).trainingGamesTotal,
   byRadius,checkpoints,learning:rows
 };
