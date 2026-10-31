@@ -270,11 +270,17 @@ function scheduleBots(){
     try{
       if(!aiWorker){
         aiWorker=new Worker(new URL('./src/ai-worker.js',location.href),{type:'module'});
-        aiWorker.onerror=()=>{aiWorker?.terminate();aiWorker=null;};
+        aiWorker.onerror=()=>{
+          aiWorker?.terminate();aiWorker=null;
+          if(generation===aiGeneration) {
+            const move=botMove();if(move)place(move.q,move.r);else doPass();
+          }
+        };
       }
       aiWorker.onmessage=e=>{
-        if(generation!==aiGeneration)return;
-        const {move,decision}=e.data||{};
+        if(generation!==aiGeneration||e.data?.generation!==aiGeneration)return;
+        const {move,decision,error}=e.data||{};
+        if(error){msgEl.textContent='CPUエラー: '+error;return;}
         if(decision)lastCpuDecision=decision;
         if(move)place(move.q,move.r);else doPass();
       };
@@ -426,7 +432,7 @@ function render() {
   onlineCancelEl.hidden=!randomMatching;
   matchEndpointEl.disabled=randomMatching;
   onlineJoinEl.disabled=session.connected || !!replay || randomMatching;
-  onlineLeaveEl.disabled=!session.connected;
+  onlineLeaveEl.disabled=mode!=='online'||(!network&&!randomMatching);
   boardSizeEl.disabled=!!replay || isGuest();
   spectatorControlsEl.hidden=mode!=='bots';
   spectatorToggleEl.textContent=spectatorPaused?'再開':'一時停止';
