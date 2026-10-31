@@ -30,12 +30,15 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function run(){
   const win=frame.contentWindow, doc=frame.contentDocument, game=win.threeColorGo;
   check(game && typeof game.getState==='function','AI操作用APIが存在');
-  check(game.version==='0.7','公開APIのバージョンがv0.7');
+  check(game.version==='0.8','公開APIのバージョンがv0.8');
   check(doc.querySelector('#boardSize').value==='4','初期サイズは半径4・61マス');
   check(doc.querySelector('#replayOpen').disabled,'棋譜が空なら再生ボタンは無効');
   check(doc.querySelector('#boardSize option[value="3"]').textContent.includes('小（37マス）'),'新しい小サイズは37マス');
   check(doc.querySelector('#boardSize option[value="2"]').disabled,'旧19マスは新規選択できない');
   check(doc.querySelector('#boardSize option[value="6"]')!==null,'127マスを選べる');
+  check(doc.querySelector('#mode option[value="bots"]')!==null,'CPU3人観戦モードを選べる');
+  check(doc.querySelector('#boardSize option[value="11"]').textContent.includes('397'),'19路盤の361交点を超える397マスが選べる');
+  check(doc.querySelector('#boardSize option[value="12"]').textContent.includes('469'),'469マスが選べる');
   check(game.reset({mode:'local',radius:2,cpuLevel:'easy'}).ok,'3人交代モードで初期化');
   check(game.getPresentation().cpuLevel==='easy','CPU難易度を指定して初期化');
   check(doc.getElementById('cpuSetting').hidden,'3人交代中はCPU設定を隠す');
@@ -106,12 +109,51 @@ async function run(){
   check(doc.querySelectorAll('g.cell').length===127,'127マスが画面に描画される');
   check(doc.documentElement.scrollWidth<=doc.documentElement.clientWidth+2,
     '127マスでも横スクロールしない');
+  check(game.reset({mode:'local',radius:11,cpuLevel:'easy'}).ok,'半径11・397マスで初期化');
+  check(doc.querySelectorAll('g.cell').length===397,'397マス描画');
+  check(doc.querySelector('#boardViewTools').hidden===false,'巨大盤面では拡大切り替えが表示される');
+  check(game.getPresentation().zoomBoard,'巨大盤面の拡大表示は初期ON');
+  check(doc.querySelector('#board').getBoundingClientRect().width>600,'拡大表示はマスを押しやすい幅で描画');
+  check(doc.documentElement.scrollWidth<=doc.documentElement.clientWidth+2,'397マスでもページ全体に横スクロールなし');
+  doc.querySelector('#boardZoom').click();
+  check(!game.getPresentation().zoomBoard,'全体表示へ切り替えられる');
+  check(game.setBoardZoom(true).ok,'APIでも拡大表示に戻せる');
+  check(game.reset({mode:'local',radius:12,cpuLevel:'easy'}).ok,'半径12・469マスで初期化');
+  check(doc.querySelectorAll('g.cell').length===469,'469マス描画');
+  check(doc.documentElement.scrollWidth<=doc.documentElement.clientWidth+2,'469マスでも横スクロールなし');
+  check(game.legalMoves().length===469,'469マスの合法手をエンジンから取得');
   check(game.reset({mode:'local',radius:4,cpuLevel:'hard'}).ok,'標準61マス・強いCPUの対局を初期化');
   const begin=performance.now();
   const thought=game.autoPlay(1,99);
   const elapsed=performance.now()-begin;
   check(thought.ok && thought.moves===1,'標準盤面で強いCPUが合法手を生成');
   check(elapsed<10000,'標準盤面のCPUの思考が10秒未満');
+  check(game.reset({mode:'bots',radius:3,cpuLevel:'easy'}).ok,'CPU3人の観戦モードを開始できる');
+  check(!doc.querySelector('#spectatorControls').hidden,'観戦操作欄が表示される');
+  check(game.getPresentation().mode==='bots','観戦モードがブラウザAPIで取得できる');
+  // External agents are allowed to play moves; spectators cannot click the board.
+  check(game.pauseBots().ok,'CPU3人の対局を一時停止');
+  const paused=game.getState().moveCount;
+  await sleep(230);
+  check(game.getState().moveCount===paused,'一時停止中は自動着手しない');
+  doc.querySelector('g.cell[data-q="1"][data-r="1"]').dispatchEvent(new win.MouseEvent('click',{bubbles:true}));
+  check(game.getState().moveCount===paused,'観戦者の盤面クリックでは着手できない');
+  check(game.stepBot().ok,'一時停止中にCPUの1手を進められる');
+  check(game.getState().moveCount===paused+1,'1手進める操作は正確に1手');
+  check(game.setSpectatorSpeed(180).ok,'観戦速度を速くできる');
+  check(!game.setSpectatorSpeed(17).ok,'不正な速度を拒否');
+  check(game.resumeBots().ok,'CPU3人の自動対局を再開');
+  await sleep(680);
+  check(game.getState().moveCount>=paused+2,'3人のCPUが自動着手を継続');
+  check(game.pauseBots().ok,'観戦中に再度一時停止');
+  const botsRecord=game.exportRecord();
+  check(botsRecord.mode==='bots' && botsRecord.spectatorPaused,'観戦状態を棋譜へ保存');
+  check(game.openReplay().ok,'CPU3人の対局も棋譜再生できる');
+  check(game.seekReplay(0).ok,'CPU3人の開始局面も再生できる');
+  check(game.closeReplay().ok,'再生を閉じてもCPU3人の対局は一時停止のまま');
+  check(game.getState().moveCount===botsRecord.actions.length,'棋譜再生はCPU3人の対局を変更しない');
+  check(game.importRecord(botsRecord).ok && game.getPresentation().spectatorPaused,
+    '観戦棋譜の再読み込みは意図しないCPU自動進行を開始しない');
   check(game.reset({mode:'cpu',radius:2,cpuLevel:'normal'}).ok,'CPU対戦モードへ戻る');
   check(!doc.getElementById('cpuSetting').hidden,'CPU対戦中に難易度の選択欄が見える');
   check(game.play(0,0).ok,'人間が着手できる');
@@ -155,12 +197,14 @@ async function run(){
   check(standalone.reset({mode:'local',radius:2}).ok,'オフライン版を初期化');
   check(standalone.play(0,0).ok,'オフライン版で着手できる');
   check(standalone.getState().scores.black===1,'オフライン版で得点を表示');
-  check(standalone.version==='0.7','オフライン版がv0.7へ同期している');
+  check(standalone.version==='0.8','オフライン版がv0.8へ同期している');
   check(standalone.setCpuLevel('easy').ok,'オフライン版でも難易度を変更できる');
   check(standalone.setHints({legal:true}).ok,'オフライン版でも合法手ガイドを切り替えられる');
   check(standalone.openReplay().ok && standalone.seekReplay(0).ok,
     'オフライン版でも棋譜を再生できる');
   check(standalone.closeReplay().ok,'オフライン版でも元の対局へ戻れる');
+  check(standalone.reset({mode:'bots',radius:3,cpuLevel:'easy'}).ok,'オフライン版にもCPU3人観戦モードがある');
+  check(standalone.pauseBots().ok && standalone.stepBot().ok,'オフライン版も一時停止して1手進められる');
   status.className='ok';status.dataset.status='passed';status.textContent='PASS — '+lines.length+'件のブラウザ操作テスト成功';
 }
 frame.addEventListener('load',()=>{
