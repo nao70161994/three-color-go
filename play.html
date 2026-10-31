@@ -886,16 +886,16 @@ function strongMatch({radius=3,seed=1,strongSeat=0,maxTurns=350}={}) {
 const NEURAL_MODEL={"version":"distill-20261031-v1","features":12,"activation":"relu","teacher":"synthetic tactical self-play imitation, not a human-trained policy","layers":[{"rows":24,"cols":12,"scale":0.01784953,"weights":"+v0OBRR/HgdAJ/gC8/r36fgHB/cGCP4IBAEHAgBXAQE7/w8A9+3+AfcH+Qf6CPL3AAAE//19FgNNNvIA/foRAgVaDPs9CxAAAf4IAwRVE/5CC/IABAAICQxnEgkzM/0A9AH7AALz8gfz8QsD+/v89wY6+Qq3//cCAf/nAewfA98T/w4A+QcF+wEGAvII+QEO+Aod+/1JEgk1FRAF9P4Y+RJeKhFDMAQCAu4DAwcsDgEkFfgA9fwK+Q1Y/xE4K/b+/fwN+BAw+hchFf8AB/MM9QhdFxpGIfoDBgYdCgNyDv9QMgUH9AYa+wFUCAE8MfQEAQAMAfVyDAs5APgA9gL8+P7t7eoJ+PgB/P8p/f4JABZAAQcB/Aoc/QldGQNCJw4I","bias":[-0.082712,0.031969,-0.133331,-0.052867,-0.11263,-0.012138,-0.130029,-0.280282,-0.003022,0.001118,0.122996,-0.327718,0.04363,-0.02353,0.009487,0.127752,0.01112,0.1041,-0.187577,0.172939,-0.070933,0.121831,-0.429779,-0.113654]},{"rows":16,"cols":24,"scale":0.01100394,"weights":"+vMK/gH0/wnz9wby6/0D++v9Berp/f3/BuwOEYEC+QcH7g8AENf3/vLwHvoSDfPw8fjwB+Xa7uL77gQM5fLe7OLd4Ons9fbjMP38AiYODjT8AP/7DEgSDxcYGgIQ/RYLKxoFBC4CFioT9Qn6Fz0JDQwA+AcW/gwb7AsGEvoIAgLt5goQ6P37/OYGCQX6/fn77AMHCfD4CvcAAv/98/fxBfAE6AX97grmNgb/GToTDyMEERkgEj8MAAca/w4W/x4gAgPv+BDy9P/+CAIHABHz8/ns9fEJ+fr9SAQh/FDy+CQH7AYFADvt/u8PQQ1S+Bgs8fD1+A399wEC+PDn5gYHAQbq9/Pr8fr1BPX7BNbwB/Dn8vEF76j8/Or3vvv5Cgnn6Qz9AAME6Qf2AP7p+vnq+gT5A+sQ9u/4C+/rBPkC7PT/BAsN9fT++Pv2/gn29OsI/PgB7g7oBO3xBuwNABIFCvH9+fUIDOgA8wEL/w4F/f8HAADq+/nv7Anq5PMG/gX/","bias":[-0.055801,0.150367,-0.208364,0.272171,0.147095,-0.103875,-0.169668,0.068778,-0.082974,0.023049,-0.052023,0.060666,-0.096233,-0.123381,-0.258349,-0.040269]},{"rows":8,"cols":16,"scale":0.00463429,"weights":"zgv8B84b/iLRACbbBjET6ui6EcjYvOoFGhsjGBgUzBsdGeXyCgwU193q+PDuGzQpvRD/F7wKyg0P2N322sw09vXp/0RD/PYuGzbmKTndDTbgBQkk/hT81jLMLyP67Pbb6vZOSg4L6UXef+QE+SIC5xscL8giCNYOz/Ib+h7oBeA=","bias":[-0.172704,0.069848,-0.164551,-0.126815,0.216929,-0.146695,0.284568,-0.266916]},{"rows":1,"cols":8,"scale":0.00328668,"weights":"7boAsFbdf80=","bias":[0.004433]}]};
 
 
-// A 3-hidden-layer trained policy evaluator, not an LLM or a remote service.
+// Compact offline policy evaluator. Self-play candidates can be benchmarked before promotion.
 // Features are local to one candidate and color-relative, so one network
 // works on every supported board radius and for all three player colors.
-let decoded=null;
+const decodedModels=new WeakMap();
 function neuralModelInfo(){
-  return {version:NEURAL_MODEL.version,shape:[12,24,16,8,1],source:NEURAL_MODEL.teacher};
+  return {version:NEURAL_MODEL.version,shape:[12,24,16,8,1],source:NEURAL_MODEL.training??NEURAL_MODEL.teacher};
 }
-function layers(){
-  if(decoded)return decoded;
-  decoded=NEURAL_MODEL.layers.map(layer=>{
+function layers(model=NEURAL_MODEL){
+  if(decodedModels.has(model))return decodedModels.get(model);
+  const decoded=model.layers.map(layer=>{
     const bytes=atob(layer.weights);
     if(bytes.length!==layer.rows*layer.cols||layer.bias.length!==layer.rows)
       throw Error('Neural model dimensions invalid');
@@ -904,13 +904,14 @@ function layers(){
       ? bytes.charCodeAt(i)-256 : bytes.charCodeAt(i);
     return {...layer,weights};
   });
+  decodedModels.set(model,decoded);
   return decoded;
 }
-function neuralScore(features){
+function neuralScore(features,model=NEURAL_MODEL){
   if(features.length!==12||features.some(n=>!Number.isFinite(n)))
     throw Error('Expected 12 finite policy features');
   let values=features;
-  for(const [index,layer] of layers().entries()){
+  for(const [index,layer] of layers(model).entries()){
     const out=new Array(layer.rows);
     for(let row=0;row<layer.rows;row++){
       let value=layer.bias[row],start=row*layer.cols;
@@ -922,7 +923,7 @@ function neuralScore(features){
   }
   return values[0];
 }
-function features(state,q,r,played){
+function neuralMoveFeatures(state,q,r,played){
   const {board,radius,turn}=state,own=COLORS[turn],key=pointKey(q,r);
   const neighbors=adjacentKeys(key,radius);
   const before=board,after=played.state.board;
@@ -988,29 +989,33 @@ function shortlist(state,random){
   for(const p of ranked){if(urgent.size>=48)break;urgent.set(pointKey(p.q,p.r),p);}
   return [...urgent.values()];
 }
-function chooseNeuralMove(state,random=Math.random,inspection=null){
-  if(state.ended)return null;
-  const cells=3*state.radius*(state.radius+1)+1;
-  if(state.moveCount>=cells*2)return null;
-  const own=COLORS[state.turn];
-  const counts=new Map(COLORS.map(c=>[c,0]));
-  for(const color of Object.values(state.board))counts.set(color,(counts.get(color)||0)+1);
-  let best=null,bestValue=-Infinity;const ranked=[];
-  const evaluate=points=>{
+/**
+ * The same legal/safety filters and candidate features are used by inference
+ * and offline self-play. Stochastic training selects among these candidates.
+ */
+function neuralCandidates(state,random=Math.random){
+  if(state.ended||state.moveCount>=pointsOnBoard(state.radius).length*2)return [];
+  const collect=points=>{
+    const options=[];
     for(const {q,r} of points){
       if(state.board[pointKey(q,r)])continue;
       const played=play(state,q,r);
       if(!played.ok||isUnsafeCpuMove(state,q,r,played))continue;
-      const x=features(state,q,r,played);
-      const value=neuralScore(x);
-      if(value>bestValue){bestValue=value;best={q,r};}
-      if(inspection)ranked.push({q,r,score:Math.round(value*1000)/1000});
+      options.push({q,r,features:neuralMoveFeatures(state,q,r,played)});
     }
+    return options;
   };
-  const candidates=shortlist(state,random);
-  evaluate(candidates);
-  // Avoid a false pass when a shortlist contains only unsafe/illegal moves.
-  if(!best&&state.radius>=8)evaluate(pointsOnBoard(state.radius));
+  const options=collect(shortlist(state,random));
+  return options.length||state.radius<8?options:collect(pointsOnBoard(state.radius));
+}
+function chooseNeuralMove(state,random=Math.random,inspection=null,model=NEURAL_MODEL){
+  let best=null,bestValue=-Infinity;
+  const ranked=[];
+  for(const {q,r,features} of neuralCandidates(state,random)){
+    const value=neuralScore(features,model);
+    if(value>bestValue){bestValue=value;best={q,r};}
+    if(Array.isArray(inspection))ranked.push({q,r,score:Math.round(value*1000)/1000});
+  }
   if(Array.isArray(inspection))
     inspection.push(...ranked.sort((a,b)=>b.score-a.score).slice(0,5));
   return best;
