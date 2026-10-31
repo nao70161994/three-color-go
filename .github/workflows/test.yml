@@ -30,3 +30,40 @@ jobs:
             cat /tmp/chrome.log
             exit 1
           }
+
+  analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run seeded tactical self-play (300 games)
+        run: node scripts/analyze.mjs --games 300 --seed 20261031 --radius 3 --samples 3 --out reports/tactical-300.json > /tmp/selfplay.json
+      - name: Compare versus old CPU in rotating seats (90 games)
+        run: node scripts/analyze.mjs --compare --games 30 --seed 20261031 --radius 3 --samples 3 --out reports/rotated-90.json > /tmp/rotated.json
+      - name: Summarize measurements
+        run: |
+          node --input-type=module -e "
+            import fs from 'node:fs';
+            const a=JSON.parse(fs.readFileSync('/tmp/selfplay.json'));
+            const b=JSON.parse(fs.readFileSync('/tmp/rotated.json'));
+            const msg=[
+              '### Three-color hex Go v0.3 seeded analysis',
+              'Self-play: '+a.finished+'/'+a.settings.games+' finished, '+a.truncated+' truncated',
+              'Turns (mean): '+a.averageTurns+', occupancy (mean): '+a.averageOccupancy,
+              'Black / white / red win-share: '+JSON.stringify(a.winShare),
+              'Captures: '+a.captures+', captured stones: '+a.capturedStones+', joint captures: '+a.jointCaptures,
+              'Tactical against 2 baseline opponents, rotated across seats: '+b.finished+'/'+b.settings.games+' finished',
+              'Tactical win rate (ties split): '+b.tacticalWinRate,
+              'Per-seat tactical win rates: '+JSON.stringify(b.seats.map(x=>x.tacticalWinRate))
+            ].join('\\n');
+            console.log(msg);
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,msg+'\\n');
+          "
+      - uses: actions/upload-artifact@v4
+        with:
+          name: seeded-analysis-v0.3
+          path: reports/*.json
+          retention-days: 30
