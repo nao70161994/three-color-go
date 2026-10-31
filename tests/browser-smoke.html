@@ -129,7 +129,7 @@ async function run(){
   check(doc.querySelector('#boardViewTools').hidden===false,'巨大盤面では拡大切り替えが表示される');
   check(!game.getPresentation().zoomBoard,'巨大盤面の初期設定は全体表示');
   check(doc.querySelector('#board').getBoundingClientRect().width<=doc.querySelector('#boardPanel').getBoundingClientRect().width+2,'397マスは最初から盤全体が画面幅に収まる');
-  check(doc.querySelector('#boardZoom').textContent==='拡大して操作','初期ボタンに拡大操作を表示');
+  check(doc.querySelector('#boardZoom').textContent==='拡大して打つ','初期ボタンに拡大操作を表示');
   check(doc.documentElement.scrollWidth<=doc.documentElement.clientWidth+2,'397マスでもページ全体に横スクロールなし');
   doc.querySelector('#boardZoom').click();
   check(game.getPresentation().zoomBoard,'拡大表示へ切り替えられる');
@@ -263,7 +263,7 @@ async function run(){
   check(standalone.reset({mode:'local',radius:2}).ok,'オフライン版を初期化');
   check(standalone.play(0,0).ok,'オフライン版で着手できる');
   check(standalone.getState().scores.black===1,'オフライン版で得点を表示');
-  check(standalone.version==='1.4.1','オフライン版がv1.3.0へ同期している');
+  check(standalone.version==='1.4.1','オフライン版がv1.4.1へ同期している');
   check(standalone.setCpuLevel('easy').ok,'オフライン版でも難易度を変更できる');
   check(standalone.setHints({legal:true}).ok,'オフライン版でも合法手ガイドを切り替えられる');
   check(standalone.openReplay().ok && standalone.seekReplay(0).ok,
