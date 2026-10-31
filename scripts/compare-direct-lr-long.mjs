@@ -39,9 +39,24 @@ for(const [key,rate] of keys){
       meanStones:avg(c.evaluations.map(e=>e.meanStones))
     };
   });
+  const holdout=[];
+  for(const radius of [3,4])for(const group of [
+    'hard-balanced','balanced-balanced','tactical-guarded','baseline-baseline'
+  ]){
+    const data=JSON.parse(readFileSync(join(opts.root,'reports',key,
+      'holdout-r'+radius+'-'+group+'.json'),'utf8'));
+    if(data.finished!==24||data.truncated!==0||
+       data.radius!==radius||data.games!==24)
+      throw Error('Missing/incomplete fresh-seed holdout: '+key+' '+group);
+    holdout.push(data);
+  }
   const p=report.learning;
   const first=p.slice(0,40),last=p.slice(-40);
   records.push({
+    holdoutMeanStoneShare:avg(holdout.map(h=>h.directMeanStoneShare)),
+    holdoutHardBalancedStoneShare:avg(holdout.filter(h=>
+      h.opponents.join(',')==='hard,balanced').map(h=>h.directMeanStoneShare)),
+    holdoutWinShareRate:avg(holdout.map(h=>h.directWinShareRate)),
     key,rate,trainingGames:report.trainingGames,checkpoints:summary,
     earlyCaptures:avg(first.map(x=>x.meanCapturedStones.reduce((a,b)=>a+b,0))),
     lateCaptures:avg(last.map(x=>x.meanCapturedStones.reduce((a,b)=>a+b,0))),
@@ -58,15 +73,16 @@ const lines=[
   'No search/teacher; same seed, 3-agent reward, 320 updates, 8 games each.',
   'Independent fixed CPU evaluations (6 seating permutations x 2 replicates) at every 320 games.',
   '',
-  '| Rate | Best checkpoint (exploratory) | Best mean stones share | Final mean share | Final hard+balanced share | Final win share |',
-  '|---:|---:|---:|---:|---:|---:|',
+  '| Rate | Best checkpoint (exploratory) | Best mean stones share | Final mean share | Fresh-seed mean share | Fresh-seed hard+balanced | Fresh-seed win share |',
+  '|---:|---:|---:|---:|---:|---:|---:|',
   ...records.map(r=>{
     const best=r.checkpoints.reduce((a,b)=>b.allCpuStoneShare>a.allCpuStoneShare?b:a);
     const final=r.checkpoints.at(-1);
     return '| '+r.rate+' | '+best.games+' | '+round(best.allCpuStoneShare*100,2)+
       '% | '+round(final.allCpuStoneShare*100,2)+'% | '+
-      round(final.hardBalancedStoneShare*100,2)+'% | '+
-      round(final.winShare*100,2)+'% |';
+      round(r.holdoutMeanStoneShare*100,2)+'% | '+
+      round(r.holdoutHardBalancedStoneShare*100,2)+'% | '+
+      round(r.holdoutWinShareRate*100,2)+'% |';
   }),
   '',
   '| Games trained | '+records.map(r=>r.rate).join(' | ')+' |',
@@ -76,7 +92,7 @@ const lines=[
   '',
   'Caution: Self-play mean fractional stone reward is exactly 1/3 by construction. '+
   'These are fixed-opponent evaluation means, not selfplay reward. Model selection '+
-  'over re-used seeds is optimistic; use fresh holdout games for any promotion. '+
+  'over re-used seeds is optimistic; the final 2560-game weights have a separate fresh-seed 24-game-per-match holdout. '+
   'No cutoff proves convergence, and actual board radius >4 has not been studied.'
 ];
 const output={
