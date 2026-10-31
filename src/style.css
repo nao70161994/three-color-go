@@ -63,3 +63,20 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
   .boardTools{gap:7px}
   .boardTools button{font-size:11px;padding:11px 5px}
 }
+
+/* v0.5 — accessible controls and non-destructive replay */
+.boardSizeSetting{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:-2px 0 12px;color:#d7e6ea;font-size:12px}
+.boardSizeSetting label{font-weight:700}
+.boardSizeSetting select{font:inherit;color:#eaf1f4;background:#253b49;border:1px solid #63828d;border-radius:10px;padding:9px 10px}
+.boardSizeSetting span{color:#92adba;font-size:11px}
+.replayLaunch{display:flex;justify-content:center;margin:10px 0 0}
+.replayLaunch button{max-width:260px}
+.replayPanel{padding:14px;margin:11px 0;background:#233541;border:1px solid #5c7b8b;border-radius:14px}
+.replayPanel[hidden]{display:none}
+.replayHeader{display:flex;justify-content:space-between;gap:10px;font-size:14px;margin-bottom:11px}
+.replayPanel input[type="range"]{display:block;width:100%;margin:12px 0 16px;accent-color:#e1b35c;min-height:23px}
+.replayActions{display:flex;gap:7px;flex-wrap:wrap}
+.replayActions button{font-size:12px;min-width:67px;padding:10px 5px}
+.replayPanel p{font-size:11px;color:#b8d1dc;margin:10px 0 0}
+.replayPanel button:focus-visible,.boardSizeSetting select:focus-visible{outline:3px solid #f0d080;outline-offset:2px}
+@media(max-width:500px){.replayActions{gap:6px}.replayActions button{min-width:calc(33.333% - 6px)}.boardSizeSetting span{flex-basis:100%}}
