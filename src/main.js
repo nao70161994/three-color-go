@@ -3,10 +3,18 @@ import { chooseMove, chooseDifficultyMove, dangerGroups, legalMoves, seededRando
 import { chooseStrongMove } from './strong-ai.js';
 import { analyzeRecord, formatAnalysis, explainPosition } from './insights.js';
 import { createOnlineSession, loadPeerJS, roomLink, validRoom, secureToken } from './online.js';
+import { makeMatchmaker } from './matchmaking.js';
 
 const boardSvg = document.getElementById('board');
 const onlinePanelEl=document.getElementById('onlinePanel');
 const onlineCreateEl=document.getElementById('onlineCreate');
+const onlineRandomEl=document.getElementById('onlineRandom');
+const onlineCancelEl=document.getElementById('onlineCancel');
+const matchEndpointEl=document.getElementById('matchEndpoint');
+const importRecordEl=document.getElementById('importRecord');
+const matchListEl=document.getElementById('matchList');
+const importFileEl=document.getElementById('importFile');
+const loadMatchEl=document.getElementById('loadMatch');
 const onlineJoinEl=document.getElementById('onlineJoin');
 const onlineLeaveEl=document.getElementById('onlineLeave');
 const onlineRoomEl=document.getElementById('onlineRoom');
@@ -57,9 +65,17 @@ let cpuLevel = 'hard', showLegal = false, showDanger = true;
 let spectatorPaused = false, spectatorSpeed = 600, zoomBoard = false, zoomBoardExplicit = false;
 let replay = null, network = null, netMessage = '部屋を作るか招待URLで参加してください';
 let pendingMove = null, pinchStart = null, zoomScale = 1;
+let matchCancellation=null, matchTicket=null, currentMatchId=null;
+let aiWorker=null, aiGeneration=0;
 let lastCpuDecision = null;
 const MAX_ONLINE_ACTIONS=1800;
 const STORAGE = 'three-color-go.v2';
+const ONLINE_STORAGE = 'three-color-go.online.v1';
+const MATCH_INDEX = 'three-color-go.matches.v1';
+const MATCH_PREFIX='three-color-go.match.';
+const MATCH_ENDPOINT_KEY='three-color-go.matchmaker-url';
+const MATCH_TIMEOUT=150000;
+let randomMatching=false, saveWarning=false;
 
 function center(q,r) { return [SIZE*ROOT3*(q+r/2), SIZE*1.5*r]; }
 function vertices(x,y) {
@@ -73,7 +89,11 @@ function el(name,attrs={}) {
   Object.entries(attrs).forEach(([k,v])=>node.setAttribute(k,String(v)));
   return node;
 }
-function stopBots() { if (botTimer !== null) clearTimeout(botTimer); botTimer=null; }
+function stopBots(){
+  aiGeneration++;
+  if(botTimer!==null)clearTimeout(botTimer);
+  botTimer=null;
+}
 function visibleState() { return replay ? replay.frames[replay.index] : state; }
 function visibleActions() { return replay ? actions.slice(0,replay.index) : actions; }
 function getReplayState() {
@@ -106,7 +126,7 @@ function record() {
     zoomScale,actions:actions.map(a=>({...a}))};
 }
 function onlineStatus() {return network?network.status():{host:false,seat:null,room:null,connected:false,ready:false,message:netMessage};}
-function isGuest() {return mode==='online' && network?.status().connected && !network.status().host;}
+function isGuest() {return mode==='online' && !network?.status().host;}
 function applyNetworkMove(action,seat,expected) {
   if(mode!=='online' || !network?.status().host || state.ended || replay)
     return {ok:false,reason:'オンライン対局を操作できません'};
@@ -116,6 +136,15 @@ function applyNetworkMove(action,seat,expected) {
     return {ok:false,reason:'不明な着手'};
   if(action.type==='play')return place(action.q,action.r);
   return doPass();
+}
+function syncOnlineDelta(action,expected){
+  if(mode!=='online'||network?.status().host||replay||expected!==state.moveCount)return false;
+  if(!action||!['play','pass'].includes(action.type))return false;
+  const result=action.type==='pass'?pass(state):play(state,action.q,action.r);
+  if(!result.ok)return false;
+  past.push(state);state=result.state;
+  actions.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
+  pendingMove=null;save();render();return true;
 }
 function syncOnlineRecord(remote) {
   if(!remote||!Array.isArray(remote.actions)||remote.actions.length>MAX_ONLINE_ACTIONS)return;
@@ -133,7 +162,7 @@ async function ensureNetwork() {
   const Peer=await loadPeerJS();
   network=createOnlineSession({
     Peer,getRecord:record,applyMove:applyNetworkMove,
-    receiveRecord:syncOnlineRecord,onStatus:networkChanged
+    receiveRecord:syncOnlineRecord,receiveDelta:syncOnlineDelta,onStatus:networkChanged
   });
   return network;
 }
@@ -149,17 +178,30 @@ async function copyString(value) {
     return false;
   }
 }
-function save() {
-  try { localStorage.setItem(STORAGE,JSON.stringify({version:1,mode,radius:state.radius,cpuLevel,showLegal,showDanger,spectatorPaused,spectatorSpeed,zoomBoard,zoomBoardExplicit,actions})); }
-  catch { /* Storage may be blocked in private mode. */ }
+function save(){
+  try{
+    const data=JSON.stringify(record());
+    localStorage.setItem(mode==='online'?ONLINE_STORAGE:STORAGE,data);
+    if(mode!=='online'&&actions.length){
+      if(!currentMatchId)currentMatchId='m-'+Date.now().toString(36)+'-'+secureToken().slice(0,8);
+      localStorage.setItem(MATCH_PREFIX+currentMatchId,data);
+      const ids=JSON.parse(localStorage.getItem(MATCH_INDEX)||'[]').filter(id=>id!==currentMatchId);
+      ids.unshift(currentMatchId);
+      const old=ids.splice(30);
+      old.forEach(id=>localStorage.removeItem(MATCH_PREFIX+id));
+      localStorage.setItem(MATCH_INDEX,JSON.stringify(ids));
+    }
+    saveWarning=false;
+  }catch{saveWarning=true;}
 }
 function commit(result,action, schedule=true) {
   if(replay)return {ok:false,reason:'棋譜再生を終了してから着手してください'};
   if (!result.ok) { msgEl.textContent=result.reason; return {ok:false,reason:result.reason}; }
   stopBots();
+  const expected=state.moveCount;
   past.push(state); state=result.state; actions.push(action);pendingMove=null;
-  save(); render();
-  if(mode==='online' && network?.status().host)network.broadcast();
+  save(); render();updateMatchList();
+  if(mode==='online' && network?.status().host)network.broadcastMove(action,expected);
   if (schedule) scheduleBots();
   return {ok:true,captured:result.captured ?? [],state:snapshot(state)};
 }
@@ -173,7 +215,7 @@ function permittedForHuman() {
   if(mode==='cpu')return state.turn===0;
   if(mode==='online') {
     const info=onlineStatus();
-    return info.connected && info.seat===state.turn;
+    return info.connected && info.ready && info.seat===state.turn;
   }
   return false;
 }
@@ -217,14 +259,36 @@ function setBoardZoom(enabled) {
   if(zoomBoard)centerBoard();
   return {ok:true,zoom:zoomBoard};
 }
-function scheduleBots() {
+function scheduleBots(){
   stopBots();
-  if (replay || state.ended || !((mode==='cpu'&&state.turn!==0)||
-      (mode==='bots'&&!spectatorPaused))) return;
+  if(replay||state.ended||!((mode==='cpu'&&state.turn!==0)||(mode==='bots'&&!spectatorPaused)))return;
+  const generation=aiGeneration;
   botTimer=setTimeout(()=>{
     botTimer=null;
-    const move=botMove();
-    if (move) place(move.q,move.r); else doPass();
+    if(cpuLevel!=='hard'||typeof Worker==='undefined'||location.protocol==='file:'){
+      const move=botMove();if(move)place(move.q,move.r);else doPass();return;
+    }
+    try{
+      if(!aiWorker){
+        aiWorker=new Worker(new URL('./src/ai-worker.js',location.href),{type:'module'});
+        aiWorker.onerror=()=>{
+          aiWorker?.terminate();aiWorker=null;
+          if(generation===aiGeneration) {
+            const move=botMove();if(move)place(move.q,move.r);else doPass();
+          }
+        };
+      }
+      aiWorker.onmessage=e=>{
+        if(generation!==aiGeneration||e.data?.generation!==aiGeneration)return;
+        const {move,decision,error}=e.data||{};
+        if(error){msgEl.textContent='CPUエラー: '+error;return;}
+        if(decision)lastCpuDecision=decision;
+        if(move)place(move.q,move.r);else doPass();
+      };
+      aiWorker.postMessage({state,level:cpuLevel,generation});
+    }catch{
+      const move=botMove();if(move)place(move.q,move.r);else doPass();
+    }
   },mode==='bots'?spectatorSpeed:240);
 }
 function mostRecentMove(view=visibleState(),sequence=visibleActions()) {
@@ -265,58 +329,72 @@ function setCpuLevel(value) {
   save();render();scheduleBots();
   return {ok:true,cpuLevel};
 }
-function drawBoard() {
+let renderedRadius=null;
+const cellCache=new Map();
+function drawBoard(){
   const view=visibleState();
   const xExtent=SIZE*ROOT3*view.radius+SIZE+4;
   const yExtent=SIZE*1.5*view.radius+SIZE+4;
   boardSvg.setAttribute('viewBox',[-xExtent,-yExtent,2*xExtent,2*yExtent].join(' '));
-  const enlarged=zoomBoard;
-  boardSvg.style.width=enlarged ? Math.round(Math.max(700,xExtent*1.7)*zoomScale)+'px' : '100%';
-  boardSvg.style.maxHeight=enlarged ? 'none' : '65vh';
-  boardSvg.replaceChildren();
+  boardSvg.style.width=zoomBoard?Math.round(Math.max(700,xExtent*1.7)*zoomScale)+'px':'100%';
+  boardSvg.style.maxHeight=zoomBoard?'none':'65vh';
+  if(renderedRadius!==view.radius){
+    renderedRadius=view.radius;cellCache.clear();boardSvg.replaceChildren();
+  }
   const hints=boardHints();
-  const legalKeys=new Set(hints.legal.map(p=>pointKey(p.q,p.r)));
-  const dangerKeys=showDanger ? new Set(hints.dangerGroups.flatMap(g=>g.stones)) : new Set();
-  const lastKey=hints.lastMove ? pointKey(hints.lastMove.q,hints.lastMove.r) : null;
-  for (const {q,r} of pointsOnBoard(view.radius)) {
-    const [x,y]=center(q,r), key=pointKey(q,r),color=view.board[key];
-    const g=el('g',{
-      class:'cell '+(color?'occupied':''),
-      role:'button', tabindex:state.ended?-1:0,
-      'data-q':q,'data-r':r,
-      'aria-label':q+','+r+' '+(color?LABELS[color]+'石':'空点')
-        +(dangerKeys.has(key)?' 危険・呼吸点1':'')
-        +(lastKey===key?' 直前の着手':'')
-        +(legalKeys.has(key)?' 合法手':'')
-    });
-    g.appendChild(el('polygon',{points:vertices(x,y),class:'hex'}));
-    if (color) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.64,class:'piece '+color}));
-    if (legalKeys.has(key)) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.17,class:'hintLegal'}));
-    if (dangerKeys.has(key)) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.79,class:'hintDanger'}));
-    if (lastKey===key) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.91,class:'hintLast'}));
-    if(pendingMove && pendingMove.q===q && pendingMove.r===r)
-      g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.95,class:'hintSelected'}));
-    function activate() {
-      if(!permittedForHuman()){
-        msgEl.textContent=replay?'棋譜を再生中です':mode==='online'?'自分の手番か接続を確認してください':'CPUが考えています';
-        return;
-      }
-      if(view.radius>=8 && (!pendingMove || pendingMove.q!==q || pendingMove.r!==r)){
-        pendingMove={q,r};moveConfirmEl.hidden=false;
-        moveConfirmEl.firstChild.textContent=' ('+q+','+r+') をもう一度タップして着手 ';
-        drawBoard();return;
-      }
-      pendingMove=null;moveConfirmEl.hidden=true;
-      if(mode==='online') {
-        const outcome=sendOnlineAction({type:'play',q,r});
-        if(!outcome.ok)msgEl.textContent=outcome.reason;
-      }else place(q,r);
+  const legal=new Set(hints.legal.map(p=>pointKey(p.q,p.r)));
+  const danger=showDanger?new Set(hints.dangerGroups.flatMap(g=>g.stones)):new Set();
+  const last=hints.lastMove?pointKey(hints.lastMove.q,hints.lastMove.r):null;
+  for(const {q,r} of pointsOnBoard(view.radius)){
+    const key=pointKey(q,r),color=view.board[key]||'';
+    const selected=!!pendingMove&&pendingMove.q===q&&pendingMove.r===r;
+    const signature=[color,legal.has(key),danger.has(key),last===key,selected,view.ended].join('|');
+    let item=cellCache.get(key);
+    if(!item){
+      const g=el('g',{class:'cell',role:'button','data-q':q,'data-r':r,tabindex:0});
+      const activate=()=>{
+        if(!permittedForHuman()){
+          msgEl.textContent=replay?'棋譜を再生中です':mode==='online'?'接続と自分の手番を確認してください':'CPUの手番です';
+          return;
+        }
+        if(visibleState().radius>=8 && (!pendingMove||pendingMove.q!==q||pendingMove.r!==r)){
+          pendingMove={q,r};moveConfirmEl.hidden=false;
+          moveConfirmEl.firstChild.textContent=' ('+q+','+r+') をもう一度タップして着手 ';
+          drawBoard();return;
+        }
+        pendingMove=null;moveConfirmEl.hidden=true;
+        if(mode==='online'){
+          const outcome=sendOnlineAction({type:'play',q,r});
+          if(!outcome.ok)msgEl.textContent=outcome.reason;
+        }else place(q,r);
+      };
+      g.addEventListener('click',activate);
+      g.addEventListener('keydown',e=>{
+        if(e.key==='Enter'||e.key===' '){e.preventDefault();activate();return;}
+        const dir={'ArrowRight':[1,0],'ArrowLeft':[-1,0],
+          'ArrowUp':[0,-1],'ArrowDown':[0,1]}[e.key];
+        if(dir){
+          const next=cellCache.get(pointKey(q+dir[0],r+dir[1]))?.g;
+          if(next){e.preventDefault();next.focus();}
+        }
+      });
+      item={g,signature:null};cellCache.set(key,item);boardSvg.appendChild(g);
     }
-    g.addEventListener('click',activate);
-    g.addEventListener('keydown',e=>{
-      if (e.key==='Enter'||e.key===' ') {e.preventDefault();activate();}
-    });
-    boardSvg.appendChild(g);
+    if(item.signature===signature)continue;
+    item.signature=signature;
+    const g=item.g,[x,y]=center(q,r);
+    g.setAttribute('class','cell '+(color?'occupied':''));
+    g.setAttribute('tabindex',view.ended?'-1':'0');
+    g.setAttribute('aria-label',q+','+r+' '+(color?LABELS[color]+'石':'空点')
+      +(danger.has(key)?' 危険・呼吸点1':'')+(last===key?' 直前の着手':'')
+      +(legal.has(key)?' 合法手':''));
+    const children=[el('polygon',{points:vertices(x,y),class:'hex'})];
+    if(color)children.push(el('circle',{cx:x,cy:y,r:SIZE*.64,class:'piece '+color}));
+    if(legal.has(key))children.push(el('circle',{cx:x,cy:y,r:SIZE*.17,class:'hintLegal'}));
+    if(danger.has(key))children.push(el('circle',{cx:x,cy:y,r:SIZE*.79,class:'hintDanger'}));
+    if(last===key)children.push(el('circle',{cx:x,cy:y,r:SIZE*.91,class:'hintLast'}));
+    if(selected)children.push(el('circle',{cx:x,cy:y,r:SIZE*.95,class:'hintSelected'}));
+    g.replaceChildren(...children);
   }
 }
 function render() {
@@ -350,9 +428,12 @@ function render() {
   const session=onlineStatus();
   onlineStatusEl.textContent=netMessage+(mode==='online'&&session.host?' · 参加人数 '+(session.players+1)+'/3':'');
   onlineCopyEl.disabled=!session.room||!session.host;
-  onlineCreateEl.disabled=session.connected || !!replay;
-  onlineJoinEl.disabled=session.connected || !!replay;
-  onlineLeaveEl.disabled=!session.connected;
+  onlineCreateEl.disabled=session.connected || !!replay || randomMatching;
+  onlineRandomEl.disabled=session.connected || !!replay || randomMatching;
+  onlineCancelEl.hidden=!randomMatching;
+  matchEndpointEl.disabled=randomMatching;
+  onlineJoinEl.disabled=session.connected || !!replay || randomMatching;
+  onlineLeaveEl.disabled=mode!=='online'||(!network&&!randomMatching);
   boardSizeEl.disabled=!!replay || isGuest();
   spectatorControlsEl.hidden=mode!=='bots';
   spectatorToggleEl.textContent=spectatorPaused?'再開':'一時停止';
@@ -386,6 +467,7 @@ function render() {
   } else {
     msgEl.textContent=replay?'棋譜を再生中です · 対局は一時停止しています':view.lastAction;
   }
+  if(saveWarning)msgEl.textContent+=' · ⚠保存できません（ストレージ容量・権限を確認）';
 }
 function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   if (!['cpu','local','bots','online'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
@@ -396,8 +478,9 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   if(mode==='online' && nextMode!=='online') {network?.close();network=null;}
   replay=null;state=next;
   mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
-  past=[];actions=[];pendingMove=null;lastCpuDecision=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
+  past=[];actions=[];pendingMove=null;lastCpuDecision=null;currentMatchId=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
   if(nextMode==='online'&&network?.status().host)network.broadcast();
+  updateMatchList();
   return {ok:true,state:snapshot(state)};
 }
 function undo() {
@@ -432,6 +515,7 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
   if(mode==='online' && !networkSync){network?.close();network=null;}
   replay=null;
   state=next;mode=nextMode;pendingMove=null;cpuLevel=nextLevel;
+  if(!networkSync)currentMatchId=null;
   spectatorSpeed=[180,600,1200].includes(record.spectatorSpeed)?record.spectatorSpeed:600;
   spectatorPaused=nextMode==='bots' ? (!resumeSavedBots || record.spectatorPaused===true) : false;
   // Old saves were automatically zoomed, not necessarily by user choice.
@@ -442,6 +526,22 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
   showLegal=nextShowLegal;showDanger=nextShowDanger;past=states;actions=normalized;
   save();render();if(zoomBoard)centerBoard();scheduleBots();
   return {ok:true,state:snapshot(state)};
+}
+function updateMatchList(){
+  try{
+    const ids=JSON.parse(localStorage.getItem(MATCH_INDEX)||'[]');
+    const selected=matchListEl.value;
+    matchListEl.replaceChildren();
+    for(const id of ids){
+      const raw=localStorage.getItem(MATCH_PREFIX+id);if(!raw)continue;
+      let item;try{item=JSON.parse(raw);}catch{continue;}
+      const option=document.createElement('option');
+      option.value=id;option.textContent=(item.actions?.length||0)+'手 · '+(3*item.radius*(item.radius+1)+1)+'マス · '+id.slice(2,10);
+      matchListEl.append(option);
+    }
+    if([...matchListEl.options].some(o=>o.value===selected))matchListEl.value=selected;
+    loadMatchEl.disabled=!matchListEl.options.length;
+  }catch{loadMatchEl.disabled=true;}
 }
 function restore() {
   try {
@@ -488,7 +588,75 @@ onlineJoinEl.addEventListener('click',async()=>{
     render();
   }catch(e){netMessage='参加できません: '+e.message;onlineStatusEl.textContent=netMessage;}
 });
-onlineLeaveEl.addEventListener('click',()=>{network?.close();network=null;reset({nextMode:'local'});});
+onlineLeaveEl.addEventListener('click',()=>{
+  matchCancellation?.();
+  network?.close();network=null;reset({nextMode:'local'});
+});
+onlineCancelEl.addEventListener('click',()=>matchCancellation?.());
+matchEndpointEl.value=(()=>{try{return localStorage.getItem(MATCH_ENDPOINT_KEY)||globalThis.THREE_COLOR_MATCH_URL||'';}catch{return globalThis.THREE_COLOR_MATCH_URL||'';}})();
+matchEndpointEl.addEventListener('change',()=>{
+  try{localStorage.setItem(MATCH_ENDPOINT_KEY,matchEndpointEl.value.trim());}catch{}
+});
+onlineRandomEl.addEventListener('click',async()=>{
+  if(randomMatching)return;
+  let service;
+  try{service=makeMatchmaker(matchEndpointEl.value.trim());}
+  catch(e){netMessage=e.message;render();return;}
+  try{localStorage.setItem(MATCH_ENDPOINT_KEY,matchEndpointEl.value.trim());}catch{}
+  randomMatching=true;let cancelled=false;
+  const ticket=secureToken();
+  matchCancellation=()=>{cancelled=true;randomMatching=false;matchCancellation=null;
+    service.leave(ticket).catch(()=>{});netMessage='ランダムマッチを中止しました';render();};
+  render();
+  try{
+    let match=await service.join(ticket);
+    const start=Date.now();
+    while(!cancelled && Date.now()-start<MATCH_TIMEOUT){
+      if(match.status==='matched'&&match.room){
+        const net=await ensureNetwork();
+        if(match.seat===0){
+          await net.createRoom(match.room);
+          reset({nextMode:'online'});
+          await service.ready(ticket);
+          netMessage='3人が見つかりました。オンライン接続を待っています';
+          onlineRoomEl.value=roomLink(location.href,match.room);
+        }else{
+          const id=secureToken();
+          await net.joinRoom(match.room,id);
+          netMessage='ランダムマッチの対局に参加しました';
+        }
+        randomMatching=false;matchCancellation=null;render();return;
+      }
+      netMessage='対戦相手を探しています…';
+      render();
+      await new Promise(resolve=>setTimeout(resolve,1600));
+      match=await service.status(ticket);
+    }
+    if(!cancelled){await service.leave(ticket);throw Error('時間内に3人揃いませんでした');}
+  }catch(e){
+    if(!cancelled){randomMatching=false;matchCancellation=null;
+      netMessage='マッチング失敗: '+e.message;render();}
+  }
+});
+loadMatchEl.addEventListener('click',()=>{
+  try{
+    const data=JSON.parse(localStorage.getItem(MATCH_PREFIX+matchListEl.value));
+    const result=loadRecord(data);
+    if(!result.ok)msgEl.textContent=result.reason;
+  }catch(e){msgEl.textContent='対局を読み込めません: '+e.message;}
+});
+importFileEl.addEventListener('click',()=>importRecordEl.click());
+importRecordEl.addEventListener('change',async()=>{
+  const file=importRecordEl.files?.[0];if(!file)return;
+  try{
+    if(file.size>1_000_000)throw Error('ファイルが大きすぎます');
+    const data=JSON.parse(await file.text());
+    const result=loadRecord(data);
+    if(!result.ok)throw Error(result.reason);
+    msgEl.textContent='棋譜を復元しました';
+  }catch(e){msgEl.textContent='棋譜を読み込めません: '+e.message;}
+  importRecordEl.value='';
+});
 onlineCopyEl.addEventListener('click',async()=>{
   if(network?.status().room && network.status().host)
     await copyString(roomLink(location.href,network.status().room));
@@ -570,7 +738,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.2.0',
+  version: '1.3.0',
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),
   explainPosition: ()=>explainPosition(state),
@@ -619,7 +787,10 @@ window.threeColorGo = Object.freeze({
   }
 });
 
-render();restore();scheduleBots();
+render();restore();updateMatchList();scheduleBots();
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1')){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
 const inviteRoom=new URL(location.href).searchParams.get('room');
 if(validRoom(inviteRoom)){
   stopBots();

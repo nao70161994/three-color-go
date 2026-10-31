@@ -113,3 +113,9 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
 .hintSelected{fill:none;stroke:#ffce52;stroke-width:4;stroke-dasharray:4 3;pointer-events:none}
 .board{touch-action:pan-x pan-y}
 @media(max-width:500px){.onlineActions button,.studyActions button{min-width:calc(50% - 5px)}.onlinePanel{padding:10px}.studyActions{gap:6px}}
+
+.savedMatches{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px;margin:12px 0;border:1px solid #587889;border-radius:12px;background:#213540;font-size:12px}
+.savedMatches select{background:#1c303c;color:#fff;border:1px solid #74919f;border-radius:8px;padding:10px;min-width:140px;max-width:100%}
+.savedMatches button{flex:0 1 auto;padding:10px;font-size:12px}
+.onlineActions button[hidden],.savedMatches input[hidden]{display:none}
+@media(max-width:500px){.savedMatches select{width:100%}.savedMatches button{flex:1 1 45%}}
