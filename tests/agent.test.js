@@ -109,3 +109,28 @@ test('v0.4: easy / normal / hard difficulty moves are valid, seeded and nonmutat
     assert.equal(chooseDifficultyMove(ended,seededRandom(11),level),null);
   }
 });
+
+
+test('v0.5 guarded hard CPU is deterministic, legal and preserves rule state',()=>{
+  const s=createGame(3);
+  s.board={
+    '0,0':'black','1,0':'white','1,-1':'red','0,-1':'white',
+    '-1,0':'red','-1,1':'white'
+  };
+  s.turn=0;
+  const input=JSON.stringify(s);
+  const first=chooseDifficultyMove(s,seededRandom(50),'hard');
+  const second=chooseDifficultyMove(s,seededRandom(50),'hard');
+  assert.deepEqual(first,second);
+  assert.equal(play(s,first.q,first.r).ok,true);
+  assert.equal(JSON.stringify(s),input);
+  const strong=simulate({radius:2,seed:57,strategies:['guarded','tactical','baseline']});
+  assert.equal(strong.truncated,false);
+  let state=createGame(2);
+  for(const move of strong.history){
+    const result=move.pass?pass(state):play(state,move.q,move.r);
+    assert.equal(result.ok,true,JSON.stringify(move));
+    state=result.state;
+  }
+  assert.deepEqual(state.board,strong.state.board);
+});
