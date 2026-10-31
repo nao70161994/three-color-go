@@ -264,7 +264,7 @@ function scheduleBots(){
   const generation=aiGeneration;
   botTimer=setTimeout(()=>{
     botTimer=null;
-    if(typeof Worker==='undefined'||location.protocol==='file:'){
+    if(cpuLevel!=='hard'||typeof Worker==='undefined'||location.protocol==='file:'){
       const move=botMove();if(move)place(move.q,move.r);else doPass();return;
     }
     try{
