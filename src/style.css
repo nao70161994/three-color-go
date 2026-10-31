@@ -97,3 +97,19 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
   .spectatorControls button{padding:10px}
   .boardViewTools button{width:100%}
 }
+
+/* v1.0 touch-safe zoom and v1.2 online lobby */
+.onlinePanel,.studyPanel{border:1px solid #587889;border-radius:14px;background:#213540;padding:12px;margin:10px 0;color:#dce8ed}
+.onlinePanel[hidden],.studyPanel[hidden],.moveConfirm[hidden]{display:none}
+.onlineActions,.studyActions{display:flex;gap:8px;flex-wrap:wrap;margin:11px 0}
+.onlineActions button,.studyActions button{min-width:120px}
+.onlinePanel label{display:block;margin:10px 0 5px;font-weight:700;font-size:12px}
+.onlinePanel input{display:block;box-sizing:border-box;width:100%;padding:12px;font:inherit;color:#eff7f7;background:#152833;border:1px solid #6d8996;border-radius:9px}
+.onlinePanel p{color:#c4d1d9;line-height:1.5;font-size:12px;overflow-wrap:anywhere}
+.onlinePanel button{font-size:12px;padding:11px 8px}
+.studyPanel pre{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;font-size:12px}
+.moveConfirm{position:sticky;top:0;z-index:4;background:#eecb78;color:#172b33;padding:8px 10px;border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700}
+.moveConfirm button{background:#273b48;color:#f3e3af;min-width:100px;flex:0 0 auto;padding:7px}
+.hintSelected{fill:none;stroke:#ffce52;stroke-width:4;stroke-dasharray:4 3;pointer-events:none}
+.board{touch-action:pan-x pan-y}
+@media(max-width:500px){.onlineActions button,.studyActions button{min-width:calc(50% - 5px)}.onlinePanel{padding:10px}.studyActions{gap:6px}}

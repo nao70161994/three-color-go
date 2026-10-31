@@ -85,7 +85,7 @@ test('rotated policies compare each seat equally, never counting unfinished matc
 });
 test('invalid batch parameters and strategies are rejected',()=>{
   assert.throws(()=>analyzeBalance({rounds:0}),/rounds/);
-  assert.throws(()=>analyzeBalance({radius:6}),/radius/);
+  assert.throws(()=>analyzeBalance({radius:7}),/radius/);
   assert.throws(()=>analyzeBalance({seed:-1}),/seed/);
   assert.throws(()=>analyzeBalance({policy:'unknown'}),/policy/);
   assert.throws(()=>comparePolicies({challenger:'balanced',opponent:'balanced'}),/different/);

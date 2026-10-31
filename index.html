@@ -16,9 +16,21 @@
       <p>3色で囲み、最後に残った石の数を競おう。</p>
     </header>
     <div class="settings">
-      <div class="setting"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">1人で遊ぶ（CPU 2人）</option><option value="bots">CPU 3人の対局を観戦</option><option value="local">3人で交代</option></select></div>
+      <div class="setting"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">1人で遊ぶ（CPU 2人）</option><option value="bots">CPU 3人の対局を観戦</option><option value="local">3人で交代</option><option value="online">オンライン3人対戦（試験版）</option></select></div>
       <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option></select></div>
     </div>
+    <section id="onlinePanel" class="onlinePanel" hidden aria-label="オンライン3人対戦">
+      <div class="onlineActions">
+        <button id="onlineCreate" type="button">部屋を作る（黒）</button>
+        <button id="onlineJoin" type="button">部屋に参加する</button>
+        <button id="onlineLeave" type="button">退室</button>
+      </div>
+      <label for="onlineRoom">部屋ID / 招待URL</label>
+      <input id="onlineRoom" type="text" autocomplete="off" placeholder="招待URLまたは部屋ID" />
+      <button id="onlineCopy" type="button">招待URLをコピー</button>
+      <p id="onlineStatus" role="status" aria-live="polite">部屋の作成または参加を選んでください</p>
+      <p>ホストが黒、参加者が白・赤を担当。ホストのブラウザを開いたままにしてください。オンラインには通信が必要です。</p>
+    </section>
     <div class="boardSizeSetting"><label for="boardSize">盤面サイズ</label>
       <select id="boardSize"><option value="2" disabled>旧・極小（19マス）</option><option value="3">小（37マス）</option><option value="4" selected>標準（61マス）</option><option value="5">大（91マス）</option><option value="6">特大（127マス）</option><option value="8">広い（217マス）</option><option value="10">超広い（331マス）</option><option value="11">19路盤超え（397マス）</option><option value="12">最大（469マス）</option></select>
       <span>変更すると新しい対局になります</span>
@@ -34,6 +46,7 @@
       <div class="counts" id="counts"></div>
     </section>
     <section id="boardPanel" class="boardPanel" aria-label="対局盤">
+      <div id="moveConfirm" class="moveConfirm" hidden>選択した場所をもう一度タップして着手 <button id="moveCancel" type="button">キャンセル</button></div>
       <svg id="board" class="board" viewBox="-235 -212 470 424" role="group" aria-label="六角形の囲碁盤"></svg>
     </section>
     <div id="boardViewTools" class="boardViewTools" hidden>
@@ -50,6 +63,12 @@
       <button id="undoBtn" type="button">一手戻す</button>
       <button id="resetBtn" type="button">最初から</button>
     </div>
+    <div class="studyActions">
+      <button id="copyRecord" type="button">棋譜をコピー</button>
+      <button id="copyAnalysis" type="button">対局分析をコピー</button>
+      <button id="lastMoveJump" type="button">最新の着手へ移動</button>
+    </div>
+    <section class="studyPanel" id="studyPanel" hidden aria-label="対局の分析"><pre id="studyText"></pre></section>
     <div class="replayLaunch">
       <button id="replayOpen" type="button">棋譜を再生</button>
     </div>
@@ -79,7 +98,7 @@
       </ul>
       <p>「むずかしい」は相手2人の応手を先読みします。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦・死に石の合意処理は未対応です。</p>
     </details>
-    <footer>v0.8.3 · 大型盤面の初期表示を全体表示に変更・397/469マス・拡大表示 · ローカル対戦 / CPU対戦 / エージェントAPI対応</footer>
+    <footer>v1.2 · AI分析・拡大操作・オンライン3人対戦・397/469マス・拡大表示 · ローカル対戦 / CPU対戦 / エージェントAPI対応</footer>
   </main>
   <script type="module" src="./src/main.js"></script>
 </body>

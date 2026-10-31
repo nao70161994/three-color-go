@@ -1,6 +1,6 @@
 {
   "name": "three-color-go",
-  "version": "0.8.3",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "三色六角碁：石数得点方式の試作",
@@ -13,6 +13,7 @@
     "check:standalone": "node scripts/build-standalone.mjs --check",
     "balance": "node scripts/balance.mjs",
     "balance:matchup": "node scripts/balance.mjs --matchup",
-    "test:strength": "node scripts/strength-report.mjs"
+    "test:strength": "node scripts/strength-report.mjs",
+    "study:sizes": "node scripts/size-study.mjs"
   }
 }

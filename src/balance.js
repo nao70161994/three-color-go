@@ -9,7 +9,7 @@ function validInt(x,label,lo,hi) {
 function checkOptions({rounds,seed,radius,maxTurns,samples}) {
   validInt(rounds,'rounds',1,500);
   validInt(seed,'seed',0,4294967295);
-  validInt(radius,'radius',2,5);
+  validInt(radius,'radius',2,6);
   validInt(maxTurns,'maxTurns',1,2000);
   validInt(samples,'samples',0,5);
 }
