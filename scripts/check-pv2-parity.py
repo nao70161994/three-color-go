@@ -3,13 +3,13 @@
 import json
 import subprocess
 import sys
+import runpy
 from pathlib import Path
 
 import numpy as np
 import torch
-from train_pv2_selfplay import HexPolicyValue
-
 ROOT = Path(__file__).resolve().parent.parent
+HexPolicyValue = runpy.run_path(str(ROOT / 'scripts/train-pv2-selfplay.py'))['HexPolicyValue']
 
 
 def main():
