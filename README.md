@@ -15,7 +15,7 @@
 
 \`\`\`sh
 npm test
-npm run test:strength -- --games 9 --radius 3 --seed 20261031 --out reports/strong-v0.7.json
+npm run test:strength -- --games 60 --radius 3 --seed 20261031 --out reports/strong-v0.7.json
 \`\`\`
 
 この比較は新CPU1体と従来の\`balanced\` CPU2体の試合で、新CPUの担当色を順番に交代します。AI同士の結果であり、人間の勝率や棋力を保証するものではありません。
