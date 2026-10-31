@@ -86,7 +86,7 @@ function replies(state,player,width,random) {
   return ranked.length?ranked:[{state:fallback(state),rank:0}];
 }
 
-export function chooseStrongMove(state,random=Math.random) {
+export function chooseStrongMove(state,random=Math.random,inspection=null) {
   if(state.ended)return null;
   const cells=pointsOnBoard(state.radius).length;
   if(state.moveCount>=cells*2)return null;
@@ -96,6 +96,7 @@ export function chooseStrongMove(state,random=Math.random) {
   const roots=candidates(state,me,width,random);
   if(!roots.length)return null;
   let best=roots[0],bestValue=-Infinity;
+  const assessed=[];
   for(const root of roots) {
     let worst=Infinity;
     for(const first of replies(root.state,COLORS[root.state.turn],opponentWidth,random)) {
@@ -104,8 +105,15 @@ export function chooseStrongMove(state,random=Math.random) {
       }
     }
     const value=root.rank*.2+worst*.8;
+    if(Array.isArray(inspection))assessed.push({
+      q:root.q,r:root.r,score:Math.round(value*100)/100,
+      immediateScore:Math.round(root.rank*100)/100,
+      replyScore:Math.round(worst*100)/100
+    });
     if(value>bestValue) {bestValue=value;best=root;}
   }
+  if(Array.isArray(inspection))
+    inspection.push(...assessed.sort((a,b)=>b.score-a.score).slice(0,5));
   return {q:best.q,r:best.r};
 }
 
