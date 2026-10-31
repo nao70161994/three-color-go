@@ -29,6 +29,12 @@ test('Five-rate long comparison enforces 8 complete checkpoints and records real
       }));
       writeFileSync(join(folder,'learning-curve-summary.json'),
         JSON.stringify({trainingGames:2560,evalGamesPerMatch:12,checkpoints,learning}));
+      for(const radius of [3,4])for(const group of [
+        'hard-balanced','balanced-balanced','tactical-guarded','baseline-baseline'
+      ])writeFileSync(join(folder,'holdout-r'+radius+'-'+group+'.json'),
+        JSON.stringify({radius,games:24,finished:24,truncated:0,
+          opponents:group.split('-'),directMeanStoneShare:.1,
+          directWinShareRate:0}));
     }
     const output=join(dir,'comparison.json');
     const p=spawnSync(process.execPath,[
