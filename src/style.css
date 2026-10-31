@@ -80,3 +80,20 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
 .replayPanel p{font-size:11px;color:#b8d1dc;margin:10px 0 0}
 .replayPanel button:focus-visible,.boardSizeSetting select:focus-visible{outline:3px solid #f0d080;outline-offset:2px}
 @media(max-width:500px){.replayActions{gap:6px}.replayActions button{min-width:calc(33.333% - 6px)}.boardSizeSetting span{flex-basis:100%}}
+
+/* v0.8: large-board viewport & spectator transport */
+.boardPanel{overflow:auto;max-height:75vh;overscroll-behavior:contain}
+.boardPanel .board{min-width:0}
+.boardViewTools,.spectatorControls{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:10px 0;color:#bbd0d9;font-size:12px}
+.boardViewTools[hidden],.spectatorControls[hidden]{display:none}
+.boardViewTools button,.spectatorControls button{flex:0 0 auto;padding:10px 12px}
+.boardViewTools span{flex:1 1 200px}
+.spectatorControls{background:#233541;border:1px solid #547282;border-radius:13px;padding:10px;margin-bottom:12px}
+.spectatorControls label{font-weight:700}
+.spectatorControls select{color:#eaf1f4;background:#253b49;border:1px solid #63828d;padding:10px;border-radius:9px}
+.spectatorControls button:focus-visible,.boardViewTools button:focus-visible{outline:3px solid #f0d080;outline-offset:2px}
+@media(max-width:500px){
+  .spectatorControls{gap:7px}
+  .spectatorControls button{padding:10px}
+  .boardViewTools button{width:100%}
+}
