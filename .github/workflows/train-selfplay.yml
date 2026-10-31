@@ -42,6 +42,8 @@ jobs:
           ITERATIONS: ${{ inputs.iterations || '30' }}
           GAMES: ${{ inputs.games || '12' }}
         run: |
+          set -o pipefail
+          mkdir -p reports
           python scripts/train-selfplay-rl.py --iterations "$ITERATIONS" --games "$GAMES" \
             --seed 20261031 --radii 2,3,4 --out reports/neural-rl-candidate.json \
             | tee reports/selfplay-training.jsonl
