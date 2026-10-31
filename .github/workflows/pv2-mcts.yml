@@ -11,8 +11,6 @@ on:
       - scripts/check-pv2-parity.py
       - tests/pv2-ai.test.js
       - .github/workflows/pv2-mcts.yml
-  push:
-    branches: [feat/group-aware-pv2-mcts]
   workflow_dispatch:
 jobs:
   smoke:
@@ -47,7 +45,7 @@ jobs:
           path: reports/pv2-smoke*.json
           retention-days: 14
   experiment:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
