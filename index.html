@@ -20,7 +20,7 @@
       <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option></select></div>
     </div>
     <div class="boardSizeSetting"><label for="boardSize">盤面サイズ</label>
-      <select id="boardSize"><option value="2">小（19マス）</option><option value="3">中（37マス）</option><option value="4" selected>標準（61マス）</option><option value="5">大（91マス）</option></select>
+      <select id="boardSize"><option value="2" disabled>旧・極小（19マス）</option><option value="3">小（37マス）</option><option value="4" selected>標準（61マス）</option><option value="5">大（91マス）</option><option value="6">特大（127マス）</option></select>
       <span>変更すると新しい対局になります</span>
     </div>
     <section class="status" aria-label="対局状況">
@@ -67,9 +67,9 @@
         <li>陣地点、アゲハマ点、コミはなし。</li>
         <li>棋譜を再生すると手番や点数も過去の状態で確認でき、対局へ戻ると続きから遊べます。</li>
       </ul>
-      <p>CPUは3段階の簡易AIです。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦・死に石の合意処理は未対応です。</p>
+      <p>「むずかしい」は相手2人の応手を先読みします。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦・死に石の合意処理は未対応です。</p>
     </details>
-    <footer>v0.6 · CPUバランス研究・共同包囲対策 · ローカル対戦 / CPU対戦 / エージェントAPI対応</footer>
+    <footer>v0.7 · 37マスから選べる盤面・先読みCPU · ローカル対戦 / CPU対戦 / エージェントAPI対応</footer>
   </main>
   <script type="module" src="./src/main.js"></script>
 </body>

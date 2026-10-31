@@ -59,6 +59,14 @@ A playable 3-player Go variant. Three colors, hexagonal board (6 neighbors), sto
 - Do not attribute outcomes to human enjoyment or general competitiveness. Report the seed, CPU policy and incomplete-game count.
 - Continue \`npm test\`, \`npm run check:standalone\` and the Chrome browser smoke test before merging.
 
+## v0.7 stronger CPU / size
+- Small board is **radius 3 / 37 cells**. Selectable sizes: radius 3,4,5,6. Preserve old radius 2 games from existing saves/replays. Do not invalidate v0.5 records.
+- Hard UI uses \`src/strong-ai.js\` with bounded 3-ply search over both opposing players. Other CPU modes remain unchanged.
+- Export \`chooseStrongMove(state,seededRandom(seed))\` for deterministic external agents. \`strongMatch\` plays a test game with a single strong CPU rotating between seats against two \`balanced\` bots.
+- Compare under \`node scripts/strength-report.mjs --games 9 --radius 3 --seed 20261031\`, report wins and completion, and do not claim human-level strength.
+- Generated \`play.html\` requires source order game, agent, strong-ai, main; verify exact match with \`npm run check:standalone\`.
+- Keep CPU response smooth on 61+ cells; use Chrome smoke and benchmark the hard bot.
+
 ## Known limitations
 - CPU is a tactical one-ply, deterministic-under-seed heuristic, not a competitive Go engine.
 - No online play.
