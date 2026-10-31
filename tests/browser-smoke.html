@@ -30,7 +30,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function run(){
   const win=frame.contentWindow, doc=frame.contentDocument, game=win.threeColorGo;
   check(game && typeof game.getState==='function','AI操作用APIが存在');
-  check(game.version==='0.8','公開APIのバージョンがv0.8');
+  check(game.version==='0.8.1','公開APIのバージョンがv0.8');
   check(doc.querySelector('#boardSize').value==='4','初期サイズは半径4・61マス');
   check(doc.querySelector('#replayOpen').disabled,'棋譜が空なら再生ボタンは無効');
   check(doc.querySelector('#boardSize option[value="3"]').textContent.includes('小（37マス）'),'新しい小サイズは37マス');
@@ -204,7 +204,7 @@ async function run(){
   check(standalone.reset({mode:'local',radius:2}).ok,'オフライン版を初期化');
   check(standalone.play(0,0).ok,'オフライン版で着手できる');
   check(standalone.getState().scores.black===1,'オフライン版で得点を表示');
-  check(standalone.version==='0.8','オフライン版がv0.8へ同期している');
+  check(standalone.version==='0.8.1','オフライン版がv0.8へ同期している');
   check(standalone.setCpuLevel('easy').ok,'オフライン版でも難易度を変更できる');
   check(standalone.setHints({legal:true}).ok,'オフライン版でも合法手ガイドを切り替えられる');
   check(standalone.openReplay().ok && standalone.seekReplay(0).ok,
