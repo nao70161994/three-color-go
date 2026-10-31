@@ -8,18 +8,20 @@ import {dirname} from 'node:path';
 const args={};
 for(let i=2;i<process.argv.length;i+=2){
   const k=process.argv[i],v=process.argv[i+1];
-  if(!['--training-log','--eval-prefix','--out','--checkpoint-every','--iterations','--groups','--games'].includes(k)||
+  if(!['--training-log','--eval-prefix','--out','--checkpoint-every','--iterations','--start-iteration','--groups','--games'].includes(k)||
       v===undefined)throw Error('Unknown/missing '+k);
   args[k.slice(2)]=v;
 }
 if(!args['training-log']||!args['eval-prefix'])throw Error('Missing inputs');
 const iterations=Number(args.iterations??120),step=Number(args['checkpoint-every']??20);
+const startIteration=Number(args['start-iteration']??0);
 if(!Number.isInteger(iterations)||iterations<1||
-   !Number.isInteger(step)||step<1||iterations%step!==0)
+   !Number.isInteger(startIteration)||startIteration<0||startIteration>=iterations||
+   !Number.isInteger(step)||step<1||(iterations-startIteration)%step!==0)
   throw Error('Invalid checkpoint study configuration');
 const rows=readFileSync(args['training-log'],'utf8').split('\n')
   .filter(s=>s.startsWith('{')).map(JSON.parse);
-if(rows.length!==iterations||rows.some((x,i)=>x.iteration!==i+1))
+if(rows.length!==iterations-startIteration||rows.some((x,i)=>x.iteration!==startIteration+i+1))
   throw Error('Incomplete/nonsequential training trace');
 for(const row of rows){
   if(![row.meanSurvivingStones,row.meanCapturedStones,row.meanCapturedLosses,
@@ -35,7 +37,7 @@ if(!groups.length||groups.some(g=>!['hard-balanced','balanced-balanced',
    !Number.isInteger(gamesPerMatch)||gamesPerMatch<6||gamesPerMatch>300||
    gamesPerMatch%6!==0)throw Error('Invalid matchup groups/games');
 const radii=[3,4],checkpoints=[];
-for(let iteration=step;iteration<=iterations;iteration+=step){
+for(let iteration=startIteration+step;iteration<=iterations;iteration+=step){
   const parts=[];
   for(const radius of radii)for(const group of groups){
     const path=`${args['eval-prefix']}-iter${String(iteration).padStart(4,'0')}-r${radius}-${group}.json`;
@@ -53,7 +55,7 @@ for(let iteration=step;iteration<=iterations;iteration+=step){
       marginVsSecond:result.vsOp2.meanStoneMargin
     });
   }
-  checkpoints.push({iteration,gamesTrained:rows[iteration-1].trainingGamesTotal,
+  checkpoints.push({iteration,gamesTrained:rows[iteration-startIteration-1].trainingGamesTotal,
     evaluations:parts});
 }
 const mean=(xs)=>+(xs.reduce((a,b)=>a+b,0)/xs.length).toFixed(4);
@@ -75,7 +77,7 @@ const report={
   matchupGroups:groups,evalGamesPerMatch:gamesPerMatch,
   experiment:'no-search three-player terminal stone shares',
   caveat:'Selfplay mean stone share across 3 seats is mathematically 1/3 and not a strength metric. Independent fixed-opponent checkpoint matches are small (per group/size), not proof of convergence.',
-  iterations,trainingGames:rows.at(-1).trainingGamesTotal,
+  iterations,startIteration,trainingGames:rows.at(-1).trainingGamesTotal,
   byRadius,checkpoints,learning:rows
 };
 const json=JSON.stringify(report,null,2)+'\n';
