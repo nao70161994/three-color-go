@@ -18,7 +18,7 @@ export default {
     const url=new URL(request.url);
     if(request.method==='OPTIONS')return json({ok:true});
     if(url.pathname==='/health')return json({ok:true});
-    if(!['/join','/status','/ready','/leave'].includes(url.pathname))return json({error:'Not found'},404);
+    if(!['/join','/status','/ready','/connected','/leave'].includes(url.pathname))return json({error:'Not found'},404);
     if((url.pathname==='/status' && request.method!=='GET') ||
        (url.pathname!=='/status' && request.method!=='POST'))return json({error:'Method not allowed'},405);
     if(request.method==='POST' && Number(request.headers.get('content-length')||0)>512)
@@ -88,7 +88,7 @@ export class Matchmaker {
       const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);
       const room='tgo-'+[...bytes].map(b=>b.toString(16).padStart(2,'0')).join('');
       group.forEach((id,seat)=>{data.players[id]={
-        ...data.players[id],time:now,matchedAt:now,status:'matched',seat,room,ready:false
+        ...data.players[id],time:now,matchedAt:now,status:'matched',seat,room,ready:false,connected:false
       };});
     }
     const player=data.players[ticket];
@@ -96,13 +96,20 @@ export class Matchmaker {
       if(player.status!=='matched'||player.seat!==0)return json({error:'Not the host'},403);
       player.ready=true;
     }
+    if(url.pathname==='/connected'){
+      if(player.status!=='matched')return json({error:'Not matched'},409);
+      player.connected=true;
+    }
     if(url.pathname==='/leave'){
       const room=player.room,wasHost=player.seat===0;
       delete data.players[ticket];
       if(room&&wasHost){
         for(const [id,p] of Object.entries(data.players))if(p.room===room){
-          data.players[id]={time:now,status:'waiting',ip:p.ip};
-          data.queue.push(id);
+          if(p.connected)delete data.players[id];
+          else {
+            data.players[id]={time:now,status:'waiting',ip:p.ip};
+            data.queue.push(id);
+          }
         }
       }
       await this.ctx.storage.put('lobby',data);
