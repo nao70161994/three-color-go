@@ -22,6 +22,8 @@
     "train:pv": "python3 scripts/train-pv-selfplay.py",
     "benchmark:pv": "node scripts/benchmark-pv.mjs",
     "train:pv2": "python3 scripts/train-pv2-selfplay.py",
-    "parity:pv2": "python3 scripts/check-pv2-parity.py"
+    "parity:pv2": "python3 scripts/check-pv2-parity.py",
+    "train:direct": "python3 scripts/train-direct-policy.py",
+    "benchmark:direct": "node scripts/benchmark-direct-policy.mjs"
   }
 }

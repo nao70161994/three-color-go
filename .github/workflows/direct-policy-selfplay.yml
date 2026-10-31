@@ -1,0 +1,98 @@
+name: no-search three-player stone-share policy gradient
+on:
+  pull_request:
+    paths:
+      - src/direct-policy.js
+      - scripts/direct-selfplay.mjs
+      - scripts/train-direct-policy.py
+      - scripts/benchmark-direct-policy.mjs
+      - tests/direct-policy.test.js
+      - .github/workflows/direct-policy-selfplay.yml
+  workflow_dispatch:
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: node --test tests/direct-policy.test.js
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Train from all three colors without MCTS
+        run: |
+          python scripts/train-direct-policy.py --iterations 2 --games 2 \
+            --radii 2,3 --seed 711 --out reports/direct-smoke.json
+          python scripts/check-pv2-parity.py reports/direct-smoke.json
+          node scripts/benchmark-direct-policy.mjs --model reports/direct-smoke.json \
+            --games 6 --radius 2 --seed 987 \
+            --out reports/direct-smoke-evaluation.json > /dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: direct-policy-smoke
+          path: reports/direct-smoke*.json
+          retention-days: 7
+  experiment:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Train 480 three-player games with stone-share reward only
+        run: |
+          set -o pipefail
+          mkdir -p reports
+          python scripts/train-direct-policy.py --iterations 60 --games 8 \
+            --radii 2,3,4 --seed 20261101 --temperature 1 \
+            --out reports/direct-candidate.json | tee reports/direct-learning.jsonl
+      - name: Check exported model JS/Torch numerical parity
+        run: python scripts/check-pv2-parity.py reports/direct-candidate.json
+      - name: Evaluate unchanged hard CPU, 6 seat rotations, 2 board radii
+        run: |
+          node scripts/benchmark-direct-policy.mjs --model reports/direct-candidate.json \
+            --games 24 --radius 3 --seed 20261121 \
+            --out reports/direct-r3.json > /dev/null
+          node scripts/benchmark-direct-policy.mjs --model reports/direct-candidate.json \
+            --games 24 --radius 4 --seed 20261122 \
+            --out reports/direct-r4.json > /dev/null
+      - name: Summary (NO automatic site promotion)
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync,appendFileSync} from 'node:fs';
+          const rs=[3,4].map(r=>JSON.parse(readFileSync('reports/direct-r'+r+'.json')));
+          const lines=['## No-search, three-player shared actor-critic; terminal stone fraction reward',
+            'No MCTS, no heuristic teacher, no pretrained weights. Not deployed.',
+            '| Radius | Finished | Direct ahead | Hard ahead | Mean stone margin | Direct win share | Mean stone share | Gate |',
+            '|---|---:|---:|---:|---:|---:|---:|---|',
+            ...rs.map(r=>'| '+r.radius+' | '+r.finished+'/'+r.games+' | '+
+              r.directAhead+' | '+r.hardAhead+' | '+r.meanDirectMinusHard+' | '+
+              r.winShareRate.direct+' | '+r.meanDirectStoneShare+' | '+
+              (r.promotionReady?'pass':'fail')+' |')];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: direct-three-player-stone-share-model
+          path: reports/*
+          retention-days: 30
