@@ -745,7 +745,7 @@ function replies(state,player,width,random) {
   return ranked.length?ranked:[{state:fallback(state),rank:0}];
 }
 
-function chooseStrongMove(state,random=Math.random) {
+function chooseStrongMove(state,random=Math.random,inspection=null) {
   if(state.ended)return null;
   const cells=pointsOnBoard(state.radius).length;
   if(state.moveCount>=cells*2)return null;
@@ -755,6 +755,7 @@ function chooseStrongMove(state,random=Math.random) {
   const roots=candidates(state,me,width,random);
   if(!roots.length)return null;
   let best=roots[0],bestValue=-Infinity;
+  const assessed=[];
   for(const root of roots) {
     let worst=Infinity;
     for(const first of replies(root.state,COLORS[root.state.turn],opponentWidth,random)) {
@@ -763,8 +764,15 @@ function chooseStrongMove(state,random=Math.random) {
       }
     }
     const value=root.rank*.2+worst*.8;
+    if(Array.isArray(inspection))assessed.push({
+      q:root.q,r:root.r,score:Math.round(value*100)/100,
+      immediateScore:Math.round(root.rank*100)/100,
+      replyScore:Math.round(worst*100)/100
+    });
     if(value>bestValue) {bestValue=value;best=root;}
   }
+  if(Array.isArray(inspection))
+    inspection.push(...assessed.sort((a,b)=>b.score-a.score).slice(0,5));
   return {q:best.q,r:best.r};
 }
 
@@ -827,6 +835,22 @@ function analyzeRecord(record) {
     const captured=result.captured||[];
     if(a.type==='pass')stats.passes++;else stats.moves++;
     if(captured.length)stats.capturedStones+=captured.length;
+    if(captured.length) {
+      const byVictim=new Map();
+      for(const key of captured) {
+        const victim=state.board[key];
+        if(!byVictim.has(victim))byVictim.set(victim,[]);
+        byVictim.get(victim).push(key);
+      }
+      if([...byVictim].some(([victim,keys])=>{
+        const otherColors=new Set();
+        for(const key of keys)for(const n of adjacentKeys(key,state.radius)){
+          if(result.state.board[n] && result.state.board[n]!==victim)
+            otherColors.add(result.state.board[n]);
+        }
+        return otherColors.size===2;
+      }))stats.jointCaptures++;
+    }
     if(eye)stats.eyeFills++;
     if(unsafe&&!eye)stats.selfAtari++;
     if(captured.length||eye||unsafe){
@@ -853,7 +877,7 @@ function formatAnalysis(analysis) {
     '盤面: '+(3*a.radius*(a.radius+1)+1)+'マス / '+s.turns+'手 / '+(a.ended?'終局':'対局中'),
     '黒 '+a.scores.black+' / 白 '+a.scores.white+' / 赤 '+a.scores.red,
     '勝者: '+(a.winners.length?a.winners.join('・'):'未確定'),
-    '捕獲石数: '+s.capturedStones+' / パス: '+s.passes,
+    '捕獲石数: '+s.capturedStones+' / 共同包囲による捕獲: '+s.jointCaptures+' / パス: '+s.passes,
     '首位交代: '+s.leadChanges+'回',
     '眼埋めの疑い: '+s.eyeFills+'手 / 自アタリの疑い: '+s.selfAtari+'手',
     '呼吸点1の集団: '+a.atariGroups.length,
@@ -1071,6 +1095,7 @@ let cpuLevel = 'hard', showLegal = false, showDanger = true;
 let spectatorPaused = false, spectatorSpeed = 600, zoomBoard = false, zoomBoardExplicit = false;
 let replay = null, network = null, netMessage = '部屋を作るか招待URLで参加してください';
 let pendingMove = null, pinchStart = null, zoomScale = 1;
+let lastCpuDecision = null;
 const MAX_ONLINE_ACTIONS=1800;
 const STORAGE = 'three-color-go.v2';
 
@@ -1191,7 +1216,12 @@ function permittedForHuman() {
   return false;
 }
 function botMove(random=Math.random) {
-  return cpuLevel==='hard' ? chooseStrongMove(state,random) : chooseDifficultyMove(state,random,cpuLevel);
+  if(cpuLevel!=='hard')return chooseDifficultyMove(state,random,cpuLevel);
+  const candidates=[];
+  const chosen=chooseStrongMove(state,random,candidates);
+  lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],
+    chosen,candidates,notes:'3手読みの相対評価値（勝率ではありません）'};
+  return chosen;
 }
 function pauseBots() {
   if(mode!=='bots')return {ok:false,reason:'CPU3人の対局モードではありません'};
@@ -1404,7 +1434,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   if(mode==='online' && nextMode!=='online') {network?.close();network=null;}
   replay=null;state=next;
   mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
-  past=[];actions=[];pendingMove=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
+  past=[];actions=[];pendingMove=null;lastCpuDecision=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
   if(nextMode==='online'&&network?.status().host)network.broadcast();
   return {ok:true,state:snapshot(state)};
 }
@@ -1483,7 +1513,15 @@ onlineJoinEl.addEventListener('click',async()=>{
     if(raw.startsWith('http'))room=new URL(raw).searchParams.get('room')||'';
     if(!validRoom(room))throw Error('招待URLまたは部屋IDを入力してください');
     const net=await ensureNetwork();
-    await net.joinRoom(room);
+    const key='three-color-go.room.'+room;
+    let id;
+    try {
+      id=sessionStorage.getItem(key);
+      if(!/^[0-9a-f]{32}$/.test(id||'')) {
+        id=secureToken();sessionStorage.setItem(key,id);
+      }
+    }catch {id=secureToken();}
+    await net.joinRoom(room,id);
     netMessage='参加しました。自分の色の手番で着手できます';
     render();
   }catch(e){netMessage='参加できません: '+e.message;onlineStatusEl.textContent=netMessage;}
@@ -1496,7 +1534,8 @@ onlineCopyEl.addEventListener('click',async()=>{
 copyRecordEl.addEventListener('click',async()=>{await copyString(JSON.stringify(record(),null,2));});
 copyAnalysisEl.addEventListener('click',async()=>{
   try{
-    const report=formatAnalysis(analyzeRecord(record()));
+    const report=formatAnalysis(analyzeRecord(record()))+
+      (lastCpuDecision?'\n\n直近のCPU候補分析:\n'+JSON.stringify(lastCpuDecision,null,2):'');
     studyPanelEl.hidden=false;studyTextEl.textContent=report;
     await copyString(report);
   }catch(e){msgEl.textContent='分析エラー: '+e.message;}
@@ -1573,6 +1612,7 @@ window.threeColorGo = Object.freeze({
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),
   explainPosition: ()=>explainPosition(state),
+  getCpuDecision: ()=>lastCpuDecision?structuredClone(lastCpuDecision):null,
   getOnlineStatus: onlineStatus,
   getReplayState,
   openReplay,
@@ -1582,6 +1622,7 @@ window.threeColorGo = Object.freeze({
   getPresentation: ()=>({
     mode,cpuLevel,showLegal,showDanger,replay:!!replay,
     spectatorPaused,spectatorSpeed,zoomBoard,
+    lastCpuDecision,
     ...boardHints()
   }),
   setHints,
@@ -1617,6 +1658,13 @@ window.threeColorGo = Object.freeze({
 });
 
 render();restore();scheduleBots();
+const inviteRoom=new URL(location.href).searchParams.get('room');
+if(validRoom(inviteRoom)){
+  stopBots();
+  mode='online';onlineRoomEl.value=inviteRoom;
+  netMessage='招待を受け取りました。「部屋に参加する」を押してください';
+  render();
+}
 
 </script>
 </body>
