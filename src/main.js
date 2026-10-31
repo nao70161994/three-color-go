@@ -124,13 +124,14 @@ function setSpectatorSpeed(value) {
   spectatorSpeed=n;save();render();scheduleBots();
   return {ok:true,speed:n};
 }
+function centerBoard() {
+  boardPanelEl.scrollLeft=Math.max(0,(boardPanelEl.scrollWidth-boardPanelEl.clientWidth)/2);
+  boardPanelEl.scrollTop=Math.max(0,(boardPanelEl.scrollHeight-boardPanelEl.clientHeight)/2);
+}
 function setBoardZoom(enabled) {
   if(typeof enabled!=='boolean')return {ok:false,reason:'拡大表示にはtrue/falseを指定してください'};
   zoomBoard=enabled;save();render();
-  if(zoomBoard) {
-    boardPanelEl.scrollLeft=(boardPanelEl.scrollWidth-boardPanelEl.clientWidth)/2;
-    boardPanelEl.scrollTop=(boardPanelEl.scrollHeight-boardPanelEl.clientHeight)/2;
-  }
+  if(zoomBoard)centerBoard();
   return {ok:true,zoom:zoomBoard};
 }
 function scheduleBots() {
@@ -288,7 +289,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   stopBots();
   replay=null;state=next;
   mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=radius>=8;
-  past=[];actions=[];save();render();scheduleBots();
+  past=[];actions=[];save();render();if(zoomBoard)centerBoard();scheduleBots();
   return {ok:true,state:snapshot(state)};
 }
 function undo() {
@@ -325,7 +326,7 @@ function loadRecord(record,{resumeSavedBots=false}={}) {
   spectatorPaused=nextMode==='bots' ? (!resumeSavedBots || record.spectatorPaused===true) : false;
   zoomBoard=typeof record.zoomBoard==='boolean'?record.zoomBoard:state.radius>=8;
   showLegal=nextShowLegal;showDanger=nextShowDanger;past=states;actions=normalized;
-  save();render();scheduleBots();
+  save();render();if(zoomBoard)centerBoard();scheduleBots();
   return {ok:true,state:snapshot(state)};
 }
 function restore() {
