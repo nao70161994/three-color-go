@@ -57,6 +57,7 @@ let cpuLevel = 'hard', showLegal = false, showDanger = true;
 let spectatorPaused = false, spectatorSpeed = 600, zoomBoard = false, zoomBoardExplicit = false;
 let replay = null, network = null, netMessage = '部屋を作るか招待URLで参加してください';
 let pendingMove = null, pinchStart = null, zoomScale = 1;
+let lastCpuDecision = null;
 const MAX_ONLINE_ACTIONS=1800;
 const STORAGE = 'three-color-go.v2';
 
@@ -177,7 +178,12 @@ function permittedForHuman() {
   return false;
 }
 function botMove(random=Math.random) {
-  return cpuLevel==='hard' ? chooseStrongMove(state,random) : chooseDifficultyMove(state,random,cpuLevel);
+  if(cpuLevel!=='hard')return chooseDifficultyMove(state,random,cpuLevel);
+  const candidates=[];
+  const chosen=chooseStrongMove(state,random,candidates);
+  lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],
+    chosen,candidates,notes:'3手読みの相対評価値（勝率ではありません）'};
+  return chosen;
 }
 function pauseBots() {
   if(mode!=='bots')return {ok:false,reason:'CPU3人の対局モードではありません'};
@@ -390,7 +396,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   if(mode==='online' && nextMode!=='online') {network?.close();network=null;}
   replay=null;state=next;
   mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
-  past=[];actions=[];pendingMove=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
+  past=[];actions=[];pendingMove=null;lastCpuDecision=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
   if(nextMode==='online'&&network?.status().host)network.broadcast();
   return {ok:true,state:snapshot(state)};
 }
@@ -490,7 +496,8 @@ onlineCopyEl.addEventListener('click',async()=>{
 copyRecordEl.addEventListener('click',async()=>{await copyString(JSON.stringify(record(),null,2));});
 copyAnalysisEl.addEventListener('click',async()=>{
   try{
-    const report=formatAnalysis(analyzeRecord(record()));
+    const report=formatAnalysis(analyzeRecord(record()))+
+      (lastCpuDecision?'\n\n直近のCPU候補分析:\n'+JSON.stringify(lastCpuDecision,null,2):'');
     studyPanelEl.hidden=false;studyTextEl.textContent=report;
     await copyString(report);
   }catch(e){msgEl.textContent='分析エラー: '+e.message;}
@@ -567,6 +574,7 @@ window.threeColorGo = Object.freeze({
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),
   explainPosition: ()=>explainPosition(state),
+  getCpuDecision: ()=>lastCpuDecision?structuredClone(lastCpuDecision):null,
   getOnlineStatus: onlineStatus,
   getReplayState,
   openReplay,
@@ -576,6 +584,7 @@ window.threeColorGo = Object.freeze({
   getPresentation: ()=>({
     mode,cpuLevel,showLegal,showDanger,replay:!!replay,
     spectatorPaused,spectatorSpeed,zoomBoard,
+    lastCpuDecision,
     ...boardHints()
   }),
   setHints,
