@@ -64,6 +64,48 @@ def sample_loss(net, sample, entropy_weight, temperature):
     return policy_loss + value_loss - entropy_weight * entropy, advantage
 
 
+def probe_predictions(net, samples, temperature):
+    """Evaluate frozen behavior/updated policies on identical real trajectories.
+
+    Diagnostics are observables only; their computation never alters gradients
+    or the random-number sequence of the self-play/optimizer.
+    """
+    if not samples:
+        raise ValueError("No probe positions")
+    results = []
+    with torch.no_grad():
+        for sample in samples:
+            logits, values = net(sample["features"], sample["radius"])
+            logp = F.log_softmax(logits[sample["legal"]] / temperature, dim=0)
+            p = logp.exp()
+            actual = torch.tensor(sample["value"], dtype=torch.float32)
+            v = F.softmax(values, dim=0)
+            results.append((p.clone(), v.clone(), actual))
+    return results
+
+
+def probe_metrics(before, after):
+    if len(before) != len(after) or not before:
+        raise ValueError("Incomparable probe snapshots")
+    kl_values, entropies, normalized_entropies, value_mse = [], [], [], []
+    for (p, _, target), (q, v, _) in zip(before, after):
+        # KL(behavior || updated): same on-policy states, legal action masks.
+        kl_values.append(float((p * (p.clamp_min(1e-12).log() -
+                                      q.clamp_min(1e-12).log())).sum()))
+        entropy = float(-(q * q.clamp_min(1e-12).log()).sum())
+        entropies.append(entropy)
+        normalized_entropies.append(entropy / math.log(len(q)) if len(q) > 1 else 0.)
+        value_mse.append(float(torch.square(v-target).mean()))
+    return {
+        "policyKlOldToNew": round(sum(kl_values)/len(kl_values), 7),
+        "policyEntropy": round(sum(entropies)/len(entropies), 6),
+        "policyEntropyNormalized": round(
+            sum(normalized_entropies)/len(normalized_entropies), 6),
+        "valueMse": round(sum(value_mse)/len(value_mse), 7),
+        "probeSamples": len(before)
+    }
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--iterations", type=int, default=24)
@@ -132,6 +174,9 @@ def main():
                 raise RuntimeError("Missing training samples")
             # Collect complete trajectories with ONE frozen behavior policy,
             # then optimize the ONE shared network using all 3 seats' turns.
+            probe = [samples[i] for i in np.linspace(
+                0, len(samples)-1, min(12, len(samples)), dtype=int)]
+            old_prediction = probe_predictions(net, probe, args.temperature)
             losses, advantages = [], []
             for _ in range(args.epochs):
                 rng.shuffle(samples)
@@ -147,6 +192,8 @@ def main():
                     optimizer.step()
                     losses.append(float(loss.detach()))
                     advantages.extend(float(x[1]) for x in terms)
+            diagnostics = probe_metrics(
+                old_prediction, probe_predictions(net, probe, args.temperature))
             total_games += len(games)
             total_positions += len(samples)
             print(json.dumps({
@@ -155,7 +202,9 @@ def main():
                 "seatPositions": [sum(g["seatCounts"][i] for g in games)
                                   for i in range(3)],
                 "loss": round(sum(losses)/len(losses), 5),
-                "meanAdvantage": round(sum(advantages)/len(advantages), 5)
+                "meanAdvantage": round(sum(advantages)/len(advantages), 5),
+                "learningRate": args.learning_rate,
+                **diagnostics
             }), flush=True)
 
     model = exported(net, args.seed, total_games,
