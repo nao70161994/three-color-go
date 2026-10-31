@@ -117,6 +117,8 @@ def main():
     p.add_argument("--entropy", type=float, default=0.015)
     p.add_argument("--epochs", type=int, default=1)
     p.add_argument("--batch-size", type=int, default=32)
+    p.add_argument("--resume", type=Path, default=None,
+                   help="Trusted .pt training checkpoint; keeps Adam/RNG state")
     p.add_argument("--checkpoint-every", type=int, default=0,
                    help="Save every N completed iterations; 0 disables")
     p.add_argument("--out", type=Path,
@@ -142,10 +144,35 @@ def main():
     rng = random.Random(args.seed)
     net = HexPolicyValue()
     optimizer = torch.optim.Adam(net.parameters(), lr=args.learning_rate)
-    total_games, total_positions = 0, 0
+    total_games, total_positions, start_iteration = 0, 0, 0
+    config = {
+        "seed": args.seed, "games": args.games, "radii": radii,
+        "temperature": args.temperature, "learningRate": args.learning_rate,
+        "entropy": args.entropy, "epochs": args.epochs, "batchSize": args.batch_size
+    }
+    if args.resume:
+        # Only load a locally generated, trusted checkpoint. torch.load uses pickle.
+        state = torch.load(args.resume, map_location="cpu", weights_only=False)
+        if state.get("format") != "direct-actor-critic-training-v1":
+            raise RuntimeError("Unknown training checkpoint format")
+        if state.get("config") != config:
+            raise RuntimeError("Resume requires exactly identical self-play settings")
+        start_iteration = state["iteration"]
+        if not (0 < start_iteration < args.iterations):
+            raise RuntimeError("Resume iteration must precede total target")
+        net.load_state_dict(state["model"])
+        optimizer.load_state_dict(state["optimizer"])
+        rng.setstate(state["shuffleRng"])
+        random.setstate(state["globalRandom"])
+        np.random.set_state(state["numpyRng"])
+        torch.set_rng_state(state["torchRng"])
+        total_games = state["totalGames"]
+        total_positions = state["totalPositions"]
+        if total_games != start_iteration * args.games:
+            raise RuntimeError("Inconsistent checkpoint number of games")
     with tempfile.TemporaryDirectory(prefix="tgo-direct-") as directory:
         snapshot = Path(directory) / "frozen-policy.json"
-        for iteration in range(args.iterations):
+        for iteration in range(start_iteration, args.iterations):
             radius = radii[iteration % len(radii)]
             snapshot.write_text(json.dumps(exported(
                 net, args.seed, total_games, iteration, args.temperature)),
@@ -245,6 +272,19 @@ def main():
                 })
                 checkpoint.write_text(json.dumps(candidate,
                     separators=(",", ":"))+"\n", encoding="utf-8")
+                torch.save({
+                    "format": "direct-actor-critic-training-v1",
+                    "config": config,
+                    "iteration": iteration+1,
+                    "model": net.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "shuffleRng": rng.getstate(),
+                    "globalRandom": random.getstate(),
+                    "numpyRng": np.random.get_state(),
+                    "torchRng": torch.get_rng_state(),
+                    "totalGames": total_games,
+                    "totalPositions": total_positions,
+                }, checkpoint.with_suffix(".pt"))
             print(json.dumps({
                 "iteration": iteration+1, "radius": radius,
                 "games": len(games), "samples": len(samples),
