@@ -2,9 +2,28 @@
 
 **黒・白・赤の3色で遊ぶ、六角格子の変則囲碁**。得点は陣地ではなく**終局時に盤上に残った自分の石数**だけです。
 
-> v0.3 は独自ルールを検証する試作版。CPUは1手読みの戦術的な対戦相手であり、強い囲碁AIではありません。
+> v0.4 は独自ルールを検証する試作版。CPUは1手読みの戦術的な対戦相手であり、強い囲碁AIではありません。
 
 
+
+## v0.4: 遊びやすい盤面表示とCPU難易度
+
+- **直前の着手**：盤上に残る直近の着手位置を金色の輪で表示。石が取られた場合は誤解を避けるため表示しません。
+- **合法手ガイド**：切り替え式。合法な空点に小さな点が付きます（初期状態OFF）。
+- **危険な石**：呼吸点が1つの同色グループに赤い輪を表示（初期状態ON）。危険表示は「次の手で必ず取られる」意味ではありません。
+- **CPUの強さ**：やさしい（合法手から乱択）、ふつう（旧baseline）、むずかしい（戦術tactical）。この順序は棋力の保証ではなく簡易的なレベル分けです。
+- 難易度やガイド表示は対局中に変更可能で、ブラウザ保存・棋譜に含まれます。旧版の保存データも読み込めます。
+- 盤面の表示はルール・得点・合法手に影響しません。
+
+### ブラウザAI操作API（v0.4追加）
+
+\`\`\`js
+const go=window.threeColorGo;
+go.reset({mode:'cpu',radius:3,cpuLevel:'normal'});
+go.setCpuLevel('hard');
+go.setHints({legal:true,danger:true});
+go.getPresentation(); // CPU難易度、ガイド表示、合法手、危険なグループ、直前の着手
+\`\`\`
 
 ## v0.3: 戦略CPU・定量的な自己対局レポート
 
@@ -28,11 +47,11 @@ npm run analyze:compare -- --games 30 --seed 2026 --radius 3 --out reports/rotat
 
 ## 🎮 遊ぶ
 
-GitHub Pages 公開設定完了後のURL：
+GitHub Pages公開URL：
 
 **https://nao70161994.github.io/three-color-go/**
 
-現時点でURLが開けない場合は、リポジトリの **Settings → Pages → Build and deployment → Source: GitHub Actions** を選択してください。公開後は `main` へのコミットで自動更新されます。対応ワークフローは `.github/workflows/pages.yml` です。
+`main` へのコミットで自動更新されます。対応ワークフローは `.github/workflows/pages.yml` です。
 
 **GitHub Pagesを設定する前でも**、[play.html](play.html) をダウンロードしてブラウザで開けば、外部ファイルやネット接続なしで遊べます。Androidではダウンロードした `play.html` をブラウザで開いてください。ブラウザによってはローカルファイルへのアクセスが制限される場合があります。
 
