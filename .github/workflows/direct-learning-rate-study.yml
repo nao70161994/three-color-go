@@ -30,6 +30,8 @@ jobs:
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Verify diagnostics and no-search learning end-to-end
         run: |
+          set -o pipefail
+          mkdir -p reports
           python scripts/train-direct-policy.py --iterations 2 --games 2 \
             --radii 2,3 --learning-rate 0.0001 --seed 711 \
             --out reports/direct-lr-smoke.json | tee reports/lr-smoke.jsonl
