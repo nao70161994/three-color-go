@@ -1,4 +1,4 @@
-import {COLORS,createGame,pass,play,pointKey,scores,winner} from './game.js';
+import {COLORS,adjacentKeys,createGame,pass,play,pointKey,scores,winner} from './game.js';
 import {dangerGroups,isOwnEye,isUnsafeCpuMove,groupInfo} from './agent.js';
 
 export function explainPosition(state) {
@@ -36,6 +36,22 @@ export function analyzeRecord(record) {
     const captured=result.captured||[];
     if(a.type==='pass')stats.passes++;else stats.moves++;
     if(captured.length)stats.capturedStones+=captured.length;
+    if(captured.length) {
+      const byVictim=new Map();
+      for(const key of captured) {
+        const victim=state.board[key];
+        if(!byVictim.has(victim))byVictim.set(victim,[]);
+        byVictim.get(victim).push(key);
+      }
+      if([...byVictim].some(([victim,keys])=>{
+        const otherColors=new Set();
+        for(const key of keys)for(const n of adjacentKeys(key,state.radius)){
+          if(result.state.board[n] && result.state.board[n]!==victim)
+            otherColors.add(result.state.board[n]);
+        }
+        return otherColors.size===2;
+      }))stats.jointCaptures++;
+    }
     if(eye)stats.eyeFills++;
     if(unsafe&&!eye)stats.selfAtari++;
     if(captured.length||eye||unsafe){
@@ -62,7 +78,7 @@ export function formatAnalysis(analysis) {
     '盤面: '+(3*a.radius*(a.radius+1)+1)+'マス / '+s.turns+'手 / '+(a.ended?'終局':'対局中'),
     '黒 '+a.scores.black+' / 白 '+a.scores.white+' / 赤 '+a.scores.red,
     '勝者: '+(a.winners.length?a.winners.join('・'):'未確定'),
-    '捕獲石数: '+s.capturedStones+' / パス: '+s.passes,
+    '捕獲石数: '+s.capturedStones+' / 共同包囲による捕獲: '+s.jointCaptures+' / パス: '+s.passes,
     '首位交代: '+s.leadChanges+'回',
     '眼埋めの疑い: '+s.eyeFills+'手 / 自アタリの疑い: '+s.selfAtari+'手',
     '呼吸点1の集団: '+a.atariGroups.length,
