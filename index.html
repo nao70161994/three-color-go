@@ -54,14 +54,13 @@
       <div class="turn"><span id="turnStone" class="stone black"></span><div><small id="turnLabel">現在の手番</small><strong id="turnText">黒の番</strong></div></div>
       <div class="counts" id="counts"></div>
     </section>
+    <div id="boardViewTools" class="boardViewTools" hidden>
+      <button id="boardZoom" type="button" aria-pressed="false">拡大して打つ</button>
+      <span>盤面をタップして着手 · 拡大中は上下左右へスクロール</span>
+    </div>
     <section id="boardPanel" class="boardPanel" aria-label="対局盤">
-      <div id="moveConfirm" class="moveConfirm" hidden>選択した場所をもう一度タップして着手 <button id="moveCancel" type="button">キャンセル</button></div>
       <svg id="board" class="board" viewBox="-235 -212 470 424" role="group" aria-label="六角形の囲碁盤"></svg>
     </section>
-    <div id="boardViewTools" class="boardViewTools" hidden>
-      <button id="boardZoom" type="button" aria-pressed="false">拡大して操作</button>
-      <span>大きな盤面は拡大表示にして左右上下にスクロールできます</span>
-    </div>
     <div class="boardTools" aria-label="盤面の表示設定">
       <button id="legalToggle" type="button" aria-pressed="false">合法手を表示: OFF</button>
       <button id="dangerToggle" type="button" aria-pressed="true">危険な石を表示: ON</button>
@@ -115,7 +114,7 @@
       </ul>
       <p>「むずかしい」は相手2人の応手を先読みします。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
     </details>
-    <footer>v1.4 · マッチング耐障害性・棋譜バックアップ・大型盤面CPU改善 · オンライン対戦は試験版</footer>
+    <footer>v1.4.1 · 1タップ着手・スマホ盤面改善 · オンライン対戦は試験版</footer>
   </main>
   <script src="./match-config.js"></script>
   <script type="module" src="./src/main.js"></script>
