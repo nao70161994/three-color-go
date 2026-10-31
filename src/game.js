@@ -32,7 +32,7 @@ export function boardHash(board) {
 }
 
 export function createGame(radius = 4) {
-  if (!Number.isInteger(radius) || radius < 2 || radius > 10) throw new Error('盤面半径は2～10にしてください');
+  if (!Number.isInteger(radius) || radius < 2 || radius > 12) throw new Error('盤面半径は2～12にしてください');
   return {
     radius,
     board: {},
