@@ -1,7 +1,5 @@
 name: direct policy stone and capture learning curves
 on:
-  push:
-    branches: [exp/direct-learning-curves]
   pull_request:
     paths:
       - scripts/direct-selfplay.mjs
@@ -52,7 +50,7 @@ jobs:
               assert abs(sum(row['meanCapturedStones'])-sum(row['meanCapturedLosses']))<1e-4
           PY
   study:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
