@@ -19,7 +19,7 @@
     </header>
     <div class="settings">
       <div class="setting"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">1人で遊ぶ（CPU 2人）</option><option value="bots">CPU 3人の対局を観戦</option><option value="local">3人で交代</option><option value="online">オンライン3人対戦（試験版）</option></select></div>
-      <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option></select></div>
+      <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option><option value="neural">ディープラーニング（実験版）</option></select></div>
     </div>
     <section id="onlinePanel" class="onlinePanel" hidden aria-label="オンライン3人対戦">
       <div class="onlineActions">
@@ -112,9 +112,9 @@
         <li>陣地点、アゲハマ点、コミはなし。</li>
         <li>棋譜を再生すると手番や点数も過去の状態で確認でき、対局へ戻ると続きから遊べます。</li>
       </ul>
-      <p>「むずかしい」は相手2人の応手を先読みします。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
+      <p>「むずかしい」は相手2人の応手を先読みします。「ディープラーニング」は模擬対局の評価データから学習した小型ニューラルネットワークで着手候補を採点します（既存CPUより強い保証はありません）。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
     </details>
-    <footer>v1.4.1 · 1タップ着手・スマホ盤面改善 · オンライン対戦は試験版</footer>
+    <footer>v1.5 · ディープラーニングCPU（実験版）・1タップ着手・スマホ対応</footer>
   </main>
   <script src="./match-config.js"></script>
   <script type="module" src="./src/main.js"></script>
