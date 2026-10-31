@@ -1,15 +1,5 @@
 name: experimental PV2 reward ablation
 on:
-  push:
-    branches: [feat/pv2-reward-ablation]
-    paths:
-      - src/pv-reward.js
-      - src/pv-ai.js
-      - scripts/pv-selfplay.mjs
-      - scripts/train-pv2-selfplay.py
-      - scripts/benchmark-pv.mjs
-      - tests/pv-reward.test.js
-      - .github/workflows/pv-reward-ablation.yml
   pull_request:
     paths:
       - src/pv-reward.js
@@ -47,7 +37,7 @@ jobs:
             python scripts/check-pv2-parity.py "reports/pv2-$p-smoke.json"
           done
   ablation:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
