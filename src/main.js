@@ -1,5 +1,6 @@
 import { COLORS, LABELS, pointsOnBoard, pointKey, createGame, play, pass, scores, winner } from './game.js';
 import { chooseMove, chooseDifficultyMove, dangerGroups, legalMoves, seededRandom, snapshot } from './agent.js';
+import { chooseStrongMove } from './strong-ai.js';
 
 const boardSvg = document.getElementById('board');
 const countsEl = document.getElementById('counts');
@@ -95,7 +96,7 @@ function scheduleBots() {
   if (replay || mode!=='cpu' || state.ended || state.turn===0) return;
   botTimer=setTimeout(()=>{
     botTimer=null;
-    const move=chooseDifficultyMove(state,Math.random,cpuLevel);
+    const move=cpuLevel==='hard' ? chooseStrongMove(state) : chooseDifficultyMove(state,Math.random,cpuLevel);
     if (move) place(move.q,move.r); else doPass();
   },240);
 }
@@ -311,7 +312,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '0.5',
+  version: '0.7',
   getState: ()=>snapshot(state),
   getReplayState,
   openReplay,
@@ -338,7 +339,7 @@ window.threeColorGo = Object.freeze({
     const count=Math.max(0,Math.min(500,Math.trunc(limit)||0));
     let moves=0;
     while (!state.ended && moves<count) {
-      const move=chooseDifficultyMove(state,rand,cpuLevel);
+      const move=cpuLevel==='hard' ? chooseStrongMove(state,rand) : chooseDifficultyMove(state,rand,cpuLevel);
       const result=move?place(move.q,move.r,false):doPass(false);
       if (!result.ok) return {ok:false,reason:result.reason,moves};
       moves++;
