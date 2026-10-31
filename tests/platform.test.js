@@ -33,9 +33,11 @@ test('durable-object matchmaking groups exactly three, waits for host readiness 
   assert.equal(ready.room,a.room);assert.equal(ready.hostReady,true);
   const fourth=await (await lobby.fetch(req('/join',ticket(4),'POST'))).json();
   assert.equal(fourth.status,'waiting');
+  await lobby.fetch(req('/connected',ids[1],'POST'));
+  await lobby.fetch(req('/connected',ids[2],'POST'));
   await lobby.fetch(req('/leave',ids[0],'POST'));
-  const formerlyMatched=await (await lobby.fetch(req('/status',ids[1]))).json();
-  assert.equal(formerlyMatched.status,'waiting');
+  const formerlyMatched=await lobby.fetch(req('/status',ids[1]));
+  assert.equal(formerlyMatched.status,404,'connected guests must not become phantom queue players');
 });
 test('matchmaker browser adapter validates URL and request format',async()=>{
   assert.throws(()=>makeMatchmaker(''),/URL|未設定|Invalid/);
