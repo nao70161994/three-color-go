@@ -93,6 +93,15 @@ A playable 3-player Go variant. Three colors, hexagonal board (6 neighbors), sto
 - Standalone output now bundles game, agent, strong-ai, insights, online, main in that order; only the online transport depends on remote CDN/PeerJS Cloud.
 - Online Undo and persistent hosted rooms are not implemented yet. Avoid claims of permanent hosted play.
 
+## v1.3 PWA, random match, worker and storage
+- Installable PWA assets: `manifest.webmanifest`, `sw.js`, PNG icons. `match-config.js` is replaced at deploy from the Actions `MATCHMAKER_URL` variable. Offline local/CPU play must not rely on the public match service.
+- Browser `src/ai-worker.js` runs hard CPU; asynchronous completion must be checked against move generation to avoid stale moves. The standalone `play.html` falls back to synchronous bot logic.
+- `src/online.js` protocol v2 sends validated per-move deltas and full records only on join/resync. Guest state must NOT be authoritative. Require 3 connected participants before play. Unexpected disconnect frees seats; use a reconnect token when available.
+- Local games archived under `three-color-go.match.*`, up to 30. Online records stored separately. User can load archived matches and import JSON records.
+- Backend random matchmaking uses `worker/src/index.js` Durable Object with `worker/wrangler.toml`. It requires explicit Cloudflare deployment and `MATCHMAKER_URL` setup; the static web repository alone cannot offer a working global random queue.
+- Public Pages deploy only after main CI completes successfully. Before merging test `npm test`, Chrome browser, standalone parity and Worker matchmaker queue tests.
+- Browser DOM cells are reused across board updates; tests should verify focus and selected point states.
+
 ## Known limitations
 - CPU is a tactical one-ply, deterministic-under-seed heuristic, not a competitive Go engine.
 - No online play.
