@@ -1,5 +1,7 @@
 name: train full-board three-player MCTS candidate
 on:
+  push:
+    branches: [feat/teacher-free-selfplay-rl]
   pull_request:
     paths:
       - src/board-pv.js
@@ -63,7 +65,7 @@ jobs:
             reports/board-mcts-smoke-benchmark.json
           retention-days: 14
   train:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -81,9 +83,9 @@ jobs:
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Generate and train model (never automatically deploy)
         env:
-          ITERATIONS: ${{ inputs.iterations }}
-          GAMES: ${{ inputs.games }}
-          SIMULATIONS: ${{ inputs.simulations }}
+          ITERATIONS: ${{ inputs.iterations || '10' }}
+          GAMES: ${{ inputs.games || '6' }}
+          SIMULATIONS: ${{ inputs.simulations || '16' }}
         run: |
           set -o pipefail
           mkdir -p reports
@@ -94,13 +96,13 @@ jobs:
         run: python scripts/check-board-parity.py reports/board-mcts-candidate.json
       - name: Held-out benchmark against hard CPU
         env:
-          SIMULATIONS: ${{ inputs.simulations }}
+          SIMULATIONS: ${{ inputs.simulations || '16' }}
         run: |
           node scripts/benchmark-board.mjs --model reports/board-mcts-candidate.json \
-            --games 60 --radius 3 --simulations "$SIMULATIONS" --seed 20261111 \
+            --games 18 --radius 3 --simulations "$SIMULATIONS" --seed 20261111 \
             --out reports/board-r3.json
           node scripts/benchmark-board.mjs --model reports/board-mcts-candidate.json \
-            --games 60 --radius 4 --simulations "$SIMULATIONS" --seed 20261112 \
+            --games 18 --radius 4 --simulations "$SIMULATIONS" --seed 20261112 \
             --out reports/board-r4.json
       - name: Summary and promotion safety gate
         run: |
