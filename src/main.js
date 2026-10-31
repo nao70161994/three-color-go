@@ -2,7 +2,7 @@ import { COLORS, LABELS, pointsOnBoard, pointKey, createGame, play, pass, scores
 import { chooseMove, chooseDifficultyMove, dangerGroups, legalMoves, seededRandom, snapshot } from './agent.js';
 import { chooseStrongMove } from './strong-ai.js';
 import { analyzeRecord, formatAnalysis, explainPosition } from './insights.js';
-import { createOnlineSession, loadPeerJS, roomLink, validRoom } from './online.js';
+import { createOnlineSession, loadPeerJS, roomLink, validRoom, secureToken } from './online.js';
 
 const boardSvg = document.getElementById('board');
 const onlinePanelEl=document.getElementById('onlinePanel');
@@ -469,7 +469,15 @@ onlineJoinEl.addEventListener('click',async()=>{
     if(raw.startsWith('http'))room=new URL(raw).searchParams.get('room')||'';
     if(!validRoom(room))throw Error('招待URLまたは部屋IDを入力してください');
     const net=await ensureNetwork();
-    await net.joinRoom(room);
+    const key='three-color-go.room.'+room;
+    let id;
+    try {
+      id=sessionStorage.getItem(key);
+      if(!/^[0-9a-f]{32}$/.test(id||'')) {
+        id=secureToken();sessionStorage.setItem(key,id);
+      }
+    }catch {id=secureToken();}
+    await net.joinRoom(room,id);
     netMessage='参加しました。自分の色の手番で着手できます';
     render();
   }catch(e){netMessage='参加できません: '+e.message;onlineStatusEl.textContent=netMessage;}
@@ -603,3 +611,10 @@ window.threeColorGo = Object.freeze({
 });
 
 render();restore();scheduleBots();
+const inviteRoom=new URL(location.href).searchParams.get('room');
+if(validRoom(inviteRoom)){
+  stopBots();
+  mode='online';onlineRoomEl.value=inviteRoom;
+  netMessage='招待を受け取りました。「部屋に参加する」を押してください';
+  render();
+}
