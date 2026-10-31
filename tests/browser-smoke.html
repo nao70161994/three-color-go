@@ -154,6 +154,13 @@ async function run(){
   check(game.getState().moveCount===botsRecord.actions.length,'棋譜再生はCPU3人の対局を変更しない');
   check(game.importRecord(botsRecord).ok && game.getPresentation().spectatorPaused,
     '観戦棋譜の再読み込みは意図しないCPU自動進行を開始しない');
+  check(game.reset({mode:'bots',radius:2,cpuLevel:'easy'}).ok,'CPU3人の終局テストを開始');
+  check(game.pauseBots().ok,'終局テストは一時停止して制御');
+  const finishedBots=game.autoPlay(70,21);
+  check(finishedBots.ok && finishedBots.state.ended,'CPU3人で最初から最後まで対局できる');
+  check(finishedBots.state.moveCount>3 && finishedBots.state.consecutivePasses===3,
+    'CPU3人の対局は3連続パスで正常に終局する');
+  check(doc.querySelector('#spectatorStep').disabled,'終局後の1手進めるを無効化');
   check(game.reset({mode:'cpu',radius:2,cpuLevel:'normal'}).ok,'CPU対戦モードへ戻る');
   check(!doc.getElementById('cpuSetting').hidden,'CPU対戦中に難易度の選択欄が見える');
   check(game.play(0,0).ok,'人間が着手できる');
