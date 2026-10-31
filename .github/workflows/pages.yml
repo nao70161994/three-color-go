@@ -30,7 +30,9 @@ jobs:
         env:
           MATCHMAKER_URL: ${{ vars.MATCHMAKER_URL }}
         run: |
-          node -e "const fs=require('node:fs');fs.writeFileSync('match-config.js','window.THREE_COLOR_MATCH_URL = '+JSON.stringify(process.env.MATCHMAKER_URL||'')+';\\n')"
+          node -e "const fs=require('node:fs');fs.writeFileSync('match-config.js','window.THREE_COLOR_MATCH_URL = '+JSON.stringify(process.env.MATCHMAKER_URL||'https://three-color-go-matchmaker.nao70161994.workers.dev')+';\\n')"
+      - name: Verify public matchmaker health
+        run: curl --fail --show-error --silent --retry 3 --retry-delay 2 https://three-color-go-matchmaker.nao70161994.workers.dev/health
       - run: npm run build:standalone
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
