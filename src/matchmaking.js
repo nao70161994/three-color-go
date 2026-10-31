@@ -19,6 +19,7 @@ export function makeMatchmaker(baseUrl,fetcher=globalThis.fetch){
     join:ticket=>call('/join',{ticket}),
     status:ticket=>call('/status?ticket='+encodeURIComponent(ticket)),
     ready:ticket=>call('/ready',{ticket}),
+    connected:ticket=>call('/connected',{ticket}),
     leave:ticket=>call('/leave',{ticket})
   };
 }
