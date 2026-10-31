@@ -82,6 +82,17 @@ A playable 3-player Go variant. Three colors, hexagonal board (6 neighbors), sto
 - Hard CPU filters these moves in root candidates and simulated opponent replies. Easy and normal use the same eye-safe policy.
 - `tests/eye-preservation.test.js` reproduces 2-eye / 3-point pocket group losses and non-eye self-atari and checks that bot levels pass instead.
 - This is not full life/death analysis. Obtain a serialized game record if a real-game error persists.
+## v0.9–v1.2 agent / online verification
+- Browser \`analyze()\` returns replayed move statistics, possible eye fills, and risky self-atari actions; \`explainPosition()\` gives current groups with one liberty. Copyable JSON records remain compatible.
+- On boards with radius>=8, human taps must be confirmed twice; agent API \`play(q,r)\` remains a single validated call.
+- Browser now offers pinch-to-zoom and jump to the last move. Test on 390x844 with the actual Chrome browser.
+- New cross-board study: \`npm run study:sizes -- --games 9 --seed 20261031\` to measure seat bias on radius 3..6.
+- For online \`mode:'online'\`, call the host to create a room; guests use a copied \`?room=tgo-...\` invite link. PeerJS Cloud is an external signaling service, loaded only when online is selected. Host alone validates \`expected=moveCount\`, role/seat and legal game actions before broadcasts.
+- \`src/online.js\` is pure aside from a deferred script loader and supports injected FakePeer in tests. Node unit tests must validate a host plus two guests and reject out-of-turn and stale moves.
+- Do not confuse a mocked signaling test with validated public-WebRTC connections. Full three-device network tests remain necessary, and PeerJS Cloud service availability is not guaranteed.
+- Standalone output now bundles game, agent, strong-ai, insights, online, main in that order; only the online transport depends on remote CDN/PeerJS Cloud.
+- Online Undo and persistent hosted rooms are not implemented yet. Avoid claims of permanent hosted play.
+
 ## Known limitations
 - CPU is a tactical one-ply, deterministic-under-seed heuristic, not a competitive Go engine.
 - No online play.
