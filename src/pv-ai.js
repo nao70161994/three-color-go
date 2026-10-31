@@ -106,9 +106,10 @@ export function legalPVActions(state){
   const moves=safeCpuMoves(state).map(({q,r})=>({
     type:'play',q,r,index:index.get(pointKey(q,r))
   }));
-  // Avoid early passive loops; passing remains available in the endgame.
-  if(!moves.length||state.moveCount>=Math.floor(cells*.65))
-    moves.push({type:'pass',index:cells});
+  // Stone-count scoring rewards surviving stones, not territory.
+  // Unlike territory Go, passing while safe placements remain loses turns.
+  // Preserve passing when there is no safe move (or at the bot move cap).
+  if(!moves.length)moves.push({type:'pass',index:cells});
   return moves;
 }
 function apply(state,action){
