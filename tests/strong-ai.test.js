@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createGame, play, pass, scores, winner} from '../src/game.js';
-import {seededRandom} from '../src/agent.js';
+import {isOwnEye,seededRandom} from '../src/agent.js';
 import {chooseStrongMove, strongMatch} from '../src/strong-ai.js';
 
 test('strong CPU always chooses reproducible legal moves without mutating the board',()=>{
@@ -35,6 +35,8 @@ test('seeded strong-vs-balanced match terminates and its history replays legally
     assert.equal(match.ended,true,'seat='+seat);
     let replay=createGame(2);
     for(const a of match.history){
+      if(a.type==='play')assert.equal(isOwnEye(replay,a.q,a.r),false,
+        'no bot should deliberately fill an enclosed own eye on seat '+seat);
       const result=a.type==='pass'?pass(replay):play(replay,a.q,a.r);
       assert.equal(result.ok,true,result.reason);
       replay=result.state;
