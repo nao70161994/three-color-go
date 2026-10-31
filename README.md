@@ -6,6 +6,33 @@
 
 
 
+## v1.7 実験中：盤面全体のPolicy-Value Network＋3人用MCTS
+
+従来の「12特徴量で1手を採点するニューラルCPU」とは別に、**盤面全体から推論して読みを入れる**実験用AIを実装しました。**未学習モデルを製品として出さない**ため、ゲーム画面の難易度メニューにはまだ追加していません。
+
+### 設計
+- 入力は盤面半径2〜12を収める **8面×25×25マス**。黒・白・赤の石配置（3面）、有効マス（1面）、手番（3面）、対局の進行度（1面）。各手について個別に12種類の特徴量を算出する方式ではありません。
+- 軽量な **畳み込みニューラルネットワーク（CNN）** が、盤面上625地点＋パスの着手スコアと、黒・白・赤それぞれの勝利見込みを同時に出力します。
+- **3人対応のMaxN/PUCT MCTS**：探索途中ではその手番のプレイヤー本人の期待勝利配分を最大化します。2人対戦のように値の符号を反転する方式ではありません。同点の終局結果では勝利配分を等分します。
+- 自己対戦は実際の JavaScript ルールエンジンで実施し、**MCTSの訪問回数分布を方策の学習目標、終局勝利配分を価値の学習目標**にします。教師スコアや人間の棋譜は不要です。石の合法性とスーパーコウは従来どおりゲーム本体で検査します。
+- 実験用学習器 `scripts/train-board-mcts.py` はランダム初期化から学習し、候補JSONに保存。既存の `src/neural-weights.js` は一切置き換えません。
+- PythonのCNN推論とJavaScriptのCNN推論が一致することを `scripts/check-board-parity.py` で数値検証します。
+
+### 実行
+
+Node.js 22 / Python 3 / PyTorch / NumPy を使用します。
+
+```sh
+python3 -m pip install torch numpy
+npm run train:board-mcts -- --iterations 10 --games 3 --simulations 12 --radii 2,3 --seed 20261101
+python3 scripts/check-board-parity.py reports/board-mcts-candidate.json
+npm run benchmark:board-mcts -- --model reports/board-mcts-candidate.json --games 60 --radius 3 --simulations 16 --seed 20261111
+```
+
+GitHub Actions `train full-board three-player MCTS candidate` も手動起動できます。学習候補・学習ログ・対「難しい」CPUの半径3/4の結果をアーティファクトに保存します。
+
+**注意:** 学習対象の盤面半径は現在2〜4を中心とした初期実装です。大きな盤面でのMCTSは探索時間・学習範囲を別途改善する必要があります。教師なし自己対戦が実現できることと、実際の棋力が高いことは別です。「難しい」との勝率が十分に上回るまでは本番へ昇格させません。
+
 ## v1.6 開発中：教師スコアを使わない自己対戦強化学習
 
 従来の「ディープラーニング（実験版）」は手作り戦術スコアを模倣した**教師あり蒸留モデル**で、現時点のゲームにはこの旧モデルを搭載したままです。新しい方式では教師スコアや人間の棋譜を使わず、3人が同じモデルで対戦して**終局時の勝敗と石数差だけ**を報酬にする REINFORCE（方策勾配）を導入しました。
