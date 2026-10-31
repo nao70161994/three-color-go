@@ -41,13 +41,13 @@ def exported(model, seed, total_games, iterations, temperature):
     return raw
 
 
-def sample_loss(net, sample, entropy_weight):
+def sample_loss(net, sample, entropy_weight, temperature):
     logits, value_logits = net(sample["features"], sample["radius"])
     legal = sample["legal"]
     chosen = sample["selected"]
     if not legal or chosen not in legal or len(set(legal)) != len(legal):
         raise ValueError("Illegal action in self-play example")
-    log_probs = F.log_softmax(logits[legal], dim=0)
+    log_probs = F.log_softmax(logits[legal] / temperature, dim=0)
     probs = log_probs.exp()
     chosen_position = legal.index(chosen)
     true_value = torch.tensor(sample["value"], dtype=torch.float32)
@@ -138,7 +138,7 @@ def main():
                 for start in range(0, len(samples), args.batch_size):
                     optimizer.zero_grad()
                     batch = samples[start:start + args.batch_size]
-                    terms = [sample_loss(net, s, args.entropy) for s in batch]
+                    terms = [sample_loss(net, s, args.entropy, args.temperature) for s in batch]
                     loss = torch.stack([x[0] for x in terms]).mean()
                     if not bool(torch.isfinite(loss)):
                         raise RuntimeError("Non-finite policy gradient loss")
