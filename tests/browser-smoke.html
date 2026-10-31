@@ -30,7 +30,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function run(){
   const win=frame.contentWindow, doc=frame.contentDocument, game=win.threeColorGo;
   check(game && typeof game.getState==='function','AI操作用APIが存在');
-  check(game.version==='1.4.0','公開APIのバージョンがv1.4.0');
+  check(game.version==='1.4.1','公開APIのバージョンがv1.4.1');
   check(doc.querySelector('#boardSize').value==='4','初期サイズは半径4・61マス');
   check(doc.querySelector('#replayOpen').disabled,'棋譜が空なら再生ボタンは無効');
   check(doc.querySelector('#boardSize option[value="3"]').textContent.includes('小（37マス）'),'新しい小サイズは37マス');
@@ -119,11 +119,13 @@ async function run(){
   const initialMoves=game.getState().moveCount;
   const largeCell=doc.querySelector('g.cell[data-q="0"][data-r="0"]');
   largeCell.dispatchEvent(new win.MouseEvent('click',{bubbles:true}));
-  check(game.getState().moveCount===initialMoves && !doc.querySelector('#moveConfirm').hidden,
-    'v1.0の大型盤面はタップだけで誤着手しない');
-  doc.querySelector('g.cell[data-q="0"][data-r="0"]').dispatchEvent(new win.MouseEvent('click',{bubbles:true}));
-  check(game.getState().moveCount===initialMoves+1 && doc.querySelector('#moveConfirm').hidden,
-    '同じ場所を2回タップすると着手を確定する');
+  check(game.getState().moveCount===initialMoves+1,
+    '397マスでも1回タップで石を置ける');
+  check(doc.querySelector('#moveConfirm')===null,
+    '大型盤面でも画面を覆う確認バーは表示されない');
+  check(doc.querySelector('#boardViewTools').compareDocumentPosition(doc.querySelector('#boardPanel'))
+    & win.Node.DOCUMENT_POSITION_FOLLOWING,
+    '拡大ボタンは盤面より上に配置');
   check(doc.querySelector('#boardViewTools').hidden===false,'巨大盤面では拡大切り替えが表示される');
   check(!game.getPresentation().zoomBoard,'巨大盤面の初期設定は全体表示');
   check(doc.querySelector('#board').getBoundingClientRect().width<=doc.querySelector('#boardPanel').getBoundingClientRect().width+2,'397マスは最初から盤全体が画面幅に収まる');
@@ -143,6 +145,13 @@ async function run(){
   check(doc.querySelector('#board').getBoundingClientRect().width<=doc.querySelector('#boardPanel').getBoundingClientRect().width+2,'469マスが画面幅に収まる');
   check(doc.documentElement.scrollWidth<=doc.documentElement.clientWidth+2,'469マスでも横スクロールなし');
   check(game.legalMoves().length===469,'469マスの合法手をエンジンから取得');
+  check(game.reset({mode:'local',radius:10}).ok,'スクリーンショットと同じ331マス盤面に切替');
+  const target=doc.querySelector('g.cell[data-q="7"][data-r="-3"]');
+  target.dispatchEvent(new win.MouseEvent('click',{bubbles:true}));
+  check(game.getState().moveCount===1 && game.getState().board['7,-3']==='black',
+    '331マス盤で選択した地点へ1タップで着手');
+  check(doc.documentElement.scrollWidth<=doc.documentElement.clientWidth+2,
+    '331マスでもページ横スクロールなし');
   check(game.reset({mode:'local',radius:4,cpuLevel:'hard'}).ok,'標準61マス・強いCPUの対局を初期化');
   const begin=performance.now();
   const thought=game.autoPlay(1,99);
@@ -254,7 +263,7 @@ async function run(){
   check(standalone.reset({mode:'local',radius:2}).ok,'オフライン版を初期化');
   check(standalone.play(0,0).ok,'オフライン版で着手できる');
   check(standalone.getState().scores.black===1,'オフライン版で得点を表示');
-  check(standalone.version==='1.4.0','オフライン版がv1.3.0へ同期している');
+  check(standalone.version==='1.4.1','オフライン版がv1.3.0へ同期している');
   check(standalone.setCpuLevel('easy').ok,'オフライン版でも難易度を変更できる');
   check(standalone.setHints({legal:true}).ok,'オフライン版でも合法手ガイドを切り替えられる');
   check(standalone.openReplay().ok && standalone.seekReplay(0).ok,
