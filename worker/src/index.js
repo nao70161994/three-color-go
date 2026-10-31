@@ -30,13 +30,16 @@ export default {
 export class Matchmaker {
   constructor(ctx,env){this.ctx=ctx;this.env=env;}
   async fetch(request) {
-    // Serializes the read-modify-write sequence, including overlapping joins.
-    return this.ctx.blockConcurrencyWhile
-      ? this.ctx.blockConcurrencyWhile(()=>this.handle(request)) : this.handle(request);
+    // Transactions make the queue's read-modify-write atomic without blocking
+    // unrelated Durable Object events (unlike blockConcurrencyWhile).
+    const store=this.ctx.storage;
+    return store.transaction
+      ? store.transaction(tx=>this.handle(request,tx))
+      : this.handle(request,store);
   }
-  async handle(request) {
+  async handle(request,store) {
     const url=new URL(request.url),now=Date.now();
-    const data=(await this.ctx.storage.get('lobby'))||empty();
+    const data=(await store.get('lobby'))||empty();
     data.players ||= {};data.queue ||= [];data.rates ||= {};
     for(const [ip,v] of Object.entries(data.rates))if(now-v.since>BURST_MS)delete data.rates[ip];
     for(const [id,p] of Object.entries(data.players)){
@@ -80,7 +83,7 @@ export class Matchmaker {
       data.players[ticket]={time:now,status:'waiting',ip};
       data.queue.push(ticket);
     } else if(!data.players[ticket]){
-      await this.ctx.storage.put('lobby',data);
+      await store.put('lobby',data);
       return json({error:'Unknown or expired ticket'},404);
     }
     while(data.queue.length>=3){
@@ -112,11 +115,11 @@ export class Matchmaker {
           }
         }
       }
-      await this.ctx.storage.put('lobby',data);
+      await store.put('lobby',data);
       return json({ok:true,status:'left'});
     }
     player.time=now;
-    await this.ctx.storage.put('lobby',data);
+    await store.put('lobby',data);
     const host=player.status==='matched'&&player.seat===0;
     const hostReady=host || Object.values(data.players).some(p=>
       p.room===player.room && p.seat===0 && p.ready);
