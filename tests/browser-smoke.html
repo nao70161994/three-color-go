@@ -30,10 +30,12 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function run(){
   const win=frame.contentWindow, doc=frame.contentDocument, game=win.threeColorGo;
   check(game && typeof game.getState==='function','AI操作用APIが存在');
-  check(game.version==='0.5','公開APIのバージョンがv0.5');
+  check(game.version==='0.7','公開APIのバージョンがv0.7');
   check(doc.querySelector('#boardSize').value==='4','初期サイズは半径4・61マス');
   check(doc.querySelector('#replayOpen').disabled,'棋譜が空なら再生ボタンは無効');
-  check(doc.querySelector('#boardSize option[value="5"]')!==null,'91マスを選べる');
+  check(doc.querySelector('#boardSize option[value="3"]').textContent.includes('小（37マス）'),'新しい小サイズは37マス');
+  check(doc.querySelector('#boardSize option[value="2"]').disabled,'旧19マスは新規選択できない');
+  check(doc.querySelector('#boardSize option[value="6"]')!==null,'127マスを選べる');
   check(game.reset({mode:'local',radius:2,cpuLevel:'easy'}).ok,'3人交代モードで初期化');
   check(game.getPresentation().cpuLevel==='easy','CPU難易度を指定して初期化');
   check(doc.getElementById('cpuSetting').hidden,'3人交代中はCPU設定を隠す');
@@ -43,7 +45,7 @@ async function run(){
   check(doc.querySelectorAll('.hintLegal').length===19,'合法手19点が画面に表示される');
   check(game.legalMoves().length===19,'半径2の合法手は19');
   check(doc.querySelectorAll('g.cell').length===19,'画面に19マス表示');
-  check(doc.querySelector('#boardSize').value==='2','APIによる半径変更がUIにも反映');
+  check(doc.querySelector('#boardSize').value==='2','旧19マスの保存盤面でも表示できる');
   check(doc.documentElement.scrollWidth<=doc.documentElement.clientWidth+2,'スマホ幅390pxで横スクロールなし');
   doc.querySelector('g.cell[data-q="0"][data-r="0"]').dispatchEvent(new win.MouseEvent('click',{bubbles:true}));
   check(game.getState().scores.black===1,'盤面クリックで黒石を置ける');
@@ -100,6 +102,16 @@ async function run(){
   doc.querySelector('#boardSize').dispatchEvent(new win.Event('change',{bubbles:true}));
   check(game.getState().radius===3,'盤面サイズ選択で37マスに変更できる');
   check(doc.querySelectorAll('g.cell').length===37,'サイズ変更後の37マスを描画');
+  check(game.reset({mode:'local',radius:6}).ok,'127マスの特大盤で開始できる');
+  check(doc.querySelectorAll('g.cell').length===127,'127マスが画面に描画される');
+  check(doc.documentElement.scrollWidth<=doc.documentElement.clientWidth+2,
+    '127マスでも横スクロールしない');
+  check(game.reset({mode:'local',radius:4,cpuLevel:'hard'}).ok,'標準61マス・強いCPUの対局を初期化');
+  const begin=performance.now();
+  const thought=game.autoPlay(1,99);
+  const elapsed=performance.now()-begin;
+  check(thought.ok && thought.moves===1,'標準盤面で強いCPUが合法手を生成');
+  check(elapsed<10000,'標準盤面のCPUの思考が10秒未満');
   check(game.reset({mode:'cpu',radius:2,cpuLevel:'normal'}).ok,'CPU対戦モードへ戻る');
   check(!doc.getElementById('cpuSetting').hidden,'CPU対戦中に難易度の選択欄が見える');
   check(game.play(0,0).ok,'人間が着手できる');
@@ -143,7 +155,7 @@ async function run(){
   check(standalone.reset({mode:'local',radius:2}).ok,'オフライン版を初期化');
   check(standalone.play(0,0).ok,'オフライン版で着手できる');
   check(standalone.getState().scores.black===1,'オフライン版で得点を表示');
-  check(standalone.version==='0.5','オフライン版がv0.5へ同期している');
+  check(standalone.version==='0.7','オフライン版がv0.7へ同期している');
   check(standalone.setCpuLevel('easy').ok,'オフライン版でも難易度を変更できる');
   check(standalone.setHints({legal:true}).ok,'オフライン版でも合法手ガイドを切り替えられる');
   check(standalone.openReplay().ok && standalone.seekReplay(0).ok,
