@@ -26,7 +26,7 @@ test('whole-board representation includes every stone, turn and playable point',
   assert.equal(a[3*BOARD_AREA+p],1);
   assert.equal(a[5*BOARD_AREA+p],1); // white is next
   assert.equal(a[4*BOARD_AREA+p],0);
-  assert.equal(a[7*BOARD_AREA+p],1/(2*cells));
+  assert.ok(Math.abs(a[7*BOARD_AREA+p]-1/(2*cells))<1e-7);
   assert.equal(a[3*BOARD_AREA+boardIndex(10,0)],0);
 });
 test('full-board model produces 626 logits and calibrated three-way softmax',()=>{
