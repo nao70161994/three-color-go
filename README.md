@@ -18,8 +18,8 @@
 - 1手ごとに前の手数・着手内容だけを送る **差分同期** に変更。不一致が出たときと初参加時だけ棋譜全体を送って再同期します。
 - 通信の正本は黒（ホスト）のブラウザです。ホストを閉じると対局は終了します。PeerJS Cloud + WebRTCのため、通信環境によって接続できない場合があります。
 
-### ランダムマッチ（サーバー設定が必要）
-ランダムマッチの**フロントエンドと3人マッチング用のCloudflare Worker/Durable Object**を実装しました。これは静的なGitHub Pagesだけでは実行できないため、バックエンドのデプロイ・URL設定が完了していない間、公開サイトのランダムマッチは利用できません。ホストされた状態を装っては表示しません。
+### ランダムマッチ（Cloudflareで公開済み）
+ランダムマッチ用Cloudflare Worker/Durable Objectを公開し、GitHub Pagesから自動接続するよう設定しました。公開マッチング先: https://three-color-go-matchmaker.nao70161994.workers.dev 。ユーザーはサーバーURLを手入力する必要はありません。デプロイとCIの成功は実機3台によるWebRTC対戦成功を保証しません。
 
 1. CloudflareでWorkersを使えるアカウントを用意します。
 2. GitHub ActionsのSecretsに `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` を登録します（Workerのデプロイ権限が必要）。
