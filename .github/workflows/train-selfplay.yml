@@ -25,7 +25,9 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install training dependencies
-        run: python -m pip install numpy torch --index-url https://download.pytorch.org/whl/cpu
+        run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Generate teacher-free self-play model (not deployed)
         env:
           ITERATIONS: ${{ inputs.iterations }}
