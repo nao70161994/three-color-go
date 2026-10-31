@@ -9,6 +9,7 @@
  */
 import {COLORS,createGame,pointsOnBoard,pointKey,adjacentKeys,play,pass,winner} from './game.js';
 import {safeCpuMoves,seededRandom} from './agent.js';
+import {PV2_ARCH,evaluatePV2} from './pv2-ai.js';
 
 export const PV_ARCH='hex-neighbor-pv-16-v1';
 const H=16;
@@ -67,6 +68,7 @@ export function encodePVState(state){
     })};
 }
 export function evaluatePV(state,model){
+  if(model?.architecture===PV2_ARCH)return evaluatePV2(state,model);
   checkModel(model);
   const points=pointsOnBoard(state.radius);
   const indexes=new Map(points.map(({q,r},i)=>[pointKey(q,r),i]));
@@ -104,9 +106,10 @@ export function legalPVActions(state){
   const moves=safeCpuMoves(state).map(({q,r})=>({
     type:'play',q,r,index:index.get(pointKey(q,r))
   }));
-  // Avoid early passive loops; passing remains available in the endgame.
-  if(!moves.length||state.moveCount>=Math.floor(cells*.65))
-    moves.push({type:'pass',index:cells});
+  // Stone-count scoring rewards surviving stones, not territory.
+  // Unlike territory Go, passing while safe placements remain loses turns.
+  // Preserve passing when there is no safe move (or at the bot move cap).
+  if(!moves.length)moves.push({type:'pass',index:cells});
   return moves;
 }
 function apply(state,action){
@@ -129,6 +132,17 @@ function expand(node,model){
   }));
   return output.value;
 }
+function perturbRootPriors(children,strength,random){
+  if(!strength||children.length<2)return;
+  // Normalized exponential draws give reproducible Dirichlet(1) noise.
+  // This changes exploration only; the learning target still comes from
+  // MCTS visits and the actual terminal game result.
+  const draws=children.map(()=>-Math.log(Math.max(1e-12,1-random())));
+  const total=draws.reduce((a,b)=>a+b,0);
+  for(let i=0;i<children.length;i++)
+    children[i].prior=(1-strength)*children[i].prior+
+      strength*draws[i]/total;
+}
 function selectChild(node,exploration,random){
   let best=null,highest=-Infinity;
   const seat=node.state.turn;
@@ -149,13 +163,15 @@ function selectChild(node,exploration,random){
  * This is not a 2-player negamax sign flip.
  */
 export function searchPV(state,model,{simulations=24,exploration=1.4,
-  random=seededRandom(1)}={}){
+  random=seededRandom(1),rootNoise=0}={}){
   if(!Number.isInteger(simulations)||simulations<1||simulations>512||
-     !Number.isFinite(exploration)||exploration<=0)
+     !Number.isFinite(exploration)||exploration<=0||
+     !Number.isFinite(rootNoise)||rootNoise<0||rootNoise>1)
     throw Error('Invalid search budget');
   if(state.ended)return {move:null,options:[],policy:[],value:terminalValue(state)};
   const root={state,children:null,visits:0,total:[0,0,0]};
-  const initial=expand(root,model);
+  expand(root,model);
+  perturbRootPriors(root.children,rootNoise,random);
   for(let simulation=0;simulation<simulations;simulation++){
     let node=root;
     const path=[node];

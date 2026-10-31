@@ -20,6 +20,8 @@
     "train:board-mcts": "python3 scripts/train-board-mcts.py",
     "benchmark:board-mcts": "node scripts/benchmark-board.mjs",
     "train:pv": "python3 scripts/train-pv-selfplay.py",
-    "benchmark:pv": "node scripts/benchmark-pv.mjs"
+    "benchmark:pv": "node scripts/benchmark-pv.mjs",
+    "train:pv2": "python3 scripts/train-pv2-selfplay.py",
+    "parity:pv2": "python3 scripts/check-pv2-parity.py"
   }
 }

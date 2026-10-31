@@ -6,6 +6,7 @@ import {COLORS,createGame,pass,play,scores,winner} from '../src/game.js';
 import {chooseMove,seededRandom} from '../src/agent.js';
 import {chooseStrongMove} from '../src/strong-ai.js';
 import {choosePVMove,PV_ARCH} from '../src/pv-ai.js';
+import {PV2_ARCH} from '../src/pv2-ai.js';
 
 const args={};
 for(let i=2;i<process.argv.length;i+=2){
@@ -16,7 +17,7 @@ for(let i=2;i<process.argv.length;i+=2){
 }
 if(!args.model)throw Error('--model required');
 const model=JSON.parse(readFileSync(args.model,'utf8'));
-if(model.architecture!==PV_ARCH)throw Error('Wrong model architecture');
+if(![PV_ARCH,PV2_ARCH].includes(model.architecture))throw Error('Wrong model architecture');
 const games=Number(args.games??6),seed=Number(args.seed??20261101),
   radius=Number(args.radius??3),simulations=Number(args.simulations??16);
 if(!Number.isInteger(games)||games<6||games>300||games%6!==0||
