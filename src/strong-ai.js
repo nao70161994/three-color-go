@@ -54,15 +54,21 @@ function candidates(state, player, width, random) {
       return {q,r,priority:friends*1.7+enemies*2.2-distance*.07+random()*.15};
     }).sort((a,b)=>b.priority-a.priority).slice(0,24);
   }
-  for(const {q,r} of shortlist) {
-    if(state.board[pointKey(q,r)])continue;
-    const next=play(state,q,r);
-    if(!next.ok)continue;
-    const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/state.radius;
-    const rank=positionValue(next.state,player)+next.captured.length*5
-      + (1-edge)*.38 + random()*.04;
-    options.push({q,r,state:next.state,rank});
-  }
+  const evaluate=(selected)=>{
+    for(const {q,r} of selected) {
+      if(state.board[pointKey(q,r)])continue;
+      const next=play(state,q,r);
+      if(!next.ok)continue;
+      const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/state.radius;
+      const rank=positionValue(next.state,player)+next.captured.length*5
+        + (1-edge)*.38 + random()*.04;
+      options.push({q,r,state:next.state,rank});
+    }
+  };
+  evaluate(shortlist);
+  // Avoid false passes if the top shortlist consists only of illegal eyes,
+  // even though legal moves remain in a different part of a large board.
+  if(!options.length && shortlist!==points)evaluate(points);
   options.sort((a,b)=>b.rank-a.rank);
   return options.slice(0,width);
 }
