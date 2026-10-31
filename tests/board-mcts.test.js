@@ -52,7 +52,8 @@ test('MCTS selects legal moves and preserves caller state',()=>{
     random:seededRandom(123)});
   assert.ok(r);
   assert.equal(r.rootVisits,8);
-  assert.ok(r.policy.some(item=>item.index===BOARD_PASS));
+  assert.equal(r.policy.some(item=>item.index===BOARD_PASS),false,
+    'do not waste a move passing when safe placements remain');
   assert.ok(Math.abs(r.policy.reduce((s,x)=>s+x.probability,0)-1)<1e-6);
   assert.ok(r.policy.every(item=>item.visits>=0));
   assert.ok(r.move===null||play(state,r.move.q,r.move.r).ok);
@@ -60,6 +61,10 @@ test('MCTS selects legal moves and preserves caller state',()=>{
   const again=chooseBoardMctsMove(state,model,{simulations:8,
     temperature:0,random:seededRandom(123)});
   assert.equal(again.index,r.index);
+  const exhausted={...state,moveCount:pointsOnBoard(state.radius).length*2};
+  const forcedPass=chooseBoardMctsMove(exhausted,model,{simulations:2});
+  assert.equal(forcedPass.move,null);
+  assert.deepEqual(forcedPass.policy.map(p=>p.index),[BOARD_PASS]);
   assert.throws(()=>chooseBoardMctsMove(state,model,{simulations:0}),/configuration/);
 });
 test('MCTS can play from all three colors without illegal transitions',()=>{
