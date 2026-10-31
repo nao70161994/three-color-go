@@ -376,7 +376,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '0.8',
+  version: '0.8.1',
   getState: ()=>snapshot(state),
   getReplayState,
   openReplay,

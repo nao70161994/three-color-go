@@ -40,6 +40,45 @@ export function groupInfo(board, start, radius) {
 }
 
 /**
+ * Small enclosed eye-space: one or two connected empty cells whose entire
+ * boundary is one existing friendly group. This is strategic guidance only:
+ * the game engine must still consider such placements LEGAL for human players.
+ *
+ * Do not block moves in a shared hollow of disconnected friendly groups:
+ * filling those points can be necessary to connect the groups.
+ * Do not auto-protect larger internal empty areas; these may be playable
+ * space in a stone-count scoring game.
+ */
+export function isOwnEye(state,q,r,color=COLORS[state.turn]) {
+  if(!COLORS.includes(color) || !Number.isInteger(q) || !Number.isInteger(r) ||
+     Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))>state.radius)return false;
+  const start=pointKey(q,r);
+  if(state.board[start])return false;
+  const seen=new Set([start]), queue=[start], boundary=new Set();
+  for(let i=0;i<queue.length;i++){
+    for(const neighbor of adjacentKeys(queue[i],state.radius)){
+      const occupant=state.board[neighbor];
+      if(!occupant){
+        if(!seen.has(neighbor)) {
+          seen.add(neighbor);
+          if(seen.size>2)return false;
+          queue.push(neighbor);
+        }
+      } else if(occupant!==color)return false;
+      else boundary.add(neighbor);
+    }
+  }
+  if(boundary.size===0)return false;
+  const group=new Set(groupInfo(state.board,boundary.values().next().value,state.radius).stones);
+  return [...boundary].every(key=>group.has(key));
+}
+
+/** Strategic (not rules-engine) list; a CPU may pass when only its own eyes remain. */
+export function safeCpuMoves(state){
+  return legalMoves(state).filter(({q,r})=>!isOwnEye(state,q,r));
+}
+
+/**
  * Look one opponent move ahead for instant captures of vulnerable friendly groups.
  * This is deliberately bounded to atari liberties (not a full game-tree search).
  */
@@ -142,7 +181,7 @@ export function chooseMove(state, random=Math.random, strategy='tactical') {
   if(!['baseline','tactical','guarded','balanced'].includes(strategy)) throw new Error('Unknown AI strategy');
   // Stop bots from cycling forever; this is a bot policy, NOT a forced game rule.
   if(state.moveCount>=pointsOnBoard(state.radius).length*2)return null;
-  const options=legalMoves(state);
+  const options=safeCpuMoves(state);
   if(!options.length)return null;
   const own=COLORS[state.turn];
   const atRisk=[], visited=new Set();
@@ -249,6 +288,6 @@ export function chooseDifficultyMove(state,random=Math.random,level='hard') {
   if(level==='hard')return chooseMove(state,random,'balanced');
   if(level==='normal')return chooseMove(state,random,'baseline');
   if(state.ended || state.moveCount>=pointsOnBoard(state.radius).length*2)return null;
-  const moves=legalMoves(state);
+  const moves=safeCpuMoves(state);
   return moves.length ? moves[Math.min(moves.length-1, Math.floor(random()*moves.length))] : null;
 }
