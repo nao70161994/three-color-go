@@ -58,6 +58,11 @@ test('direct self-play updates all three seats with real terminal stone shares',
       assert.ok(g.seatCounts.every(n=>n>0));
       assert.equal(g.seatCounts.reduce((a,b)=>a+b,0),g.samples.length);
       assert.ok(Math.abs(g.rewards.reduce((a,b)=>a+b,0)-1)<1e-8);
+      assert.equal(Object.values(g.captures).reduce((a,b)=>a+b,0),
+        Object.values(g.capturedLosses).reduce((a,b)=>a+b,0));
+      assert.ok(Object.values(g.captures).every(n=>Number.isInteger(n)&&n>=0));
+      assert.ok(Object.values(g.capturedLosses).every(n=>Number.isInteger(n)&&n>=0));
+      assert.equal(g.turns,g.samples.length);
       const total=Object.values(g.scores).reduce((a,b)=>a+b,0);
       for(let i=0;i<3;i++){
         const actual=total?g.scores[COLORS[i]]/total:1/3;

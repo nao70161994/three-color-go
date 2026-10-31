@@ -117,6 +117,8 @@ def main():
     p.add_argument("--entropy", type=float, default=0.015)
     p.add_argument("--epochs", type=int, default=1)
     p.add_argument("--batch-size", type=int, default=32)
+    p.add_argument("--checkpoint-every", type=int, default=0,
+                   help="Save every N completed iterations; 0 disables")
     p.add_argument("--out", type=Path,
                    default=ROOT / "reports" / "direct-policy-candidate.json")
     args = p.parse_args()
@@ -127,6 +129,7 @@ def main():
             0 < args.learning_rate <= .1 and
             0 <= args.entropy <= .5 and 1 <= args.epochs <= 10 and
             1 <= args.batch_size <= 512 and
+            0 <= args.checkpoint_every <= args.iterations and
             radii and all(2 <= r <= 5 for r in radii) and
             all(math.isfinite(v) for v in
                 [args.temperature, args.learning_rate, args.entropy])):
@@ -169,6 +172,35 @@ def main():
                             if total else [1/3] * 3)
                 if not np.allclose(shares, expected, atol=1e-8):
                     raise RuntimeError("Reward is not terminal stone share")
+            # Within 3-agent symmetric self-play, average reward across all
+            # colors is always 1/3. Track absolute surviving stones, captures
+            # and per-seat outcomes, not just that uninformative mean reward.
+            from_colors = ("black", "white", "red")
+            training_stats = {
+                "meanSurvivingStones": [round(sum(
+                    g["scores"][c] for g in games)/len(games), 4)
+                    for c in from_colors],
+                "meanCapturedStones": [round(sum(
+                    g["captures"][c] for g in games)/len(games), 4)
+                    for c in from_colors],
+                "meanCapturedLosses": [round(sum(
+                    g["capturedLosses"][c] for g in games)/len(games), 4)
+                    for c in from_colors],
+                "meanFinalStoneShares": [round(sum(
+                    g["rewards"][i] for g in games)/len(games), 6)
+                    for i in range(3)],
+                "zeroFinalStoneFraction": [round(sum(
+                    g["scores"][c] == 0 for g in games)/len(games), 6)
+                    for c in from_colors],
+                "meanTotalSurvivingStones": round(sum(
+                    sum(g["scores"].values()) for g in games)/len(games), 4),
+                "meanTurns": round(sum(
+                    g["turns"] for g in games)/len(games), 4),
+            }
+            for g in games:
+                if sum(g["captures"].values()) != sum(
+                        g["capturedLosses"].values()):
+                    raise RuntimeError("Captured stone accounting mismatch")
             samples = [s for g in games for s in g["samples"]]
             if not samples:
                 raise RuntimeError("Missing training samples")
@@ -196,6 +228,23 @@ def main():
                 old_prediction, probe_predictions(net, probe, args.temperature))
             total_games += len(games)
             total_positions += len(samples)
+            if args.checkpoint_every and (
+                    (iteration+1) % args.checkpoint_every == 0 or
+                    iteration+1 == args.iterations):
+                checkpoint = args.out.with_name(
+                    f"{args.out.stem}-iter{iteration+1:04d}.json")
+                checkpoint.parent.mkdir(parents=True, exist_ok=True)
+                candidate = exported(net, args.seed, total_games,
+                                     iteration+1, args.temperature)
+                candidate["metadata"].update({
+                    "learningRate": args.learning_rate,
+                    "trainingIteration": iteration+1,
+                    "radii": radii,
+                    "gamesPerIteration": args.games,
+                    "positions": total_positions
+                })
+                checkpoint.write_text(json.dumps(candidate,
+                    separators=(",", ":"))+"\n", encoding="utf-8")
             print(json.dumps({
                 "iteration": iteration+1, "radius": radius,
                 "games": len(games), "samples": len(samples),
@@ -204,6 +253,9 @@ def main():
                 "loss": round(sum(losses)/len(losses), 5),
                 "meanAdvantage": round(sum(advantages)/len(advantages), 5),
                 "learningRate": args.learning_rate,
+                "trainingGamesTotal": total_games,
+                "trainingPositionsTotal": total_positions,
+                **training_stats,
                 **diagnostics
             }), flush=True)
 
