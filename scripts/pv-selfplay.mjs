@@ -5,6 +5,7 @@ import {COLORS,createGame,pass,play,pointsOnBoard,winner,scores} from '../src/ga
 import {seededRandom} from '../src/agent.js';
 import {encodePVState,searchPV,PV_ARCH} from '../src/pv-ai.js';
 import {encodePV2State,PV2_ARCH} from '../src/pv2-ai.js';
+import {resolvePVRewardProfile,terminalPVReward} from '../src/pv-reward.js';
 
 const args={};
 for(let i=2;i<process.argv.length;i+=2){
@@ -52,19 +53,12 @@ for(let game=0;game<games;game++){
   if(!state.ended)throw Error('Self-play exceeded forced-pass boundary');
   const winners=winner(state);
   const finalScores=scores(state);
-  const totalStones=COLORS.reduce((n,c)=>n+finalScores[c],0);
-  // PV2 uses only REAL terminal game outcomes: winning share and the share
-  // of stones that survived to the end. No tactical teacher move scores.
-  const target=COLORS.map(c=>{
-    const winShare=winners.includes(c)?1/winners.length:0;
-    const stoneShare=totalStones?finalScores[c]/totalStones:1/3;
-    return model.architecture===PV2_ARCH
-      ? .75*winShare+.25*stoneShare : winShare;
-  });
+  const rewardProfile=resolvePVRewardProfile(model);
+  const target=terminalPVReward(state,rewardProfile);
   for(const example of examples)
     example.value=[0,1,2].map(i=>target[(example.turn+i)%3]);
   process.stdout.write(JSON.stringify({
     kind:'full-board-policy-value-selfplay',radius,seed:gameSeed,
-    winners,scores:finalScores,ended:state.ended,examples
+    winners,scores:finalScores,rewardProfile,ended:state.ended,examples
   })+'\n');
 }

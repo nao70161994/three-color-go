@@ -10,6 +10,7 @@
 import {COLORS,createGame,pointsOnBoard,pointKey,adjacentKeys,play,pass,winner} from './game.js';
 import {safeCpuMoves,seededRandom} from './agent.js';
 import {PV2_ARCH,evaluatePV2} from './pv2-ai.js';
+import {resolvePVRewardProfile,terminalPVReward} from './pv-reward.js';
 
 export const PV_ARCH='hex-neighbor-pv-16-v1';
 const H=16;
@@ -117,13 +118,11 @@ function apply(state,action){
   if(!next.ok)throw Error('MCTS generated illegal move: '+next.reason);
   return next.state;
 }
-function terminalValue(state){
-  const winners=winner(state),result=[0,0,0];
-  for(const color of winners)result[COLORS.indexOf(color)]=1/winners.length;
-  return result;
+function terminalValue(state,model){
+  return terminalPVReward(state,resolvePVRewardProfile(model));
 }
 function expand(node,model){
-  if(node.state.ended)return terminalValue(node.state);
+  if(node.state.ended)return terminalValue(node.state,model);
   const output=evaluatePV(node.state,model);
   const options=legalPVActions(node.state);
   const probs=stableSoftmax(options.map(a=>output.logits[a.index]));
@@ -168,7 +167,7 @@ export function searchPV(state,model,{simulations=24,exploration=1.4,
      !Number.isFinite(exploration)||exploration<=0||
      !Number.isFinite(rootNoise)||rootNoise<0||rootNoise>1)
     throw Error('Invalid search budget');
-  if(state.ended)return {move:null,options:[],policy:[],value:terminalValue(state)};
+  if(state.ended)return {move:null,options:[],policy:[],value:terminalValue(state,model)};
   const root={state,children:null,visits:0,total:[0,0,0]};
   expand(root,model);
   perturbRootPriors(root.children,rootNoise,random);
@@ -181,7 +180,7 @@ export function searchPV(state,model,{simulations=24,exploration=1.4,
       node=child;path.push(node);
       if(node.children===null)break;
     }
-    const value=node.state.ended?terminalValue(node.state):expand(node,model);
+    const value=node.state.ended?terminalValue(node.state,model):expand(node,model);
     for(const step of path){
       step.visits++;
       for(let k=0;k<3;k++)step.total[k]+=value[k];
