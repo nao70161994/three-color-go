@@ -1,0 +1,101 @@
+name: experimental group-aware PV2 MCTS
+on:
+  pull_request:
+    paths:
+      - src/pv2-ai.js
+      - src/pv-ai.js
+      - scripts/pv-selfplay.mjs
+      - scripts/benchmark-pv.mjs
+      - scripts/train-pv2-selfplay.py
+      - scripts/predict-pv2.mjs
+      - scripts/check-pv2-parity.py
+      - tests/pv2-ai.test.js
+      - .github/workflows/pv2-mcts.yml
+  push:
+    branches: [feat/group-aware-pv2-mcts]
+  workflow_dispatch:
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Learn policy/value from teacherless MCTS trajectories
+        run: |
+          python scripts/train-pv2-selfplay.py --iterations 2 --games 2 \
+            --radii 2,3 --simulations 4 --seed 20261031 \
+            --out reports/pv2-smoke.json
+          python scripts/check-pv2-parity.py reports/pv2-smoke.json
+          node scripts/benchmark-pv.mjs --model reports/pv2-smoke.json \
+            --games 6 --radius 2 --simulations 4 --seed 9001 \
+            --out reports/pv2-smoke-evaluation.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pv2-smoke
+          path: reports/pv2-smoke*.json
+          retention-days: 14
+  experiment:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Generate candidate from group-aware three-player self-play
+        run: |
+          set -o pipefail
+          mkdir -p reports
+          python scripts/train-pv2-selfplay.py --iterations 12 --games 6 \
+            --simulations 12 --radii 2,3,4 --seed 20261031 \
+            --out reports/pv2-candidate.json | tee reports/pv2-training.jsonl
+      - name: Verify numeric Torch/JS inference parity
+        run: python scripts/check-pv2-parity.py reports/pv2-candidate.json
+      - name: Held-out matchups with unchanged production hard CPU
+        run: |
+          node scripts/benchmark-pv.mjs --model reports/pv2-candidate.json \
+            --games 18 --radius 3 --simulations 16 --seed 20261121 \
+            --out reports/pv2-r3.json
+          node scripts/benchmark-pv.mjs --model reports/pv2-candidate.json \
+            --games 18 --radius 4 --simulations 16 --seed 20261122 \
+            --out reports/pv2-r4.json
+      - name: Outcome summary (NO automatic promotion)
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync,appendFileSync} from 'node:fs';
+          const rows=[3,4].map(n=>JSON.parse(readFileSync('reports/pv2-r'+n+'.json')));
+          const lines=['## PV2: group-aware message passing + three-player MCTS',
+            'Experiment only: production model unchanged.',
+            '| Radius | Finished | PV2 ahead | Hard ahead | Draw | PV2 win share | Margin (stones) |',
+            '|---|---:|---:|---:|---:|---:|---:|',
+            ...rows.map(r=>'| '+r.radius+' | '+r.finished+' | '+r.pvAhead+
+              ' | '+r.hardAhead+' | '+r.ties+' | '+r.stats.pv.rate+
+              ' | '+r.meanPVMinusHard+' |')];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group-aware-pv2-candidate
+          path: reports/*
+          retention-days: 30
