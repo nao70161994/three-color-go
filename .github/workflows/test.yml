@@ -11,6 +11,7 @@ jobs:
         with:
           node-version: '22'
       - run: npm test
+      - run: npm run build:standalone
       - run: npm run check:standalone
   browser:
     runs-on: ubuntu-latest
