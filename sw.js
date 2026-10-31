@@ -2,7 +2,7 @@ const CACHE='three-color-go-v1.3';
 const CORE=['./','./index.html','./manifest.webmanifest','./icons/app-icon.svg','./icons/icon-192.png','./icons/icon-512.png',
 './src/style.css','./src/game.js','./src/agent.js','./src/strong-ai.js',
 './src/insights.js','./src/online.js','./src/matchmaking.js','./src/ai-worker.js','./src/main.js',
-'./play.html'];
+'./play.html','./match-config.js'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE)
  .then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(Promise.all([
