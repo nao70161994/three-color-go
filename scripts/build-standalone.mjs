@@ -15,7 +15,8 @@ const jsTag='<script type="module" src="./src/main.js"></script>';
 if(!index.includes(cssTag)||!index.includes(jsTag)) throw Error('index.html template changed');
 const bundled=index.replace(cssTag,'<style>\n'+style+'\n</style>')
  .replace(jsTag,'<script>\n'+game+'\n'+agent+'\n'+strong+'\n'+insights+'\n'+online+'\n'+matchmaking+'\n'+ui+'\n</script>')
- .replace('</title>',' · オフライン版</title>');
+ .replace('</title>',' · オフライン版</title>')
+ .replace('<script src="./match-config.js"></script>','<script>window.THREE_COLOR_MATCH_URL="";</script>');
 const output=new URL('../play.html',import.meta.url);
 if(process.argv.includes('--check')) {
   if(!fs.existsSync(output)||fs.readFileSync(output,'utf8')!==bundled) {
