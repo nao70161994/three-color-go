@@ -591,7 +591,7 @@ onlineLeaveEl.addEventListener('click',()=>{
   network?.close();network=null;reset({nextMode:'local'});
 });
 onlineCancelEl.addEventListener('click',()=>matchCancellation?.());
-matchEndpointEl.value=(()=>{try{return localStorage.getItem(MATCH_ENDPOINT_KEY)||'';}catch{return '';}})();
+matchEndpointEl.value=(()=>{try{return localStorage.getItem(MATCH_ENDPOINT_KEY)||globalThis.THREE_COLOR_MATCH_URL||'';}catch{return globalThis.THREE_COLOR_MATCH_URL||'';}})();
 matchEndpointEl.addEventListener('change',()=>{
   try{localStorage.setItem(MATCH_ENDPOINT_KEY,matchEndpointEl.value.trim());}catch{}
 });
