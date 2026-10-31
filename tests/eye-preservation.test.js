@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {COLORS,createGame,play,pointKey,pointsOnBoard} from '../src/game.js';
-import {chooseDifficultyMove,chooseMove,isOwnEye,legalMoves,safeCpuMoves,seededRandom} from '../src/agent.js';
+import {chooseDifficultyMove,chooseMove,isOwnEye,isUnsafeCpuMove,legalMoves,safeCpuMoves,seededRandom} from '../src/agent.js';
 import {chooseStrongMove} from '../src/strong-ai.js';
 
 function fullBlackWithHoles(holes, radius=3) {
@@ -76,4 +76,63 @@ test('eye decision never mutates the board, history, or turn order',()=>{
   assert.deepEqual(counts,[35,0,0]);
   assert.deepEqual(safeCpuMoves(state),[]);
   assert.equal(JSON.stringify(state),original);
+});
+
+
+test('regression: a three-point enclosed eye space must be protected before it shrinks',()=>{
+  const state=fullBlackWithHoles(['0,0','1,0','1,-1']);
+  const original=JSON.stringify(state);
+  for(const [q,r] of [[0,0],[1,0],[1,-1]]) {
+    assert.equal(isOwnEye(state,q,r),true,'preserve '+q+','+r);
+    assert.equal(play(state,q,r).ok,true,'humans may legally fill '+q+','+r);
+  }
+  // Previous CPU policy only recognized 1-2 empty cells and volunteered
+  // the first eye-filling move here.
+  assert.deepEqual(safeCpuMoves(state),[]);
+  assert.equal(chooseStrongMove(state,seededRandom(2)),null);
+  for(const level of ['easy','normal','hard'])
+    assert.equal(chooseDifficultyMove(state,seededRandom(2),level),null,level);
+  const first=play(state,0,0);assert.equal(first.ok,true);
+  const invasion=play(first.state,1,0);assert.equal(invasion.ok,true);
+  const capture=play(invasion.state,1,-1);
+  assert.equal(capture.ok,true);
+  assert.ok(capture.captured.length>=30,
+    'filling the enclosed eye space allows the rivals to destroy a large group');
+  assert.equal(JSON.stringify(state),original);
+});
+
+test('regression: bot avoids immediate self-atari even when it is not a closed eye',()=>{
+  const state=createGame(2);
+  state.turn=0;
+  for(const {q,r} of pointsOnBoard(2))state.board[pointKey(q,r)]='red';
+  delete state.board['0,0'];delete state.board['1,0'];
+  assert.equal(isOwnEye(state,0,0),false,'mostly enemy boundary is not an own eye');
+  const a=play(state,0,0);
+  assert.equal(a.ok,true,'the game rules allow this self-atari');
+  assert.equal(isUnsafeCpuMove(state,0,0,a),true);
+  const enemy=play(a.state,1,0);
+  assert.equal(enemy.ok,true);
+  assert.ok(enemy.captured.includes('0,0'),'opponent immediately captures the self-atari');
+  assert.deepEqual(safeCpuMoves(state),[]);
+  assert.equal(chooseStrongMove(state,seededRandom(5)),null);
+  for(const level of ['easy','normal','hard'])
+    assert.equal(chooseDifficultyMove(state,seededRandom(5),level),null,level);
+});
+
+test('safety checks leave the complete human legal move list unchanged',()=>{
+  const state=fullBlackWithHoles(['0,0','1,0','1,-1']);
+  assert.equal(legalMoves(state).length,3);
+  assert.deepEqual(safeCpuMoves(state),[]);
+  assert.equal(isOwnEye(createGame(3),0,0),false);
+  // The strategic veto cannot reject legal opponent captures.
+  const enemy=createGame(2);
+  enemy.turn=1;
+  enemy.board={
+    '0,0':'black','1,0':'red','1,-1':'white','0,-1':'red',
+    '-1,0':'white','-1,1':'red'
+  };
+  const capture=play(enemy,0,1);
+  assert.equal(capture.ok,true);
+  assert.ok(capture.captured.length);
+  assert.equal(isUnsafeCpuMove(enemy,0,1,capture),false);
 });

@@ -1,5 +1,5 @@
 import { COLORS, adjacentKeys, createGame, pass, play, pointKey, pointsOnBoard, scores, winner } from './game.js';
-import { chooseMove, groupInfo, isOwnEye, seededRandom } from './agent.js';
+import { chooseMove, groupInfo, isOwnEye, isUnsafeCpuMove, seededRandom } from './agent.js';
 
 /**
  * Strong CPU: 3-ply, three-player adversarial candidate search.
@@ -58,7 +58,7 @@ function candidates(state, player, width, random) {
     for(const {q,r} of selected) {
       if(state.board[pointKey(q,r)] || isOwnEye(state,q,r,player))continue;
       const next=play(state,q,r);
-      if(!next.ok)continue;
+      if(!next.ok || isUnsafeCpuMove(state,q,r,next))continue;
       const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/state.radius;
       const rank=positionValue(next.state,player)+next.captured.length*5
         + (1-edge)*.38 + random()*.04;
