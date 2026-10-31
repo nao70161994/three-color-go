@@ -1,8 +1,24 @@
 import { COLORS, LABELS, pointsOnBoard, pointKey, createGame, play, pass, scores, winner } from './game.js';
 import { chooseMove, chooseDifficultyMove, dangerGroups, legalMoves, seededRandom, snapshot } from './agent.js';
 import { chooseStrongMove } from './strong-ai.js';
+import { analyzeRecord, formatAnalysis, explainPosition } from './insights.js';
+import { createOnlineSession, loadPeerJS, roomLink, validRoom } from './online.js';
 
 const boardSvg = document.getElementById('board');
+const onlinePanelEl=document.getElementById('onlinePanel');
+const onlineCreateEl=document.getElementById('onlineCreate');
+const onlineJoinEl=document.getElementById('onlineJoin');
+const onlineLeaveEl=document.getElementById('onlineLeave');
+const onlineRoomEl=document.getElementById('onlineRoom');
+const onlineCopyEl=document.getElementById('onlineCopy');
+const onlineStatusEl=document.getElementById('onlineStatus');
+const moveConfirmEl=document.getElementById('moveConfirm');
+const moveCancelEl=document.getElementById('moveCancel');
+const copyRecordEl=document.getElementById('copyRecord');
+const copyAnalysisEl=document.getElementById('copyAnalysis');
+const studyPanelEl=document.getElementById('studyPanel');
+const studyTextEl=document.getElementById('studyText');
+const lastMoveJumpEl=document.getElementById('lastMoveJump');
 const boardPanelEl = document.getElementById('boardPanel');
 const boardViewToolsEl = document.getElementById('boardViewTools');
 const boardZoomEl = document.getElementById('boardZoom');
@@ -39,7 +55,9 @@ let state = createGame(4);
 let mode = 'cpu', past = [], actions = [], botTimer = null;
 let cpuLevel = 'hard', showLegal = false, showDanger = true;
 let spectatorPaused = false, spectatorSpeed = 600, zoomBoard = false, zoomBoardExplicit = false;
-let replay = null;
+let replay = null, network = null, netMessage = '部屋を作るか招待URLで参加してください';
+let pendingMove = null, pinchStart = null, zoomScale = 1;
+const MAX_ONLINE_ACTIONS=1800;
 const STORAGE = 'three-color-go.v2';
 
 function center(q,r) { return [SIZE*ROOT3*(q+r/2), SIZE*1.5*r]; }
@@ -81,6 +99,55 @@ function closeReplay() {
   replay=null;render();scheduleBots();
   return {ok:true,...getReplayState()};
 }
+function record() {
+  return {version:1,radius:state.radius,mode,cpuLevel,showLegal,showDanger,
+    spectatorPaused,spectatorSpeed,zoomBoard,zoomBoardExplicit,
+    zoomScale,actions:actions.map(a=>({...a}))};
+}
+function onlineStatus() {return network?network.status():{host:false,seat:null,room:null,connected:false,ready:false,message:netMessage};}
+function isGuest() {return mode==='online' && network?.status().connected && !network.status().host;}
+function applyNetworkMove(action,seat,expected) {
+  if(mode!=='online' || !network?.status().host || state.ended || replay)
+    return {ok:false,reason:'オンライン対局を操作できません'};
+  if(expected!==state.moveCount || state.turn!==seat)
+    return {ok:false,reason:'手番が違うため、同期を待ってください'};
+  if(!action||!['play','pass'].includes(action.type))
+    return {ok:false,reason:'不明な着手'};
+  if(action.type==='play')return place(action.q,action.r);
+  return doPass();
+}
+function syncOnlineRecord(remote) {
+  if(!remote||!Array.isArray(remote.actions)||remote.actions.length>MAX_ONLINE_ACTIONS)return;
+  const result=loadRecord({...remote,mode:'online'},{networkSync:true});
+  if(!result.ok)netMessage='同期に失敗しました: '+result.reason;
+}
+function networkChanged(status) {
+  netMessage=status.message;
+  onlineStatusEl.textContent=status.message+
+    (status.host?' · 参加人数 '+(status.players+1)+'/3':'');
+  if(mode==='online')render();
+}
+async function ensureNetwork() {
+  if(network)return network;
+  const Peer=await loadPeerJS();
+  network=createOnlineSession({
+    Peer,getRecord:record,applyMove:applyNetworkMove,
+    receiveRecord:syncOnlineRecord,onStatus:networkChanged
+  });
+  return network;
+}
+function sendOnlineAction(action) {
+  if(!network)return {ok:false,reason:'部屋に接続していません'};
+  return network.submit(action,state.moveCount);
+}
+async function copyString(value) {
+  try {await navigator.clipboard.writeText(value);return true;}
+  catch {
+    // Clipboard can be denied on HTTP/file URLs; let the user copy manually.
+    prompt('内容をコピーしてください',value);
+    return false;
+  }
+}
 function save() {
   try { localStorage.setItem(STORAGE,JSON.stringify({version:1,mode,radius:state.radius,cpuLevel,showLegal,showDanger,spectatorPaused,spectatorSpeed,zoomBoard,zoomBoardExplicit,actions})); }
   catch { /* Storage may be blocked in private mode. */ }
@@ -89,8 +156,9 @@ function commit(result,action, schedule=true) {
   if(replay)return {ok:false,reason:'棋譜再生を終了してから着手してください'};
   if (!result.ok) { msgEl.textContent=result.reason; return {ok:false,reason:result.reason}; }
   stopBots();
-  past.push(state); state=result.state; actions.push(action);
+  past.push(state); state=result.state; actions.push(action);pendingMove=null;
   save(); render();
+  if(mode==='online' && network?.status().host)network.broadcast();
   if (schedule) scheduleBots();
   return {ok:true,captured:result.captured ?? [],state:snapshot(state)};
 }
@@ -98,7 +166,16 @@ function place(q,r,schedule=true) {
   return commit(play(state,q,r),{type:'play',q,r},schedule);
 }
 function doPass(schedule=true) { return commit(pass(state),{type:'pass'},schedule); }
-function permittedForHuman() { return !replay && (mode==='local' || (mode==='cpu' && state.turn===0)); }
+function permittedForHuman() {
+  if(replay)return false;
+  if(mode==='local')return true;
+  if(mode==='cpu')return state.turn===0;
+  if(mode==='online') {
+    const info=onlineStatus();
+    return info.connected && info.seat===state.turn;
+  }
+  return false;
+}
 function botMove(random=Math.random) {
   return cpuLevel==='hard' ? chooseStrongMove(state,random) : chooseDifficultyMove(state,random,cpuLevel);
 }
@@ -130,7 +207,7 @@ function centerBoard() {
 }
 function setBoardZoom(enabled) {
   if(typeof enabled!=='boolean')return {ok:false,reason:'拡大表示にはtrue/falseを指定してください'};
-  zoomBoard=enabled;zoomBoardExplicit=true;save();render();
+  zoomBoard=enabled;zoomBoardExplicit=true;zoomScale=1;save();render();
   if(zoomBoard)centerBoard();
   return {ok:true,zoom:zoomBoard};
 }
@@ -187,8 +264,8 @@ function drawBoard() {
   const xExtent=SIZE*ROOT3*view.radius+SIZE+4;
   const yExtent=SIZE*1.5*view.radius+SIZE+4;
   boardSvg.setAttribute('viewBox',[-xExtent,-yExtent,2*xExtent,2*yExtent].join(' '));
-  const enlarged=zoomBoard && view.radius>=8;
-  boardSvg.style.width=enlarged ? Math.max(700,Math.round(xExtent*1.7))+'px' : '100%';
+  const enlarged=zoomBoard;
+  boardSvg.style.width=enlarged ? Math.round(Math.max(700,xExtent*1.7)*zoomScale)+'px' : '100%';
   boardSvg.style.maxHeight=enlarged ? 'none' : '65vh';
   boardSvg.replaceChildren();
   const hints=boardHints();
@@ -211,9 +288,23 @@ function drawBoard() {
     if (legalKeys.has(key)) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.17,class:'hintLegal'}));
     if (dangerKeys.has(key)) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.79,class:'hintDanger'}));
     if (lastKey===key) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.91,class:'hintLast'}));
+    if(pendingMove && pendingMove.q===q && pendingMove.r===r)
+      g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.95,class:'hintSelected'}));
     function activate() {
-      if (!permittedForHuman()) {msgEl.textContent=replay?'棋譜を再生中です':'CPUが考えています';return;}
-      place(q,r);
+      if(!permittedForHuman()){
+        msgEl.textContent=replay?'棋譜を再生中です':mode==='online'?'自分の手番か接続を確認してください':'CPUが考えています';
+        return;
+      }
+      if(view.radius>=8 && (!pendingMove || pendingMove.q!==q || pendingMove.r!==r)){
+        pendingMove={q,r};moveConfirmEl.hidden=false;
+        moveConfirmEl.firstChild.textContent=' ('+q+','+r+') をもう一度タップして着手 ';
+        drawBoard();return;
+      }
+      pendingMove=null;moveConfirmEl.hidden=true;
+      if(mode==='online') {
+        const outcome=sendOnlineAction({type:'play',q,r});
+        if(!outcome.ok)msgEl.textContent=outcome.reason;
+      }else place(q,r);
     }
     g.addEventListener('click',activate);
     g.addEventListener('keydown',e=>{
@@ -226,7 +317,7 @@ function render() {
   const view=visibleState();
   const color=COLORS[view.turn],counts=scores(view);
   turnStoneEl.className='stone '+color;
-  turnTextEl.textContent=view.ended?'対局終了':LABELS[color]+'の番'+((mode==='bots'||(mode==='cpu'&&view.turn!==0))?'（CPU）':'');
+  turnTextEl.textContent=view.ended?'対局終了':LABELS[color]+'の番'+((mode==='bots'||(mode==='cpu'&&view.turn!==0))?'（CPU）':'')+(mode==='online'?' · オンライン':'');
   turnLabelEl.textContent=replay?'棋譜再生 · '+replay.index+' / '+actions.length+'手':view.ended?'勝敗が決まりました':view.passes+'人連続パス · '+view.moveCount+'手';
   modeEl.value=mode;
   boardSizeEl.value=String(state.radius);
@@ -248,14 +339,22 @@ function render() {
     replayNextEl.disabled=replay.index===actions.length;
     replayEndEl.disabled=replay.index===actions.length;
   }
-  cpuSettingEl.hidden=mode==='local';
+  cpuSettingEl.hidden=mode==='local'||mode==='online';
+  onlinePanelEl.hidden=mode!=='online';
+  const session=onlineStatus();
+  onlineStatusEl.textContent=netMessage+(mode==='online'&&session.host?' · 参加人数 '+(session.players+1)+'/3':'');
+  onlineCopyEl.disabled=!session.room||!session.host;
+  onlineCreateEl.disabled=session.connected || !!replay;
+  onlineJoinEl.disabled=session.connected || !!replay;
+  onlineLeaveEl.disabled=!session.connected;
+  boardSizeEl.disabled=!!replay || isGuest();
   spectatorControlsEl.hidden=mode!=='bots';
   spectatorToggleEl.textContent=spectatorPaused?'再開':'一時停止';
   spectatorToggleEl.disabled=!!replay||view.ended;
   spectatorStepEl.disabled=!!replay||!spectatorPaused||view.ended;
   spectatorSpeedEl.value=String(spectatorSpeed);
   spectatorSpeedEl.disabled=!!replay;
-  boardViewToolsEl.hidden=view.radius<8;
+  boardViewToolsEl.hidden=view.radius<8 && !zoomBoard;
   boardZoomEl.textContent=zoomBoard?'全体表示にする':'拡大して操作';
   boardZoomEl.setAttribute('aria-pressed',String(zoomBoard));
   legalToggleEl.textContent='合法手を表示: '+(showLegal?'ON':'OFF');
@@ -272,8 +371,9 @@ function render() {
   }
   drawBoard();
   passBtn.disabled=view.ended || !permittedForHuman();
-  undoBtn.disabled=!!replay || past.length===0;
-  resetBtn.disabled=!!replay;
+  moveConfirmEl.hidden=!pendingMove || view.ended;
+  undoBtn.disabled=!!replay || mode==='online' || past.length===0;
+  resetBtn.disabled=!!replay || isGuest();
   if (view.ended) {
     const winning=winner(view).map(c=>LABELS[c]).join('・');
     msgEl.textContent='終局！ '+winning+(winner(view).length>1?'が同点':'の勝利')+'。黒 '+counts.black+' / 白 '+counts.white+' / 赤 '+counts.red+' 石';
@@ -282,17 +382,20 @@ function render() {
   }
 }
 function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
-  if (!['cpu','local','bots'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
+  if (!['cpu','local','bots','online'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
   if (!['easy','normal','hard'].includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
   let next;
   try {next=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
   stopBots();
+  if(mode==='online' && nextMode!=='online') {network?.close();network=null;}
   replay=null;state=next;
   mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
-  past=[];actions=[];save();render();if(zoomBoard)centerBoard();scheduleBots();
+  past=[];actions=[];pendingMove=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
+  if(nextMode==='online'&&network?.status().host)network.broadcast();
   return {ok:true,state:snapshot(state)};
 }
 function undo() {
+  if(mode==='online')return {ok:false,reason:'オンライン対局のUndoは未対応です'};
   if(replay)return {ok:false,reason:'棋譜再生中は戻せません'};
   stopBots();
   if (!past.length) return {ok:false,reason:'戻せる手がありません'};
@@ -302,7 +405,7 @@ function undo() {
   save();render();scheduleBots();
   return {ok:true,state:snapshot(state)};
 }
-function loadRecord(record,{resumeSavedBots=false}={}) {
+function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
   if (!record || !Array.isArray(record.actions)) return {ok:false,reason:'actions配列がありません'};
   let next;
   try {next=createGame(record.radius ?? 4);} catch(e){return {ok:false,reason:e.message};}
@@ -315,19 +418,21 @@ function loadRecord(record,{resumeSavedBots=false}={}) {
     states.push(next);next=result.state;
     normalized.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
   }
-  const nextMode=['cpu','local','bots'].includes(record.mode)?record.mode:'local';
+  const nextMode=networkSync?'online':(['cpu','local','bots'].includes(record.mode)?record.mode:'local');
   const nextLevel=['easy','normal','hard'].includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
   const nextShowLegal=typeof record.showLegal==='boolean'?record.showLegal:showLegal;
   const nextShowDanger=typeof record.showDanger==='boolean'?record.showDanger:showDanger;
   stopBots();
+  if(mode==='online' && !networkSync){network?.close();network=null;}
   replay=null;
-  state=next;mode=nextMode;cpuLevel=nextLevel;
+  state=next;mode=nextMode;pendingMove=null;cpuLevel=nextLevel;
   spectatorSpeed=[180,600,1200].includes(record.spectatorSpeed)?record.spectatorSpeed:600;
   spectatorPaused=nextMode==='bots' ? (!resumeSavedBots || record.spectatorPaused===true) : false;
   // Old saves were automatically zoomed, not necessarily by user choice.
   // Only honor zoom on restore when a v0.8.3+ user explicitly selected it.
   zoomBoardExplicit=record.zoomBoardExplicit===true;
   zoomBoard=zoomBoardExplicit && record.zoomBoard===true;
+  zoomScale=typeof record.zoomScale==='number'&&record.zoomScale>=1&&record.zoomScale<=3.5?record.zoomScale:1;
   showLegal=nextShowLegal;showDanger=nextShowDanger;past=states;actions=normalized;
   save();render();if(zoomBoard)centerBoard();scheduleBots();
   return {ok:true,state:snapshot(state)};
@@ -342,7 +447,78 @@ function restore() {
     loadRecord(record,{resumeSavedBots:true});
   } catch { /* Ignore invalid / unavailable storage. */ }
 }
-passBtn.addEventListener('click',()=>{if (permittedForHuman()) doPass();});
+passBtn.addEventListener('click',()=>{
+  if(!permittedForHuman())return;
+  if(mode==='online')sendOnlineAction({type:'pass'});else doPass();
+});
+moveCancelEl.addEventListener('click',()=>{pendingMove=null;moveConfirmEl.hidden=true;drawBoard();});
+onlineCreateEl.addEventListener('click',async()=>{
+  try{
+    const net=await ensureNetwork();
+    const info=await net.createRoom();
+    reset({nextMode:'online'});
+    onlineRoomEl.value=roomLink(location.href,info.room);
+    netMessage='部屋を作成しました。2人にURLを共有してください';
+    render();
+  }catch(e){netMessage='部屋を作れません: '+e.message;onlineStatusEl.textContent=netMessage;}
+});
+onlineJoinEl.addEventListener('click',async()=>{
+  try{
+    const raw=onlineRoomEl.value.trim();
+    let room=raw;
+    if(raw.startsWith('http'))room=new URL(raw).searchParams.get('room')||'';
+    if(!validRoom(room))throw Error('招待URLまたは部屋IDを入力してください');
+    const net=await ensureNetwork();
+    await net.joinRoom(room);
+    netMessage='参加しました。自分の色の手番で着手できます';
+    render();
+  }catch(e){netMessage='参加できません: '+e.message;onlineStatusEl.textContent=netMessage;}
+});
+onlineLeaveEl.addEventListener('click',()=>{network?.close();network=null;reset({nextMode:'local'});});
+onlineCopyEl.addEventListener('click',async()=>{
+  if(network?.status().room && network.status().host)
+    await copyString(roomLink(location.href,network.status().room));
+});
+copyRecordEl.addEventListener('click',async()=>{await copyString(JSON.stringify(record(),null,2));});
+copyAnalysisEl.addEventListener('click',async()=>{
+  try{
+    const report=formatAnalysis(analyzeRecord(record()));
+    studyPanelEl.hidden=false;studyTextEl.textContent=report;
+    await copyString(report);
+  }catch(e){msgEl.textContent='分析エラー: '+e.message;}
+});
+lastMoveJumpEl.addEventListener('click',()=>{
+  const a=[...actions].reverse().find(x=>x.type==='play');
+  if(!a)return;
+  if(!zoomBoard)setBoardZoom(true);
+  const [x,y]=center(a.q,a.r);
+  const bounds=boardSvg.viewBox.baseVal,scale=boardSvg.clientWidth/bounds.width;
+  boardPanelEl.scrollLeft=(x-bounds.x)*scale-boardPanelEl.clientWidth/2;
+  boardPanelEl.scrollTop=(y-bounds.y)*scale-boardPanelEl.clientHeight/2;
+});
+boardSvg.addEventListener('touchstart',e=>{
+  if(e.touches.length===2){
+    const a=e.touches[0],b=e.touches[1];
+    pinchStart=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+  }
+},{passive:true});
+boardSvg.addEventListener('touchmove',e=>{
+  if(e.touches.length!==2 || !pinchStart)return;
+  e.preventDefault();
+  const a=e.touches[0],b=e.touches[1];
+  const length=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+  const factor=length/pinchStart;pinchStart=length;
+  zoomBoard=true;zoomBoardExplicit=true;
+  zoomScale=Math.min(3.5,Math.max(1,zoomScale*factor));
+  const xExtent=SIZE*ROOT3*state.radius+SIZE+4;
+  boardSvg.style.width=Math.round(Math.max(700,xExtent*1.7)*zoomScale)+'px';
+  boardSvg.style.maxHeight='none';
+  boardViewToolsEl.hidden=false;
+  boardZoomEl.textContent='全体表示にする';
+  boardZoomEl.setAttribute('aria-pressed','true');
+  save();
+},{passive:false});
+boardSvg.addEventListener('touchend',e=>{if(e.touches.length<2)pinchStart=null;},{passive:true});
 spectatorToggleEl.addEventListener('click',()=>spectatorPaused?resumeBots():pauseBots());
 spectatorStepEl.addEventListener('click',stepBot);
 spectatorSpeedEl.addEventListener('change',()=>setSpectatorSpeed(spectatorSpeedEl.value));
@@ -379,8 +555,11 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '0.8.3',
+  version: '1.2.0',
   getState: ()=>snapshot(state),
+  analyze: ()=>analyzeRecord(record()),
+  explainPosition: ()=>explainPosition(state),
+  getOnlineStatus: onlineStatus,
   getReplayState,
   openReplay,
   seekReplay,
@@ -398,14 +577,15 @@ window.threeColorGo = Object.freeze({
   stepBot,
   setSpectatorSpeed,
   setBoardZoom,
-  play: (q,r)=>place(q,r),
-  pass: ()=>doPass(),
+  play: (q,r)=>mode==='online'?sendOnlineAction({type:'play',q,r}):place(q,r),
+  pass: ()=>mode==='online'?sendOnlineAction({type:'pass'}):doPass(),
   undo,
   reset: (options={})=>reset({radius:options.radius??state.radius,nextMode:options.mode??'local',nextLevel:options.cpuLevel??cpuLevel}),
   setMode: (next)=>reset({radius:state.radius,nextMode:next}),
-  exportRecord: ()=>({version:1,radius:state.radius,mode,cpuLevel,showLegal,showDanger,spectatorPaused,spectatorSpeed,zoomBoard,zoomBoardExplicit,actions:actions.map(a=>({...a}))}),
-  importRecord: loadRecord,
+  exportRecord: record,
+  importRecord: (value)=>loadRecord(value),
   autoPlay: (limit=100,seed=1)=>{
+    if(mode==='online')return {ok:false,reason:'オンライン対局では自動着手できません'};
     if(replay)return {ok:false,reason:'棋譜再生を終了してください'};
     stopBots();
     const rand=seededRandom(seed);
