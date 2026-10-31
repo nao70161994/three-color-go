@@ -30,7 +30,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function run(){
   const win=frame.contentWindow, doc=frame.contentDocument, game=win.threeColorGo;
   check(game && typeof game.getState==='function','AI操作用APIが存在');
-  check(game.version==='0.8.3','公開APIのバージョンがv0.8.3');
+  check(game.version==='1.2.0','公開APIのバージョンがv1.2.0');
   check(doc.querySelector('#boardSize').value==='4','初期サイズは半径4・61マス');
   check(doc.querySelector('#replayOpen').disabled,'棋譜が空なら再生ボタンは無効');
   check(doc.querySelector('#boardSize option[value="3"]').textContent.includes('小（37マス）'),'新しい小サイズは37マス');
@@ -87,6 +87,9 @@ async function run(){
   check(game.undo().ok,'一手戻せる');
   check(game.importRecord(record).ok,'棋譜を読み込める');
   check(game.getState().scores.red===1,'棋譜から同じ盤面を復元');
+  check(game.analyze().stats.moves===2 && game.analyze().stats.passes===1,
+    'v0.9の対局分析で着手とパスを正確に集計');
+  check(game.explainPosition().scores.red===1,'局面の理由・危険度分析API');
   check(!game.importRecord({radius:2,actions:[{type:'play',q:500,r:500}]}).ok,'不正な棋譜を拒否');
   check(game.setCpuLevel('normal').ok && game.getPresentation().cpuLevel==='normal','CPU難易度を試合中にも切り替えられる');
   check(!game.setCpuLevel('invalid').ok && game.getPresentation().cpuLevel==='normal','不明な難易度は拒否する');
@@ -111,6 +114,14 @@ async function run(){
     '127マスでも横スクロールしない');
   check(game.reset({mode:'local',radius:11,cpuLevel:'easy'}).ok,'半径11・397マスで初期化');
   check(doc.querySelectorAll('g.cell').length===397,'397マス描画');
+  const initialMoves=game.getState().moveCount;
+  const largeCell=doc.querySelector('g.cell[data-q="0"][data-r="0"]');
+  largeCell.dispatchEvent(new win.MouseEvent('click',{bubbles:true}));
+  check(game.getState().moveCount===initialMoves && !doc.querySelector('#moveConfirm').hidden,
+    'v1.0の大型盤面はタップだけで誤着手しない');
+  doc.querySelector('g.cell[data-q="0"][data-r="0"]').dispatchEvent(new win.MouseEvent('click',{bubbles:true}));
+  check(game.getState().moveCount===initialMoves+1 && doc.querySelector('#moveConfirm').hidden,
+    '同じ場所を2回タップすると着手を確定する');
   check(doc.querySelector('#boardViewTools').hidden===false,'巨大盤面では拡大切り替えが表示される');
   check(!game.getPresentation().zoomBoard,'巨大盤面の初期設定は全体表示');
   check(doc.querySelector('#board').getBoundingClientRect().width<=doc.querySelector('#boardPanel').getBoundingClientRect().width+2,'397マスは最初から盤全体が画面幅に収まる');
@@ -198,6 +209,30 @@ async function run(){
   check(doc.querySelector('g.cell[data-q="0"][data-r="0"] .hintDanger')!==null,'危険な石に赤いリングが表示される');
   doc.getElementById('dangerToggle').click();
   check(doc.querySelector('g.cell[data-q="0"][data-r="0"] .hintDanger')===null,'危険リングを非表示にできる');
+  // Mock just the PeerJS signaling event to exercise online host lobby
+  // in Chrome without relying on the public network inside CI.
+  class FakePeer {
+    constructor(id){this.id=id;this.callbacks={};
+      queueMicrotask(()=>this.callbacks.open?.(id));}
+    on(name,fn){this.callbacks[name]=fn;}
+    destroy(){}
+  }
+  win.Peer=FakePeer;
+  doc.querySelector('#mode').value='online';
+  doc.querySelector('#mode').dispatchEvent(new win.Event('change',{bubbles:true}));
+  check(game.getPresentation().mode==='online','v1.2オンライン対戦モードに切り替え');
+  check(!doc.querySelector('#onlinePanel').hidden,'オンライン部屋の操作欄が見える');
+  doc.querySelector('#onlineCreate').click();
+  await sleep(80);
+  check(game.getOnlineStatus().host&&game.getOnlineStatus().seat===0,
+    '実ブラウザでホストの部屋を作成');
+  check(doc.querySelector('#onlineRoom').value.includes('room=tgo-'),
+    '共有可能な招待URLを表示');
+  check(game.play(0,0).ok && game.getState().scores.black===1,
+    'オンラインホストの黒の合法着手を反映');
+  check(!game.undo().ok,'オンライン対局ではUndoによる状態不一致を防ぐ');
+  doc.querySelector('#onlineLeave').click();
+  check(game.getPresentation().mode==='local','オンライン部屋から退室してローカルへ戻る');
   const offline=document.createElement('iframe');
   offline.title='単一HTMLオフライン版';
   offline.src='../play.html';
@@ -212,7 +247,7 @@ async function run(){
   check(standalone.reset({mode:'local',radius:2}).ok,'オフライン版を初期化');
   check(standalone.play(0,0).ok,'オフライン版で着手できる');
   check(standalone.getState().scores.black===1,'オフライン版で得点を表示');
-  check(standalone.version==='0.8.3','オフライン版がv0.8.3へ同期している');
+  check(standalone.version==='1.2.0','オフライン版がv1.2.0へ同期している');
   check(standalone.setCpuLevel('easy').ok,'オフライン版でも難易度を変更できる');
   check(standalone.setHints({legal:true}).ok,'オフライン版でも合法手ガイドを切り替えられる');
   check(standalone.openReplay().ok && standalone.seekReplay(0).ok,
@@ -223,6 +258,8 @@ async function run(){
   check(standalone.reset({mode:'local',radius:11}).ok,'オフライン版でも397マスで初期化');
   check(!standalone.getPresentation().zoomBoard,'オフライン版でも全体表示が標準');
   check(standalone.setBoardZoom(true).ok && standalone.getPresentation().zoomBoard,'オフライン版でも手動で拡大できる');
+  check(typeof standalone.analyze==='function'&&typeof standalone.getOnlineStatus==='function',
+    'オフライン版にも分析・オンライン接続APIを統合');
   status.className='ok';status.dataset.status='passed';status.textContent='PASS — '+lines.length+'件のブラウザ操作テスト成功';
 }
 frame.addEventListener('load',()=>{
