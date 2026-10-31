@@ -18,6 +18,8 @@
     "train:selfplay": "python3 scripts/train-selfplay-rl.py",
     "benchmark:neural": "node scripts/benchmark-neural.mjs",
     "train:board-mcts": "python3 scripts/train-board-mcts.py",
-    "benchmark:board-mcts": "node scripts/benchmark-board.mjs"
+    "benchmark:board-mcts": "node scripts/benchmark-board.mjs",
+    "train:pv": "python3 scripts/train-pv-selfplay.py",
+    "benchmark:pv": "node scripts/benchmark-pv.mjs"
   }
 }
