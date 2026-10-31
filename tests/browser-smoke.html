@@ -221,8 +221,7 @@ async function run(){
     destroy(){}
   }
   win.Peer=FakePeer;
-  doc.querySelector('#mode').value='online';
-  doc.querySelector('#mode').dispatchEvent(new win.Event('change',{bubbles:true}));
+  check(game.reset({mode:'online',radius:2}).ok,'テスト用のオンライン対戦モードを開始');
   check(game.getPresentation().mode==='online','v1.2オンライン対戦モードに切り替え');
   check(!doc.querySelector('#onlinePanel').hidden,'オンライン部屋の操作欄が見える');
   doc.querySelector('#onlineCreate').click();
