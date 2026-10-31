@@ -3,13 +3,17 @@
 import json
 import subprocess
 import sys
+import importlib.util
 from pathlib import Path
 
 import numpy as np
 import torch
-from train_board_mcts import BoardPolicyValue
 
 ROOT = Path(__file__).resolve().parent.parent
+spec = importlib.util.spec_from_file_location('train_board_mcts', ROOT / 'scripts' / 'train-board-mcts.py')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+BoardPolicyValue = module.BoardPolicyValue
 if len(sys.argv) != 2:
     sys.exit("Usage: python scripts/check-board-parity.py MODEL.json")
 path = Path(sys.argv[1]).resolve()
