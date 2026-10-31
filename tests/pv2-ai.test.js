@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createGame,play,pointsOnBoard} from '../src/game.js';
 import {seededRandom} from '../src/agent.js';
 import {createInitialPV2Model,encodePV2State,evaluatePV2} from '../src/pv2-ai.js';
-import {searchPV,choosePVMove} from '../src/pv-ai.js';
+import {searchPV,choosePVMove,legalPVActions} from '../src/pv-ai.js';
 
 const model=createInitialPV2Model(99);
 test('PV2 uses whole board, current seat relative colors, and exact group observations',()=>{
@@ -51,4 +51,14 @@ test('seeded root noise diversifies self-play but remains reproducible and norma
   assert.ok(Math.abs(first.options.reduce((a,b)=>a+b.prior,0)-1)<1e-8);
   assert.notDeepEqual(first.options.map(x=>x.prior),other.options.map(x=>x.prior));
   assert.throws(()=>searchPV(state,model,{rootNoise:1.1}),/Invalid search budget/);
+});
+
+test('stone-count MCTS never passes early when safe placements remain',()=>{
+  const state=createGame(3),cells=pointsOnBoard(3).length;
+  const advanced={...state,moveCount:Math.floor(cells*.7)};
+  const actions=legalPVActions(advanced);
+  assert.ok(actions.some(x=>x.type==='play'));
+  assert.ok(actions.every(x=>x.type!=='pass'));
+  const capped={...state,moveCount:cells*2};
+  assert.deepEqual(legalPVActions(capped),[{type:'pass',index:cells}]);
 });
