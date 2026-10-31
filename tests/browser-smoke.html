@@ -30,7 +30,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function run(){
   const win=frame.contentWindow, doc=frame.contentDocument, game=win.threeColorGo;
   check(game && typeof game.getState==='function','AI操作用APIが存在');
-  check(game.version==='0.8.1','公開APIのバージョンがv0.8');
+  check(game.version==='0.8.3','公開APIのバージョンがv0.8.3');
   check(doc.querySelector('#boardSize').value==='4','初期サイズは半径4・61マス');
   check(doc.querySelector('#replayOpen').disabled,'棋譜が空なら再生ボタンは無効');
   check(doc.querySelector('#boardSize option[value="3"]').textContent.includes('小（37マス）'),'新しい小サイズは37マス');
@@ -112,14 +112,22 @@ async function run(){
   check(game.reset({mode:'local',radius:11,cpuLevel:'easy'}).ok,'半径11・397マスで初期化');
   check(doc.querySelectorAll('g.cell').length===397,'397マス描画');
   check(doc.querySelector('#boardViewTools').hidden===false,'巨大盤面では拡大切り替えが表示される');
-  check(game.getPresentation().zoomBoard,'巨大盤面の拡大表示は初期ON');
-  check(doc.querySelector('#board').getBoundingClientRect().width>600,'拡大表示はマスを押しやすい幅で描画');
+  check(!game.getPresentation().zoomBoard,'巨大盤面の初期設定は全体表示');
+  check(doc.querySelector('#board').getBoundingClientRect().width<=doc.querySelector('#boardPanel').getBoundingClientRect().width+2,'397マスは最初から盤全体が画面幅に収まる');
+  check(doc.querySelector('#boardZoom').textContent==='拡大して操作','初期ボタンに拡大操作を表示');
   check(doc.documentElement.scrollWidth<=doc.documentElement.clientWidth+2,'397マスでもページ全体に横スクロールなし');
   doc.querySelector('#boardZoom').click();
-  check(!game.getPresentation().zoomBoard,'全体表示へ切り替えられる');
-  check(game.setBoardZoom(true).ok,'APIでも拡大表示に戻せる');
+  check(game.getPresentation().zoomBoard,'拡大表示へ切り替えられる');
+  check(doc.querySelector('#board').getBoundingClientRect().width>600,'拡大時は盤面が押しやすい大きさになる');
+  check(game.exportRecord().zoomBoardExplicit===true,'手動設定が棋譜に記録される');
+  check(game.importRecord(game.exportRecord()).ok && game.getPresentation().zoomBoard,'手動拡大設定は棋譜復元でも維持');
+  check(game.setBoardZoom(false).ok && !game.getPresentation().zoomBoard,'全体表示へ戻せる');
+  check(game.importRecord({version:1,mode:'local',radius:11,zoomBoard:true,actions:[]}).ok &&
+    !game.getPresentation().zoomBoard,'旧セーブの自動拡大は新しい標準の全体表示へ移行');
   check(game.reset({mode:'local',radius:12,cpuLevel:'easy'}).ok,'半径12・469マスで初期化');
   check(doc.querySelectorAll('g.cell').length===469,'469マス描画');
+  check(!game.getPresentation().zoomBoard,'469マスでも全体表示が初期設定');
+  check(doc.querySelector('#board').getBoundingClientRect().width<=doc.querySelector('#boardPanel').getBoundingClientRect().width+2,'469マスが画面幅に収まる');
   check(doc.documentElement.scrollWidth<=doc.documentElement.clientWidth+2,'469マスでも横スクロールなし');
   check(game.legalMoves().length===469,'469マスの合法手をエンジンから取得');
   check(game.reset({mode:'local',radius:4,cpuLevel:'hard'}).ok,'標準61マス・強いCPUの対局を初期化');
@@ -204,7 +212,7 @@ async function run(){
   check(standalone.reset({mode:'local',radius:2}).ok,'オフライン版を初期化');
   check(standalone.play(0,0).ok,'オフライン版で着手できる');
   check(standalone.getState().scores.black===1,'オフライン版で得点を表示');
-  check(standalone.version==='0.8.1','オフライン版がv0.8へ同期している');
+  check(standalone.version==='0.8.3','オフライン版がv0.8.3へ同期している');
   check(standalone.setCpuLevel('easy').ok,'オフライン版でも難易度を変更できる');
   check(standalone.setHints({legal:true}).ok,'オフライン版でも合法手ガイドを切り替えられる');
   check(standalone.openReplay().ok && standalone.seekReplay(0).ok,
@@ -212,6 +220,9 @@ async function run(){
   check(standalone.closeReplay().ok,'オフライン版でも元の対局へ戻れる');
   check(standalone.reset({mode:'bots',radius:3,cpuLevel:'easy'}).ok,'オフライン版にもCPU3人観戦モードがある');
   check(standalone.pauseBots().ok && standalone.stepBot().ok,'オフライン版も一時停止して1手進められる');
+  check(standalone.reset({mode:'local',radius:11}).ok,'オフライン版でも397マスで初期化');
+  check(!standalone.getPresentation().zoomBoard,'オフライン版でも全体表示が標準');
+  check(standalone.setBoardZoom(true).ok && standalone.getPresentation().zoomBoard,'オフライン版でも手動で拡大できる');
   status.className='ok';status.dataset.status='passed';status.textContent='PASS — '+lines.length+'件のブラウザ操作テスト成功';
 }
 frame.addEventListener('load',()=>{
