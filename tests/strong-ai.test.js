@@ -52,3 +52,12 @@ test('strong CPU passes after its bounded game-length policy',()=>{
 });
 
 function pointsOnBoardCount(r){return 3*r*(r+1)+1;}
+
+
+test('strong CPU considers a legal opening on 397 cells within a bounded time',()=>{
+  const state=createGame(11), start=performance.now();
+  const move=chooseStrongMove(state,seededRandom(77));
+  const elapsed=performance.now()-start;
+  assert.ok(move && play(state,move.q,move.r).ok);
+  assert.ok(elapsed<10000, 'large-board CPU exceeded 10 seconds: '+elapsed.toFixed(1));
+});

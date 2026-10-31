@@ -3,6 +3,13 @@ import { chooseMove, chooseDifficultyMove, dangerGroups, legalMoves, seededRando
 import { chooseStrongMove } from './strong-ai.js';
 
 const boardSvg = document.getElementById('board');
+const boardPanelEl = document.getElementById('boardPanel');
+const boardViewToolsEl = document.getElementById('boardViewTools');
+const boardZoomEl = document.getElementById('boardZoom');
+const spectatorControlsEl = document.getElementById('spectatorControls');
+const spectatorToggleEl = document.getElementById('spectatorToggle');
+const spectatorStepEl = document.getElementById('spectatorStep');
+const spectatorSpeedEl = document.getElementById('spectatorSpeed');
 const countsEl = document.getElementById('counts');
 const turnStoneEl = document.getElementById('turnStone');
 const turnTextEl = document.getElementById('turnText');
@@ -31,6 +38,7 @@ const SIZE = 29, ROOT3 = Math.sqrt(3);
 let state = createGame(4);
 let mode = 'cpu', past = [], actions = [], botTimer = null;
 let cpuLevel = 'hard', showLegal = false, showDanger = true;
+let spectatorPaused = false, spectatorSpeed = 600, zoomBoard = false;
 let replay = null;
 const STORAGE = 'three-color-go.v2';
 
@@ -74,7 +82,7 @@ function closeReplay() {
   return {ok:true,...getReplayState()};
 }
 function save() {
-  try { localStorage.setItem(STORAGE,JSON.stringify({version:1,mode,radius:state.radius,cpuLevel,showLegal,showDanger,actions})); }
+  try { localStorage.setItem(STORAGE,JSON.stringify({version:1,mode,radius:state.radius,cpuLevel,showLegal,showDanger,spectatorPaused,spectatorSpeed,zoomBoard,actions})); }
   catch { /* Storage may be blocked in private mode. */ }
 }
 function commit(result,action, schedule=true) {
@@ -90,15 +98,51 @@ function place(q,r,schedule=true) {
   return commit(play(state,q,r),{type:'play',q,r},schedule);
 }
 function doPass(schedule=true) { return commit(pass(state),{type:'pass'},schedule); }
-function permittedForHuman() { return !replay && (mode==='local' || state.turn===0); }
+function permittedForHuman() { return !replay && (mode==='local' || (mode==='cpu' && state.turn===0)); }
+function botMove(random=Math.random) {
+  return cpuLevel==='hard' ? chooseStrongMove(state,random) : chooseDifficultyMove(state,random,cpuLevel);
+}
+function pauseBots() {
+  if(mode!=='bots')return {ok:false,reason:'CPU3人の対局モードではありません'};
+  spectatorPaused=true;stopBots();save();render();
+  return {ok:true,paused:true};
+}
+function resumeBots() {
+  if(mode!=='bots'||replay)return {ok:false,reason:'再開できません'};
+  spectatorPaused=false;save();render();scheduleBots();
+  return {ok:true,paused:false};
+}
+function stepBot() {
+  if(mode!=='bots'||!spectatorPaused||replay||state.ended)
+    return {ok:false,reason:'一時停止中のCPU3人対局だけ1手進められます'};
+  const move=botMove();
+  return move?place(move.q,move.r):doPass();
+}
+function setSpectatorSpeed(value) {
+  const n=Number(value);
+  if(![180,600,1200].includes(n))return {ok:false,reason:'不明な対局速度'};
+  spectatorSpeed=n;save();render();scheduleBots();
+  return {ok:true,speed:n};
+}
+function centerBoard() {
+  boardPanelEl.scrollLeft=Math.max(0,(boardPanelEl.scrollWidth-boardPanelEl.clientWidth)/2);
+  boardPanelEl.scrollTop=Math.max(0,(boardPanelEl.scrollHeight-boardPanelEl.clientHeight)/2);
+}
+function setBoardZoom(enabled) {
+  if(typeof enabled!=='boolean')return {ok:false,reason:'拡大表示にはtrue/falseを指定してください'};
+  zoomBoard=enabled;save();render();
+  if(zoomBoard)centerBoard();
+  return {ok:true,zoom:zoomBoard};
+}
 function scheduleBots() {
   stopBots();
-  if (replay || mode!=='cpu' || state.ended || state.turn===0) return;
+  if (replay || state.ended || !((mode==='cpu'&&state.turn!==0)||
+      (mode==='bots'&&!spectatorPaused))) return;
   botTimer=setTimeout(()=>{
     botTimer=null;
-    const move=cpuLevel==='hard' ? chooseStrongMove(state) : chooseDifficultyMove(state,Math.random,cpuLevel);
+    const move=botMove();
     if (move) place(move.q,move.r); else doPass();
-  },240);
+  },mode==='bots'?spectatorSpeed:240);
 }
 function mostRecentMove(view=visibleState(),sequence=visibleActions()) {
   // A played stone can later be captured; never highlight an empty cell.
@@ -143,6 +187,9 @@ function drawBoard() {
   const xExtent=SIZE*ROOT3*view.radius+SIZE+4;
   const yExtent=SIZE*1.5*view.radius+SIZE+4;
   boardSvg.setAttribute('viewBox',[-xExtent,-yExtent,2*xExtent,2*yExtent].join(' '));
+  const enlarged=zoomBoard && view.radius>=8;
+  boardSvg.style.width=enlarged ? Math.max(700,Math.round(xExtent*1.7))+'px' : '100%';
+  boardSvg.style.maxHeight=enlarged ? 'none' : '65vh';
   boardSvg.replaceChildren();
   const hints=boardHints();
   const legalKeys=new Set(hints.legal.map(p=>pointKey(p.q,p.r)));
@@ -179,7 +226,7 @@ function render() {
   const view=visibleState();
   const color=COLORS[view.turn],counts=scores(view);
   turnStoneEl.className='stone '+color;
-  turnTextEl.textContent=view.ended?'対局終了':LABELS[color]+'の番'+(mode==='cpu'&&view.turn!==0?'（CPU）':'');
+  turnTextEl.textContent=view.ended?'対局終了':LABELS[color]+'の番'+((mode==='bots'||(mode==='cpu'&&view.turn!==0))?'（CPU）':'');
   turnLabelEl.textContent=replay?'棋譜再生 · '+replay.index+' / '+actions.length+'手':view.ended?'勝敗が決まりました':view.passes+'人連続パス · '+view.moveCount+'手';
   modeEl.value=mode;
   boardSizeEl.value=String(state.radius);
@@ -201,7 +248,16 @@ function render() {
     replayNextEl.disabled=replay.index===actions.length;
     replayEndEl.disabled=replay.index===actions.length;
   }
-  cpuSettingEl.hidden=mode!=='cpu';
+  cpuSettingEl.hidden=mode==='local';
+  spectatorControlsEl.hidden=mode!=='bots';
+  spectatorToggleEl.textContent=spectatorPaused?'再開':'一時停止';
+  spectatorToggleEl.disabled=!!replay||view.ended;
+  spectatorStepEl.disabled=!!replay||!spectatorPaused||view.ended;
+  spectatorSpeedEl.value=String(spectatorSpeed);
+  spectatorSpeedEl.disabled=!!replay;
+  boardViewToolsEl.hidden=view.radius<8;
+  boardZoomEl.textContent=zoomBoard?'全体表示にする':'拡大して操作';
+  boardZoomEl.setAttribute('aria-pressed',String(zoomBoard));
   legalToggleEl.textContent='合法手を表示: '+(showLegal?'ON':'OFF');
   dangerToggleEl.textContent='危険な石を表示: '+(showDanger?'ON':'OFF');
   legalToggleEl.setAttribute('aria-pressed',String(showLegal));
@@ -226,13 +282,14 @@ function render() {
   }
 }
 function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
-  if (!['cpu','local'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
+  if (!['cpu','local','bots'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
   if (!['easy','normal','hard'].includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
   let next;
   try {next=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
   stopBots();
   replay=null;state=next;
-  mode=nextMode;cpuLevel=nextLevel;past=[];actions=[];save();render();scheduleBots();
+  mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=radius>=8;
+  past=[];actions=[];save();render();if(zoomBoard)centerBoard();scheduleBots();
   return {ok:true,state:snapshot(state)};
 }
 function undo() {
@@ -245,7 +302,7 @@ function undo() {
   save();render();scheduleBots();
   return {ok:true,state:snapshot(state)};
 }
-function loadRecord(record) {
+function loadRecord(record,{resumeSavedBots=false}={}) {
   if (!record || !Array.isArray(record.actions)) return {ok:false,reason:'actions配列がありません'};
   let next;
   try {next=createGame(record.radius ?? 4);} catch(e){return {ok:false,reason:e.message};}
@@ -258,15 +315,18 @@ function loadRecord(record) {
     states.push(next);next=result.state;
     normalized.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
   }
-  const nextMode=['cpu','local'].includes(record.mode)?record.mode:'local';
+  const nextMode=['cpu','local','bots'].includes(record.mode)?record.mode:'local';
   const nextLevel=['easy','normal','hard'].includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
   const nextShowLegal=typeof record.showLegal==='boolean'?record.showLegal:showLegal;
   const nextShowDanger=typeof record.showDanger==='boolean'?record.showDanger:showDanger;
   stopBots();
   replay=null;
   state=next;mode=nextMode;cpuLevel=nextLevel;
+  spectatorSpeed=[180,600,1200].includes(record.spectatorSpeed)?record.spectatorSpeed:600;
+  spectatorPaused=nextMode==='bots' ? (!resumeSavedBots || record.spectatorPaused===true) : false;
+  zoomBoard=typeof record.zoomBoard==='boolean'?record.zoomBoard:state.radius>=8;
   showLegal=nextShowLegal;showDanger=nextShowDanger;past=states;actions=normalized;
-  save();render();scheduleBots();
+  save();render();if(zoomBoard)centerBoard();scheduleBots();
   return {ok:true,state:snapshot(state)};
 }
 function restore() {
@@ -276,10 +336,14 @@ function restore() {
     const record=JSON.parse(raw);
     if (!record || record.version!==1 || !Array.isArray(record.actions)) return;
     // Loading an invalid saved record must not prevent a new match.
-    loadRecord(record);
+    loadRecord(record,{resumeSavedBots:true});
   } catch { /* Ignore invalid / unavailable storage. */ }
 }
 passBtn.addEventListener('click',()=>{if (permittedForHuman()) doPass();});
+spectatorToggleEl.addEventListener('click',()=>spectatorPaused?resumeBots():pauseBots());
+spectatorStepEl.addEventListener('click',stepBot);
+spectatorSpeedEl.addEventListener('change',()=>setSpectatorSpeed(spectatorSpeedEl.value));
+boardZoomEl.addEventListener('click',()=>setBoardZoom(!zoomBoard));
 replayOpenEl.addEventListener('click',openReplay);
 replayCloseEl.addEventListener('click',closeReplay);
 replaySliderEl.addEventListener('input',()=>seekReplay(Number(replaySliderEl.value)));
@@ -312,7 +376,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '0.7',
+  version: '0.8',
   getState: ()=>snapshot(state),
   getReplayState,
   openReplay,
@@ -321,16 +385,22 @@ window.threeColorGo = Object.freeze({
   legalMoves: ()=>legalMoves(state),
   getPresentation: ()=>({
     mode,cpuLevel,showLegal,showDanger,replay:!!replay,
+    spectatorPaused,spectatorSpeed,zoomBoard,
     ...boardHints()
   }),
   setHints,
   setCpuLevel,
+  pauseBots,
+  resumeBots,
+  stepBot,
+  setSpectatorSpeed,
+  setBoardZoom,
   play: (q,r)=>place(q,r),
   pass: ()=>doPass(),
   undo,
   reset: (options={})=>reset({radius:options.radius??state.radius,nextMode:options.mode??'local',nextLevel:options.cpuLevel??cpuLevel}),
   setMode: (next)=>reset({radius:state.radius,nextMode:next}),
-  exportRecord: ()=>({version:1,radius:state.radius,mode,cpuLevel,showLegal,showDanger,actions:actions.map(a=>({...a}))}),
+  exportRecord: ()=>({version:1,radius:state.radius,mode,cpuLevel,showLegal,showDanger,spectatorPaused,spectatorSpeed,zoomBoard,actions:actions.map(a=>({...a}))}),
   importRecord: loadRecord,
   autoPlay: (limit=100,seed=1)=>{
     if(replay)return {ok:false,reason:'棋譜再生を終了してください'};
@@ -339,7 +409,7 @@ window.threeColorGo = Object.freeze({
     const count=Math.max(0,Math.min(500,Math.trunc(limit)||0));
     let moves=0;
     while (!state.ended && moves<count) {
-      const move=cpuLevel==='hard' ? chooseStrongMove(state,rand) : chooseDifficultyMove(state,rand,cpuLevel);
+      const move=botMove(rand);
       const result=move?place(move.q,move.r,false):doPass(false);
       if (!result.ok) return {ok:false,reason:result.reason,moves};
       moves++;

@@ -67,6 +67,15 @@ A playable 3-player Go variant. Three colors, hexagonal board (6 neighbors), sto
 - Generated \`play.html\` requires source order game, agent, strong-ai, main; verify exact match with \`npm run check:standalone\`.
 - Keep CPU response smooth on 61+ cells; use Chrome smoke and benchmark the hard bot.
 
+## v0.8 CPU spectator and large boards
+- Select \`mode:'bots'\` for automatic 3-CPU matches; UI buttons pause/resume, advance one turn, and set 180/600/1200 ms delay.
+- Browser automation: \`pauseBots()\`, \`resumeBots()\`, \`stepBot()\`, \`setSpectatorSpeed(milliseconds)\`, \`setBoardZoom(boolean)\`.
+- Existing browser agent \`getState()\`, \`getReplayState()\`, \`exportRecord()\` and \`importRecord()\` still work. Imported bot matches default to paused (no unexpected bot activity); localStorage restoration preserves the prior paused state.
+- Larger board options: radius 8=217, radius 10=331, radius 11=397, radius 12=469. A 19x19 Go board has 361 intersections. Old radius 2=19 games remain readable.
+- Large boards have a scrollable zoomed SVG (and fit-to-view toggle); test no page-level horizontal overflow.
+- \`src/strong-ai.js\` shortlist candidate generation reduces search work on radius 8+; still validate legality through \`play()\`.
+- Verify offline \`play.html\`, real browser mode bots controls, slow/fast speeds, and at least 397/469 cells.
+
 ## Known limitations
 - CPU is a tactical one-ply, deterministic-under-seed heuristic, not a competitive Go engine.
 - No online play.

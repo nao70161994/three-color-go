@@ -74,3 +74,17 @@ test('異なる2色の集団は同時に呼吸点が0なら両方取れる',()=>
   assert.equal(result.state.board['1,0'],undefined);
   assert.equal(result.state.board['0,1'],undefined);
 });
+
+
+test('large six-sided boards extend beyond the 361 points of a 19x19 Go board',()=>{
+  for(const [radius,count] of [[8,217],[10,331],[11,397],[12,469]]) {
+    const game=createGame(radius);
+    assert.equal(pointsOnBoard(radius).length,count);
+    assert.equal(adjacentKeys('0,0',radius).length,6);
+    assert.equal(play(game,radius+1,0).ok,false);
+    const placed=play(game,radius,0);
+    assert.equal(placed.ok,true);
+    assert.equal(scores(placed.state).black,1);
+  }
+  assert.throws(()=>createGame(13),/2～12/);
+});

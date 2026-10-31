@@ -22,7 +22,7 @@ jobs:
           python3 -m http.server 8000 >/tmp/three-color-go-http.log 2>&1 &
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           if [[ -z "$CHROME" ]]; then echo "Chromium/Chrome unavailable"; exit 1; fi
-          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --virtual-time-budget=10000 \
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --virtual-time-budget=25000 \
             --dump-dom http://localhost:8000/tests/browser-smoke.html >/tmp/three-color-go-smoke.html 2>/tmp/chrome.log
           grep 'data-status="passed"' /tmp/three-color-go-smoke.html || {
             cat /tmp/three-color-go-smoke.html
