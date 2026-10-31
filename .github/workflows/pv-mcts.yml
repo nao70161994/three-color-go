@@ -74,9 +74,9 @@ jobs:
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Train candidate with outcome-only MCTS self-play
         env:
-          ITERATIONS: ${{ inputs.iterations || '8' }}
-          GAMES: ${{ inputs.games || '4' }}
-          SIMULATIONS: ${{ inputs.simulations || '12' }}
+          ITERATIONS: ${{ inputs.iterations || '24' }}
+          GAMES: ${{ inputs.games || '8' }}
+          SIMULATIONS: ${{ inputs.simulations || '16' }}
         run: |
           set -o pipefail
           mkdir -p reports
@@ -87,10 +87,10 @@ jobs:
       - name: Held-out comparison with the actual hard CPU
         run: |
           node scripts/benchmark-pv.mjs --model reports/pv-candidate.json \
-            --games 12 --radius 3 --simulations 12 --seed 20261101 \
+            --games 24 --radius 3 --simulations 16 --seed 20261101 \
             --out reports/pv-r3.json
           node scripts/benchmark-pv.mjs --model reports/pv-candidate.json \
-            --games 12 --radius 4 --simulations 12 --seed 20261102 \
+            --games 24 --radius 4 --simulations 16 --seed 20261102 \
             --out reports/pv-r4.json
       - name: Summarize measured results without automatic promotion
         run: |
