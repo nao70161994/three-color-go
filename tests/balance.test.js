@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {COLORS,createGame,pass,play,scores} from '../src/game.js';
+import {COLORS,boardHash,createGame,pass,play,scores} from '../src/game.js';
 import {captureExposure,chooseMove,chooseDifficultyMove,seededRandom,simulate} from '../src/agent.js';
 import {analyzeBalance,comparePolicies} from '../src/balance.js';
 
@@ -32,6 +32,20 @@ test('two-rival capture exposure recognizes surrounding stones and does not muta
   assert.equal(JSON.stringify(initial),before);
   assert.equal(captureExposure(createGame(2),'black'),0);
 });
+test('second rival can capture even if first rival is superko-blocked',()=>{
+  const state=createGame(2);
+  state.board={'0,0':'black','1,0':'white','1,-1':'red','0,-1':'white',
+    '-1,0':'red','-1,1':'white'};
+  state.turn=1; // white moves, then red
+  const whiteCapture=play(state,0,1);
+  assert.equal(whiteCapture.ok,true);
+  state.seen.push(boardHash(whiteCapture.state.board));
+  assert.equal(play(state,0,1).ok,false);
+  const afterPass=pass(state).state;
+  assert.equal(play(afterPass,0,1).ok,true);
+  assert.equal(captureExposure(state,'black'),1);
+});
+
 test('balanced three-player simulation always uses legal moves and can be replayed',()=>{
   const run=simulate({radius:2,seed:55,strategies:['balanced','guarded','baseline']});
   assert.equal(run.truncated,false);
