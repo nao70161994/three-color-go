@@ -145,3 +145,35 @@ jobs:
           name: strength-v0.7
           path: reports/strong-v0.7.json
           retention-days: 30
+
+  size-study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run comparative board size study
+        run: node scripts/size-study.mjs --games 3 --seed 20261031 --out reports/size-study-v1.1.json > /tmp/size-study.json
+      - name: Verify data is readable and games are accounted for
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const r=JSON.parse(fs.readFileSync('/tmp/size-study.json'));
+          if(r.sizes.length!==4 || r.sizes.some(x=>x.finished+x.truncated!==3))process.exit(1);
+          const lines=[
+            '## v1.1 cross-board-size study',
+            '3 seeded self-play games per radius, balanced bot policy',
+            ...r.sizes.map(x=>x.cells+' cells: finished '+x.finished+'/3, turns '+x.averageTurns+
+              ', occupancy '+x.occupancy+', black/white/red win rate '+
+              [x.blackWinRate,x.whiteWinRate,x.redWinRate].join('/')),
+            'Low sample size: descriptive statistics only.'
+          ];
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-size-study-v1.1
+          path: reports/size-study-v1.1.json
+          retention-days: 30
