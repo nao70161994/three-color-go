@@ -1,0 +1,116 @@
+name: experimental PV2 reward ablation
+on:
+  push:
+    branches: [feat/pv2-reward-ablation]
+    paths:
+      - src/pv-reward.js
+      - src/pv-ai.js
+      - scripts/pv-selfplay.mjs
+      - scripts/train-pv2-selfplay.py
+      - scripts/benchmark-pv.mjs
+      - tests/pv-reward.test.js
+      - .github/workflows/pv-reward-ablation.yml
+  pull_request:
+    paths:
+      - src/pv-reward.js
+      - src/pv-ai.js
+      - scripts/pv-selfplay.mjs
+      - scripts/train-pv2-selfplay.py
+      - tests/pv-reward.test.js
+      - .github/workflows/pv-reward-ablation.yml
+  workflow_dispatch:
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: node --test tests/pv-reward.test.js tests/pv2-ai.test.js
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Ensure all three training reward profiles execute end-to-end
+        run: |
+          for p in winner blend margin; do
+            python scripts/train-pv2-selfplay.py --reward-profile "$p" \
+              --iterations 1 --games 1 --simulations 3 --radii 2 --seed 211 \
+              --out "reports/pv2-$p-smoke.json"
+            python scripts/check-pv2-parity.py "reports/pv2-$p-smoke.json"
+          done
+  ablation:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [winner, blend, margin]
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: 72 teacherless self-play training games, identical budgets/seeds
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -o pipefail
+          mkdir -p reports
+          python scripts/train-pv2-selfplay.py --reward-profile "$PROFILE" \
+            --iterations 12 --games 6 --simulations 12 --radii 2,3,4 \
+            --seed 20261031 --out "reports/pv2-$PROFILE.json" \
+            | tee "reports/train-$PROFILE.jsonl"
+      - name: Verify inference consistency after training
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: python scripts/check-pv2-parity.py "reports/pv2-$PROFILE.json"
+      - name: 48 held-out games against original hard CPU
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          node scripts/benchmark-pv.mjs --model "reports/pv2-$PROFILE.json" \
+            --games 24 --radius 3 --simulations 16 --seed 20261121 \
+            --out "reports/benchmark-$PROFILE-r3.json" > /dev/null
+          node scripts/benchmark-pv.mjs --model "reports/pv2-$PROFILE.json" \
+            --games 24 --radius 4 --simulations 16 --seed 20261122 \
+            --out "reports/benchmark-$PROFILE-r4.json" > /dev/null
+      - name: Publish unpromoted performance metrics
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync,appendFileSync} from 'node:fs';
+          const p=process.env.PROFILE;
+          const rows=[3,4].map(n=>JSON.parse(readFileSync('reports/benchmark-'+p+'-r'+n+'.json')));
+          const lines=['## Profile: '+p+' — experiment only, NOT deployed',
+            '| Radius | Finished | PV2 stones ahead | Hard ahead | Win share | Mean PV2 − hard |',
+            '|---|---:|---:|---:|---:|---:|',
+            ...rows.map(x=>'| '+x.radius+' | '+x.finished+'/'+x.games+' | '+
+              x.pvAhead+' | '+x.hardAhead+' | '+x.stats.pv.rate+' | '+
+              x.meanPVMinusHard+' |'),
+            'All profiles: same model seed, 72 training games, 12 MCTS simulations per training move, same held-out seeds, 16 evaluation simulations. Each profile differs in its terminal reward only.'];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pv2-reward-${{ matrix.profile }}
+          path: reports/*
+          retention-days: 30
