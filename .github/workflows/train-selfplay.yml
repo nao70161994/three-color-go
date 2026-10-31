@@ -1,5 +1,7 @@
 name: train teacher-free neural candidate
 on:
+  push:
+    branches: [feat/teacher-free-selfplay-rl]
   pull_request:
     paths:
       - scripts/train-selfplay-rl.py
@@ -18,7 +20,7 @@ on:
         default: 12
 jobs:
   train:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -37,8 +39,8 @@ jobs:
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Generate teacher-free self-play model (not deployed)
         env:
-          ITERATIONS: ${{ inputs.iterations }}
-          GAMES: ${{ inputs.games }}
+          ITERATIONS: ${{ inputs.iterations || '30' }}
+          GAMES: ${{ inputs.games || '12' }}
         run: |
           python scripts/train-selfplay-rl.py --iterations "$ITERATIONS" --games "$GAMES" \
             --seed 20261031 --radii 2,3,4 --out reports/neural-rl-candidate.json \
