@@ -7,7 +7,7 @@
 <style>
 body{font:15px system-ui,sans-serif;background:#101a22;color:#eaf0f5;max-width:860px;margin:auto;padding:20px}
 #status{display:block;padding:14px;border:1px solid #60788a;border-radius:12px;margin:12px 0}
-iframe{width:min(100%,450px);height:750px;border:1px solid #4a6476;border-radius:15px}
+iframe{width:min(100%,390px);height:844px;border:1px solid #4a6476;border-radius:15px}
 pre{white-space:pre-wrap} .ok{color:#a8e5bd}.fail{color:#ffaaaa}
 </style>
 </head>
@@ -39,6 +39,7 @@ async function run(){
   check(doc.querySelectorAll('.hintLegal').length===19,'合法手19点が画面に表示される');
   check(game.legalMoves().length===19,'半径2の合法手は19');
   check(doc.querySelectorAll('g.cell').length===19,'画面に19マス表示');
+  check(doc.documentElement.scrollWidth<=doc.documentElement.clientWidth+2,'スマホ幅390pxで横スクロールなし');
   doc.querySelector('g.cell[data-q="0"][data-r="0"]').dispatchEvent(new win.MouseEvent('click',{bubbles:true}));
   check(game.getState().scores.black===1,'盤面クリックで黒石を置ける');
   check(doc.querySelectorAll('.hintLast').length===1,'直前の着手の金色リングが表示される');
