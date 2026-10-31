@@ -51,6 +51,14 @@ A playable 3-player Go variant. Three colors, hexagonal board (6 neighbors), sto
 - The hard UI bot uses guarded strategy (checks immediate capture exposure); baseline and tactical strategies remain accessible to independent agents.
 - Cover 390×844, all 4 board sizes, replay transport, no mutation, and offline HTML via `tests/browser-smoke.html`.
 
+## v0.6 bot experiments
+- Human UI hard CPU now uses the \`balanced\` strategy, which checks immediate capture exposure to both rival colors; the legacy \`guarded\` and \`tactical\` remain available for reproducible comparisons.
+- \`captureExposure(state, ownColor)\` estimates atari groups capturable by either upcoming opponent, without changing game rules.
+- \`npm run balance -- --games 90 --radius 3 --seed 20261031\` prints JSON containing per-seat win share, occupancy, lead changes, late-game quiet turns and replayable game samples.
+- \`npm run balance:matchup -- --games 30 --radius 3 --seed 20261031\` rotates a \`balanced\` challenger through all three seats vs two \`guarded\` bots.
+- Do not attribute outcomes to human enjoyment or general competitiveness. Report the seed, CPU policy and incomplete-game count.
+- Continue \`npm test\`, \`npm run check:standalone\` and the Chrome browser smoke test before merging.
+
 ## Known limitations
 - CPU is a tactical one-ply, deterministic-under-seed heuristic, not a competitive Go engine.
 - No online play.
