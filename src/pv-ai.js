@@ -131,6 +131,17 @@ function expand(node,model){
   }));
   return output.value;
 }
+function perturbRootPriors(children,strength,random){
+  if(!strength||children.length<2)return;
+  // Normalized exponential draws give reproducible Dirichlet(1) noise.
+  // This changes exploration only; the learning target still comes from
+  // MCTS visits and the actual terminal game result.
+  const draws=children.map(()=>-Math.log(Math.max(1e-12,1-random())));
+  const total=draws.reduce((a,b)=>a+b,0);
+  for(let i=0;i<children.length;i++)
+    children[i].prior=(1-strength)*children[i].prior+
+      strength*draws[i]/total;
+}
 function selectChild(node,exploration,random){
   let best=null,highest=-Infinity;
   const seat=node.state.turn;
@@ -151,13 +162,15 @@ function selectChild(node,exploration,random){
  * This is not a 2-player negamax sign flip.
  */
 export function searchPV(state,model,{simulations=24,exploration=1.4,
-  random=seededRandom(1)}={}){
+  random=seededRandom(1),rootNoise=0}={}){
   if(!Number.isInteger(simulations)||simulations<1||simulations>512||
-     !Number.isFinite(exploration)||exploration<=0)
+     !Number.isFinite(exploration)||exploration<=0||
+     !Number.isFinite(rootNoise)||rootNoise<0||rootNoise>1)
     throw Error('Invalid search budget');
   if(state.ended)return {move:null,options:[],policy:[],value:terminalValue(state)};
   const root={state,children:null,visits:0,total:[0,0,0]};
-  const initial=expand(root,model);
+  expand(root,model);
+  perturbRootPriors(root.children,rootNoise,random);
   for(let simulation=0;simulation<simulations;simulation++){
     let node=root;
     const path=[node];
