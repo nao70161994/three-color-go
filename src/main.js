@@ -14,6 +14,7 @@ const matchEndpointEl=document.getElementById('matchEndpoint');
 const importRecordEl=document.getElementById('importRecord');
 const matchListEl=document.getElementById('matchList');
 const importFileEl=document.getElementById('importFile');
+const loadMatchEl=document.getElementById('loadMatch');
 const onlineJoinEl=document.getElementById('onlineJoin');
 const onlineLeaveEl=document.getElementById('onlineLeave');
 const onlineRoomEl=document.getElementById('onlineRoom');
@@ -74,6 +75,7 @@ const MATCH_INDEX = 'three-color-go.matches.v1';
 const MATCH_PREFIX='three-color-go.match.';
 const MATCH_ENDPOINT_KEY='three-color-go.matchmaker-url';
 const MATCH_TIMEOUT=150000;
+let randomMatching=false;
 
 function center(q,r) { return [SIZE*ROOT3*(q+r/2), SIZE*1.5*r]; }
 function vertices(x,y) {
@@ -369,7 +371,13 @@ function drawBoard() {
     }
     g.addEventListener('click',activate);
     g.addEventListener('keydown',e=>{
-      if (e.key==='Enter'||e.key===' ') {e.preventDefault();activate();}
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();activate();return;}
+      const dir={'ArrowRight':[1,0],'ArrowLeft':[-1,0],
+        'ArrowUp':[0,-1],'ArrowDown':[0,1]}[e.key];
+      if(dir){
+        const next=boardSvg.querySelector('g.cell[data-q="'+(q+dir[0])+'"][data-r="'+(r+dir[1])+'"]');
+        if(next){e.preventDefault();next.focus();}
+      }
     });
     boardSvg.appendChild(g);
   }
@@ -405,8 +413,11 @@ function render() {
   const session=onlineStatus();
   onlineStatusEl.textContent=netMessage+(mode==='online'&&session.host?' · 参加人数 '+(session.players+1)+'/3':'');
   onlineCopyEl.disabled=!session.room||!session.host;
-  onlineCreateEl.disabled=session.connected || !!replay;
-  onlineJoinEl.disabled=session.connected || !!replay;
+  onlineCreateEl.disabled=session.connected || !!replay || randomMatching;
+  onlineRandomEl.disabled=session.connected || !!replay || randomMatching;
+  onlineCancelEl.hidden=!randomMatching;
+  matchEndpointEl.disabled=randomMatching;
+  onlineJoinEl.disabled=session.connected || !!replay || randomMatching;
   onlineLeaveEl.disabled=!session.connected;
   boardSizeEl.disabled=!!replay || isGuest();
   spectatorControlsEl.hidden=mode!=='bots';
@@ -453,6 +464,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
   past=[];actions=[];pendingMove=null;lastCpuDecision=null;currentMatchId=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
   if(nextMode==='online'&&network?.status().host)network.broadcast();
+  updateMatchList();
   return {ok:true,state:snapshot(state)};
 }
 function undo() {
@@ -499,6 +511,22 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
   save();render();if(zoomBoard)centerBoard();scheduleBots();
   return {ok:true,state:snapshot(state)};
 }
+function updateMatchList(){
+  try{
+    const ids=JSON.parse(localStorage.getItem(MATCH_INDEX)||'[]');
+    const selected=matchListEl.value;
+    matchListEl.replaceChildren();
+    for(const id of ids){
+      const raw=localStorage.getItem(MATCH_PREFIX+id);if(!raw)continue;
+      let item;try{item=JSON.parse(raw);}catch{continue;}
+      const option=document.createElement('option');
+      option.value=id;option.textContent=(item.actions?.length||0)+'手 · '+(3*item.radius*(item.radius+1)+1)+'マス · '+id.slice(2,10);
+      matchListEl.append(option);
+    }
+    if([...matchListEl.options].some(o=>o.value===selected))matchListEl.value=selected;
+    loadMatchEl.disabled=!matchListEl.options.length;
+  }catch{loadMatchEl.disabled=true;}
+}
 function restore() {
   try {
     const raw=localStorage.getItem(STORAGE);
@@ -544,7 +572,75 @@ onlineJoinEl.addEventListener('click',async()=>{
     render();
   }catch(e){netMessage='参加できません: '+e.message;onlineStatusEl.textContent=netMessage;}
 });
-onlineLeaveEl.addEventListener('click',()=>{network?.close();network=null;reset({nextMode:'local'});});
+onlineLeaveEl.addEventListener('click',()=>{
+  matchCancellation?.();
+  network?.close();network=null;reset({nextMode:'local'});
+});
+onlineCancelEl.addEventListener('click',()=>matchCancellation?.());
+matchEndpointEl.value=(()=>{try{return localStorage.getItem(MATCH_ENDPOINT_KEY)||'';}catch{return '';}})();
+matchEndpointEl.addEventListener('change',()=>{
+  try{localStorage.setItem(MATCH_ENDPOINT_KEY,matchEndpointEl.value.trim());}catch{}
+});
+onlineRandomEl.addEventListener('click',async()=>{
+  if(randomMatching)return;
+  let service;
+  try{service=makeMatchmaker(matchEndpointEl.value.trim());}
+  catch(e){netMessage=e.message;render();return;}
+  try{localStorage.setItem(MATCH_ENDPOINT_KEY,matchEndpointEl.value.trim());}catch{}
+  randomMatching=true;let cancelled=false;
+  const ticket=secureToken();
+  matchCancellation=()=>{cancelled=true;randomMatching=false;matchCancellation=null;
+    service.leave(ticket).catch(()=>{});netMessage='ランダムマッチを中止しました';render();};
+  render();
+  try{
+    let match=await service.join(ticket);
+    const start=Date.now();
+    while(!cancelled && Date.now()-start<MATCH_TIMEOUT){
+      if(match.status==='matched'&&match.room){
+        const net=await ensureNetwork();
+        if(match.seat===0){
+          await net.createRoom(match.room);
+          reset({nextMode:'online'});
+          await service.ready(ticket);
+          netMessage='3人が見つかりました。オンライン接続を待っています';
+          onlineRoomEl.value=roomLink(location.href,match.room);
+        }else{
+          const id=secureToken();
+          await net.joinRoom(match.room,id);
+          netMessage='ランダムマッチの対局に参加しました';
+        }
+        randomMatching=false;matchCancellation=null;render();return;
+      }
+      netMessage='対戦相手を探しています…';
+      render();
+      await new Promise(resolve=>setTimeout(resolve,1600));
+      match=await service.status(ticket);
+    }
+    if(!cancelled){await service.leave(ticket);throw Error('時間内に3人揃いませんでした');}
+  }catch(e){
+    if(!cancelled){randomMatching=false;matchCancellation=null;
+      netMessage='マッチング失敗: '+e.message;render();}
+  }
+});
+loadMatchEl.addEventListener('click',()=>{
+  try{
+    const data=JSON.parse(localStorage.getItem(MATCH_PREFIX+matchListEl.value));
+    const result=loadRecord(data);
+    if(!result.ok)msgEl.textContent=result.reason;
+  }catch(e){msgEl.textContent='対局を読み込めません: '+e.message;}
+});
+importFileEl.addEventListener('click',()=>importRecordEl.click());
+importRecordEl.addEventListener('change',async()=>{
+  const file=importRecordEl.files?.[0];if(!file)return;
+  try{
+    if(file.size>1_000_000)throw Error('ファイルが大きすぎます');
+    const data=JSON.parse(await file.text());
+    const result=loadRecord(data);
+    if(!result.ok)throw Error(result.reason);
+    msgEl.textContent='棋譜を復元しました';
+  }catch(e){msgEl.textContent='棋譜を読み込めません: '+e.message;}
+  importRecordEl.value='';
+});
 onlineCopyEl.addEventListener('click',async()=>{
   if(network?.status().room && network.status().host)
     await copyString(roomLink(location.href,network.status().room));
@@ -675,7 +771,10 @@ window.threeColorGo = Object.freeze({
   }
 });
 
-render();restore();scheduleBots();
+render();restore();updateMatchList();scheduleBots();
+if('serviceWorker' in navigator && location.protocol==='https:'){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
 const inviteRoom=new URL(location.href).searchParams.get('room');
 if(validRoom(inviteRoom)){
   stopBots();
