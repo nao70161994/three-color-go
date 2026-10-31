@@ -75,7 +75,7 @@ const MATCH_INDEX = 'three-color-go.matches.v1';
 const MATCH_PREFIX='three-color-go.match.';
 const MATCH_ENDPOINT_KEY='three-color-go.matchmaker-url';
 const MATCH_TIMEOUT=150000;
-let randomMatching=false;
+let randomMatching=false, saveWarning=false;
 
 function center(q,r) { return [SIZE*ROOT3*(q+r/2), SIZE*1.5*r]; }
 function vertices(x,y) {
@@ -191,7 +191,8 @@ function save(){
       old.forEach(id=>localStorage.removeItem(MATCH_PREFIX+id));
       localStorage.setItem(MATCH_INDEX,JSON.stringify(ids));
     }
-  }catch{/* Private mode or quota exceeded; current match remains in memory. */}
+    saveWarning=false;
+  }catch{saveWarning=true;}
 }
 function commit(result,action, schedule=true) {
   if(replay)return {ok:false,reason:'棋譜再生を終了してから着手してください'};
@@ -199,7 +200,7 @@ function commit(result,action, schedule=true) {
   stopBots();
   const expected=state.moveCount;
   past.push(state); state=result.state; actions.push(action);pendingMove=null;
-  save(); render();
+  save(); render();updateMatchList();
   if(mode==='online' && network?.status().host)network.broadcastMove(action,expected);
   if (schedule) scheduleBots();
   return {ok:true,captured:result.captured ?? [],state:snapshot(state)};
@@ -466,6 +467,7 @@ function render() {
   } else {
     msgEl.textContent=replay?'棋譜を再生中です · 対局は一時停止しています':view.lastAction;
   }
+  if(saveWarning)msgEl.textContent+=' · ⚠保存できません（ストレージ容量・権限を確認）';
 }
 function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   if (!['cpu','local','bots','online'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
@@ -786,7 +788,7 @@ window.threeColorGo = Object.freeze({
 });
 
 render();restore();updateMatchList();scheduleBots();
-if('serviceWorker' in navigator && location.protocol==='https:'){
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1')){
   navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
 const inviteRoom=new URL(location.href).searchParams.get('room');
