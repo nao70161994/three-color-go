@@ -244,7 +244,7 @@ def main():
                     "positions": total_positions
                 })
                 checkpoint.write_text(json.dumps(candidate,
-                    separators=(",", ":"))+"\\n", encoding="utf-8")
+                    separators=(",", ":"))+"\n", encoding="utf-8")
             print(json.dumps({
                 "iteration": iteration+1, "radius": radius,
                 "games": len(games), "samples": len(samples),
