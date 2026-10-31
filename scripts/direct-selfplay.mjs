@@ -4,11 +4,11 @@
  * Every state from ALL 3 colors becomes a policy-gradient sample.
  */
 import {readFileSync} from 'node:fs';
-import {COLORS,createGame,pointsOnBoard,scores} from '../src/game.js';
+import {COLORS,createGame,pointsOnBoard,scores,play,pass} from '../src/game.js';
 import {seededRandom} from '../src/agent.js';
 import {PV2_ARCH} from '../src/pv2-ai.js';
 import {
-  applyDirectPolicy,encodePV2State,finalStoneShares,selectDirectPolicyMove
+  encodePV2State,finalStoneShares,selectDirectPolicyMove
 } from '../src/direct-policy.js';
 
 const args={};
@@ -34,6 +34,8 @@ for(let game=0;game<games;game++){
   const cap=pointsOnBoard(radius).length*2;
   let state=createGame(radius),turns=0;
   const samples=[];
+  const captures=Object.fromEntries(COLORS.map(c=>[c,0]));
+  const capturedLosses=Object.fromEntries(COLORS.map(c=>[c,0]));
   while(!state.ended&&turns<cap+3){
     const snapshot=encodePV2State(state);
     const choice=selectDirectPolicyMove(state,model,{random,temperature});
@@ -42,7 +44,13 @@ for(let game=0;game<games;game++){
       seat:state.turn,
       legal:choice.actions.map(a=>a.index),
       selected:choice.action.index});
-    state=applyDirectPolicy(state,choice.move);
+    const capturer=COLORS[state.turn];
+    const outcome=choice.move?play(state,choice.move.q,choice.move.r):pass(state);
+    if(!outcome.ok)throw Error('Illegal direct policy action: '+outcome.reason);
+    captures[capturer]+=(outcome.captured?.length??0);
+    for(const removed of outcome.captured??[])
+      capturedLosses[state.board[removed]]++;
+    state=outcome.state;
     turns++;
   }
   if(!state.ended)throw Error('Self-play did not terminate');
@@ -56,6 +64,6 @@ for(let game=0;game<games;game++){
   process.stdout.write(JSON.stringify({
     kind:'three-player-direct-selfplay',architecture:model.architecture,
     seed:gameSeed,radius,ended:state.ended,
-    rewards,scores:scores(state),seatCounts,samples
+    rewards,scores:scores(state),captures,capturedLosses,turns,seatCounts,samples
   })+'\n');
 }
