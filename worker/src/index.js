@@ -97,7 +97,7 @@ export class Matchmaker {
       player.ready=true;
     }
     if(url.pathname==='/leave'){
-      const room=player.room,wasHost=player.seat===0&&!player.ready;
+      const room=player.room,wasHost=player.seat===0;
       delete data.players[ticket];
       if(room&&wasHost){
         for(const [id,p] of Object.entries(data.players))if(p.room===room){
