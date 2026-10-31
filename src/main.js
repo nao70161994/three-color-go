@@ -322,64 +322,72 @@ function setCpuLevel(value) {
   save();render();scheduleBots();
   return {ok:true,cpuLevel};
 }
-function drawBoard() {
+let renderedRadius=null;
+const cellCache=new Map();
+function drawBoard(){
   const view=visibleState();
   const xExtent=SIZE*ROOT3*view.radius+SIZE+4;
   const yExtent=SIZE*1.5*view.radius+SIZE+4;
   boardSvg.setAttribute('viewBox',[-xExtent,-yExtent,2*xExtent,2*yExtent].join(' '));
-  const enlarged=zoomBoard;
-  boardSvg.style.width=enlarged ? Math.round(Math.max(700,xExtent*1.7)*zoomScale)+'px' : '100%';
-  boardSvg.style.maxHeight=enlarged ? 'none' : '65vh';
-  boardSvg.replaceChildren();
+  boardSvg.style.width=zoomBoard?Math.round(Math.max(700,xExtent*1.7)*zoomScale)+'px':'100%';
+  boardSvg.style.maxHeight=zoomBoard?'none':'65vh';
+  if(renderedRadius!==view.radius){
+    renderedRadius=view.radius;cellCache.clear();boardSvg.replaceChildren();
+  }
   const hints=boardHints();
-  const legalKeys=new Set(hints.legal.map(p=>pointKey(p.q,p.r)));
-  const dangerKeys=showDanger ? new Set(hints.dangerGroups.flatMap(g=>g.stones)) : new Set();
-  const lastKey=hints.lastMove ? pointKey(hints.lastMove.q,hints.lastMove.r) : null;
-  for (const {q,r} of pointsOnBoard(view.radius)) {
-    const [x,y]=center(q,r), key=pointKey(q,r),color=view.board[key];
-    const g=el('g',{
-      class:'cell '+(color?'occupied':''),
-      role:'button', tabindex:state.ended?-1:0,
-      'data-q':q,'data-r':r,
-      'aria-label':q+','+r+' '+(color?LABELS[color]+'石':'空点')
-        +(dangerKeys.has(key)?' 危険・呼吸点1':'')
-        +(lastKey===key?' 直前の着手':'')
-        +(legalKeys.has(key)?' 合法手':'')
-    });
-    g.appendChild(el('polygon',{points:vertices(x,y),class:'hex'}));
-    if (color) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.64,class:'piece '+color}));
-    if (legalKeys.has(key)) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.17,class:'hintLegal'}));
-    if (dangerKeys.has(key)) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.79,class:'hintDanger'}));
-    if (lastKey===key) g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.91,class:'hintLast'}));
-    if(pendingMove && pendingMove.q===q && pendingMove.r===r)
-      g.appendChild(el('circle',{cx:x,cy:y,r:SIZE*.95,class:'hintSelected'}));
-    function activate() {
-      if(!permittedForHuman()){
-        msgEl.textContent=replay?'棋譜を再生中です':mode==='online'?'自分の手番か接続を確認してください':'CPUが考えています';
-        return;
-      }
-      if(view.radius>=8 && (!pendingMove || pendingMove.q!==q || pendingMove.r!==r)){
-        pendingMove={q,r};moveConfirmEl.hidden=false;
-        moveConfirmEl.firstChild.textContent=' ('+q+','+r+') をもう一度タップして着手 ';
-        drawBoard();return;
-      }
-      pendingMove=null;moveConfirmEl.hidden=true;
-      if(mode==='online') {
-        const outcome=sendOnlineAction({type:'play',q,r});
-        if(!outcome.ok)msgEl.textContent=outcome.reason;
-      }else place(q,r);
+  const legal=new Set(hints.legal.map(p=>pointKey(p.q,p.r)));
+  const danger=showDanger?new Set(hints.dangerGroups.flatMap(g=>g.stones)):new Set();
+  const last=hints.lastMove?pointKey(hints.lastMove.q,hints.lastMove.r):null;
+  for(const {q,r} of pointsOnBoard(view.radius)){
+    const key=pointKey(q,r),color=view.board[key]||'';
+    const selected=!!pendingMove&&pendingMove.q===q&&pendingMove.r===r;
+    const signature=[color,legal.has(key),danger.has(key),last===key,selected,view.ended].join('|');
+    let item=cellCache.get(key);
+    if(!item){
+      const g=el('g',{class:'cell',role:'button','data-q':q,'data-r':r,tabindex:0});
+      const activate=()=>{
+        if(!permittedForHuman()){
+          msgEl.textContent=replay?'棋譜を再生中です':mode==='online'?'接続と自分の手番を確認してください':'CPUの手番です';
+          return;
+        }
+        if(visibleState().radius>=8 && (!pendingMove||pendingMove.q!==q||pendingMove.r!==r)){
+          pendingMove={q,r};moveConfirmEl.hidden=false;
+          moveConfirmEl.firstChild.textContent=' ('+q+','+r+') をもう一度タップして着手 ';
+          drawBoard();return;
+        }
+        pendingMove=null;moveConfirmEl.hidden=true;
+        if(mode==='online'){
+          const outcome=sendOnlineAction({type:'play',q,r});
+          if(!outcome.ok)msgEl.textContent=outcome.reason;
+        }else place(q,r);
+      };
+      g.addEventListener('click',activate);
+      g.addEventListener('keydown',e=>{
+        if(e.key==='Enter'||e.key===' '){e.preventDefault();activate();return;}
+        const dir={'ArrowRight':[1,0],'ArrowLeft':[-1,0],
+          'ArrowUp':[0,-1],'ArrowDown':[0,1]}[e.key];
+        if(dir){
+          const next=cellCache.get(pointKey(q+dir[0],r+dir[1]))?.g;
+          if(next){e.preventDefault();next.focus();}
+        }
+      });
+      item={g,signature:null};cellCache.set(key,item);boardSvg.appendChild(g);
     }
-    g.addEventListener('click',activate);
-    g.addEventListener('keydown',e=>{
-      if(e.key==='Enter'||e.key===' '){e.preventDefault();activate();return;}
-      const dir={'ArrowRight':[1,0],'ArrowLeft':[-1,0],
-        'ArrowUp':[0,-1],'ArrowDown':[0,1]}[e.key];
-      if(dir){
-        const next=boardSvg.querySelector('g.cell[data-q="'+(q+dir[0])+'"][data-r="'+(r+dir[1])+'"]');
-        if(next){e.preventDefault();next.focus();}
-      }
-    });
-    boardSvg.appendChild(g);
+    if(item.signature===signature)continue;
+    item.signature=signature;
+    const g=item.g,[x,y]=center(q,r);
+    g.setAttribute('class','cell '+(color?'occupied':''));
+    g.setAttribute('tabindex',view.ended?'-1':'0');
+    g.setAttribute('aria-label',q+','+r+' '+(color?LABELS[color]+'石':'空点')
+      +(danger.has(key)?' 危険・呼吸点1':'')+(last===key?' 直前の着手':'')
+      +(legal.has(key)?' 合法手':''));
+    const children=[el('polygon',{points:vertices(x,y),class:'hex'})];
+    if(color)children.push(el('circle',{cx:x,cy:y,r:SIZE*.64,class:'piece '+color}));
+    if(legal.has(key))children.push(el('circle',{cx:x,cy:y,r:SIZE*.17,class:'hintLegal'}));
+    if(danger.has(key))children.push(el('circle',{cx:x,cy:y,r:SIZE*.79,class:'hintDanger'}));
+    if(last===key)children.push(el('circle',{cx:x,cy:y,r:SIZE*.91,class:'hintLast'}));
+    if(selected)children.push(el('circle',{cx:x,cy:y,r:SIZE*.95,class:'hintSelected'}));
+    g.replaceChildren(...children);
   }
 }
 function render() {
