@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {COLORS,createGame,pass,play,pointsOnBoard,winner} from '../src/game.js';
 import {seededRandom} from '../src/agent.js';
 import {encodePVState,searchPV,PV_ARCH} from '../src/pv-ai.js';
+import {encodePV2State,PV2_ARCH} from '../src/pv2-ai.js';
 
 const args={};
 for(let i=2;i<process.argv.length;i+=2){
@@ -14,7 +15,7 @@ for(let i=2;i<process.argv.length;i+=2){
 }
 if(!args.model)throw Error('--model required');
 const model=JSON.parse(readFileSync(args.model,'utf8'));
-if(model.architecture!==PV_ARCH)throw Error('Unsupported model architecture');
+if(![PV_ARCH,PV2_ARCH].includes(model.architecture))throw Error('Unsupported model architecture');
 const games=Number(args.games??2),seed=Number(args.seed??1);
 const radius=Number(args.radius??3),simulations=Number(args.simulations??16);
 if(!Number.isInteger(games)||games<1||games>100||
@@ -29,7 +30,7 @@ for(let game=0;game<games;game++){
   let state=createGame(radius);
   const examples=[];
   while(!state.ended&&state.moveCount<2*cells+3){
-    const start=encodePVState(state);
+    const start=model.architecture===PV2_ARCH?encodePV2State(state):encodePVState(state);
     const search=searchPV(state,model,{simulations,random});
     if(!search.options.length)throw Error('No legal MCTS actions');
     const count=search.options.reduce((a,o)=>a+o.visits,0);
