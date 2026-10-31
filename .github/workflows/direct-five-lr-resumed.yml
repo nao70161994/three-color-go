@@ -1,7 +1,5 @@
 name: Continue all five direct policy learning rates to 5120 games
 on:
-  push:
-    branches: [exp/direct-five-lr-5120-resume]
   pull_request:
     paths:
       - scripts/train-direct-policy.py
@@ -24,7 +22,7 @@ jobs:
           node-version: '22'
       - run: node --test tests/direct-lr-long.test.js tests/direct-lr-resumed.test.js
   sweep:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
@@ -152,7 +150,7 @@ jobs:
           path: reports/${{ matrix.key }}/
           retention-days: 30
   compare:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     needs: sweep
     runs-on: ubuntu-latest
     timeout-minutes: 15
