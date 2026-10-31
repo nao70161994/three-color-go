@@ -6,6 +6,27 @@
 
 
 
+## 実験：探索なし・3人同時自己対戦・最終石数割合（PR #21）
+
+前段のPV2+MCTSとは**別方式**です。黒・白・赤の3人が共通のPV2ニューラルネットワークを使って自己対戦し、3人全員の着手履歴をまとめて**1つの共有モデル**を更新します。
+
+- **報酬100%：**各色 `終局時の残存石数 ÷ 3色の残存石数合計`。3人の報酬合計は1、石が0個なら等分。勝利ボーナス、捕獲ボーナス、教師の着手スコアは使いません。
+- **探索なし：**1手につきニューラルネットの推論を1回だけ行い、合法手の確率分布から自己対戦中はサンプリング、評価対戦中は最大確率を選択。**MCTS、rollout、3手先読み、戦術スコアフィルタなし**。合法手の列挙にはゲームルールの`play`を使います。
+- **同時学習：**黒・白・赤はすべて同じ凍結重みで1局をプレイします。1反復分の3人全員の局面を収集後、1つのネットワークの方策・価値を同時に更新（on-policy Actor-Critic/REINFORCE）。価値出力は各色の最終石数割合を予測し、行動方策の更新には`石数割合 − 推定価値`の利得とentropy正則化を使います。
+- **探索型PV1/PV2と旧CPUをそのまま保持**。実験モデルを公開CPUへ自動採用せず、測定基準を満たすまで候補重みをGitHub Actionsで別管理します。
+
+```bash
+python -m pip install torch numpy
+npm run train:direct -- --iterations 60 --games 8 --radii 2,3,4 --seed 20261101 --out reports/direct-candidate.json
+npm run parity:pv2 -- reports/direct-candidate.json
+npm run benchmark:direct -- --model reports/direct-candidate.json --games 24 --radius 3 --seed 20261121
+npm run benchmark:direct -- --model reports/direct-candidate.json --games 24 --radius 4 --seed 20261122
+```
+
+**初期結果：**108局（18反復×6局、20261101）で学習した候補は、半径3で`0/24`局・平均石数差`−21.625`、半径4で`0/24`局・平均差`−31.750`と、双方とも旧「難しい」を上回れませんでした。モデル推論のJS/PyTorch整合性チェックは成功。これは仕組みの動作確認であって棋力向上の証明ではありません。
+
+- [108局の学習・対戦・候補重み](https://github.com/nao70161994/three-color-go/actions/runs/41215732952)
+
 ## PV2報酬関数の比較実験（PR #20）
 
 前段のPV2実験で、ニューラルネットワークの価値目標は「勝敗75%＋最終石数25%」、**MCTS探索の実際の終局値は勝敗100%**と不整合でした。報酬を `src/pv-reward.js` に統合し、探索の終局評価・自己対戦の学習目標をモデルの `rewardProfile` によって一致させました。
