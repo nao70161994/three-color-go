@@ -76,6 +76,12 @@ A playable 3-player Go variant. Three colors, hexagonal board (6 neighbors), sto
 - \`src/strong-ai.js\` shortlist candidate generation reduces search work on radius 8+; still validate legality through \`play()\`.
 - Verify offline \`play.html\`, real browser mode bots controls, slow/fast speeds, and at least 397/469 cells.
 
+## v0.8.1: Eye-preservation regression
+- Eye filling remains legal in the rules engine and in the full `legalMoves()` list.
+- `isOwnEye(state,q,r)` detects 1-2 connected empty points enclosed by one linked friendly stone group. `safeCpuMoves(state)` excludes them for bots only.
+- Hard CPU filters these moves in root candidates and simulated opponent replies. Easy and normal use the same eye-safe policy.
+- `tests/eye-preservation.test.js` reproduces a two-eye group that dies after a mistaken eye fill and checks that bot levels pass instead.
+- This is not full life/death analysis. Obtain a serialized game record if a real-game error persists.
 ## Known limitations
 - CPU is a tactical one-ply, deterministic-under-seed heuristic, not a competitive Go engine.
 - No online play.
