@@ -1,7 +1,11 @@
 name: tests
 on:
   push:
+    branches: [main]
   pull_request:
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   unit:
     runs-on: ubuntu-latest
