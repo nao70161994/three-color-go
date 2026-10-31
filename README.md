@@ -6,6 +6,32 @@
 
 
 
+## v1.6 開発中：教師スコアを使わない自己対戦強化学習
+
+従来の「ディープラーニング（実験版）」は手作り戦術スコアを模倣した**教師あり蒸留モデル**で、現時点のゲームにはこの旧モデルを搭載したままです。新しい方式では教師スコアや人間の棋譜を使わず、3人が同じモデルで対戦して**終局時の勝敗と石数差だけ**を報酬にする REINFORCE（方策勾配）を導入しました。
+
+学習開始時はランダム重みです。盤面ルール、12種類の手作り入力特徴量、眼・自アタリ回避などの安全フィルターは引き続き使います。そのため「完全な生盤面からの学習」ではありませんが、**正解の着手や教師評価点は与えていません**。探索に基づく AlphaZero 方式でもありません。
+
+### 学習と比較の実行
+
+Python 3（PyTorch・NumPy）と Node.js 22 以上を用意してください。
+
+```sh
+python3 -m pip install torch numpy
+npm run train:selfplay -- --iterations 30 --games 12 --seed 20261031 --radii 2,3,4
+npm run benchmark:neural -- --model reports/neural-rl-candidate.json --games 60 --radius 3 --seed 20261051 --out reports/neural-r3.json
+npm run benchmark:neural -- --model reports/neural-rl-candidate.json --games 60 --radius 4 --seed 20261052 --out reports/neural-r4.json
+```
+
+- `scripts/selfplay-trajectories.mjs` が**本物の JavaScript ルールエンジン**で自己対戦を生成し、各手の候補特徴量、選択番号、終局報酬を記録します。
+- `scripts/train-selfplay-rl.py` は反復ごとに最新モデルで自己対戦し、選んだ手の確率を結果に応じて更新します。模倣学習用の `scripts/train-neural-policy.py` は比較・再現用に残しています。
+- 新モデルは `reports/neural-rl-candidate.json` に出力。ゲーム本体の `src/neural-weights.js` は**自動上書きしません**。検証前の弱いモデルが利用者に配信されないためです。
+- `scripts/benchmark-neural.mjs` は **ニューラル候補 vs 画面の「難しい」（3手探索） vs バランス型**で全6席順をローテーションし、各CPUの勝利配分とニューラル・難しい間の最終石数差を報告します。6の倍数の対局数を指定してください。
+- ベンチマークの `promotionReady` は暫定基準（60局以上、ニューラルの直接石数勝率60%以上、平均石数差0以上、3人対局の勝利配分45%以上）を満たしたかだけを示します。実際の採用には別シードや他サイズでも再検証してください。
+- ルールに基づく合法手判定、保存データ互換、現行「難しい」CPUは変更していません。
+
+**未検証の点：** 自己対戦による強化学習が従来「難しい」より強いかは、候補を十分学習させてから比較するまで不明です。学習コードを実装したことは棋力向上の証明ではありません。
+
 ## v1.5 — 学習済みニューラルCPU（実験版）
 
 - 「CPUの強さ」に **ディープラーニング（実験版）** を追加しました。人間 vs CPU2人、CPU3人観戦、保存した対局、単一HTML版で選択できます。
