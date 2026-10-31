@@ -40,3 +40,15 @@ test('PV2 MaxN search visits sum to budget and the chosen move is legal/reproduc
   assert.ok(a.move&&play(state,a.move.q,a.move.r).ok);
   assert.deepEqual(choosePVMove(state,model,6,seededRandom(17)),a.move);
 });
+
+test('seeded root noise diversifies self-play but remains reproducible and normalized',()=>{
+  const state=createGame(3);
+  const first=searchPV(state,model,{simulations:8,rootNoise:.25,random:seededRandom(2718)});
+  const again=searchPV(state,model,{simulations:8,rootNoise:.25,random:seededRandom(2718)});
+  const other=searchPV(state,model,{simulations:8,rootNoise:.25,random:seededRandom(3141)});
+  assert.deepEqual(first,again);
+  assert.equal(first.options.reduce((a,b)=>a+b.visits,0),8);
+  assert.ok(Math.abs(first.options.reduce((a,b)=>a+b.prior,0)-1)<1e-8);
+  assert.notDeepEqual(first.options.map(x=>x.prior),other.options.map(x=>x.prior));
+  assert.throws(()=>searchPV(state,model,{rootNoise:1.1}),/Invalid search budget/);
+});
