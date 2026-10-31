@@ -36,3 +36,30 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
 .settings select{appearance:none;color:#eaf1f4;background:#253b49;border:1px solid #63828d;border-radius:10px;padding:10px 13px;font:inherit;max-width:100%;cursor:pointer}
 .settings select:focus-visible{outline:2px solid #eabc6e;outline-offset:2px}
 @media(max-width:500px){.settings{justify-content:space-between}.settings select{font-size:13px;max-width:75%}}
+
+/* v0.4 board overlays are non-interactive so tap targets remain unchanged. */
+.hintLegal{fill:#35634b;stroke:#f2f8da;stroke-width:1;opacity:.86;pointer-events:none}
+.hintDanger{fill:none;stroke:#ff5f62;stroke-width:3;stroke-dasharray:5 3;pointer-events:none;filter:drop-shadow(0 1px 1px #321)}
+.hintLast{fill:none;stroke:#ffe28a;stroke-width:3;pointer-events:none;filter:drop-shadow(0 1px 1px #0009)}
+.boardTools{display:flex;gap:9px;margin-top:12px}
+.boardTools button{flex:1;padding:11px 8px;font-size:12px;font-weight:700}
+.boardTools button[aria-pressed="true"]{border-color:#e1b35c;background:#604922;color:#fff0c3}
+.boardTools button:focus-visible{outline:3px solid #f0d080;outline-offset:2px}
+.boardLegend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;color:#bed1d5;font-size:11px;padding:9px 0 0}
+.boardLegend span{display:inline-flex;align-items:center;gap:6px}
+.boardLegend i{display:inline-block;width:11px;height:11px;border-radius:50%}
+.legendDot{background:#35634b;border:1px solid #f2f8da}
+.legendDanger{border:2px dashed #ff5f62}
+.legendLast{border:2px solid #ffe28a}
+.settings{justify-content:space-between;align-items:stretch;gap:12px;flex-wrap:wrap}
+.setting{display:flex;flex:1;min-width:180px;flex-direction:column;align-items:stretch;gap:6px}
+.setting label{font-size:12px;font-weight:700}
+.setting select{width:100%;max-width:none}
+.setting[hidden]{display:none}
+@media(max-width:500px){
+  .settings{gap:8px}
+  .setting{min-width:125px}
+  .setting select{font-size:12px;max-width:none;padding:10px 8px}
+  .boardTools{gap:7px}
+  .boardTools button{font-size:11px;padding:11px 5px}
+}
