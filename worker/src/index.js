@@ -57,6 +57,7 @@ export class Matchmaker {
       if(!host || (!host[1].ready && now-host[1].matchedAt>HOST_START_MS)){
         for(const [id,p] of members){
           if(p.seat===0)delete data.players[id];
+          else if(now-p.time>WAIT_LEASE_MS)delete data.players[id];
           else data.players[id]={time:now,status:'waiting',ip:p.ip};
         }
       }
@@ -108,7 +109,7 @@ export class Matchmaker {
       delete data.players[ticket];
       if(room&&wasHost){
         for(const [id,p] of Object.entries(data.players))if(p.room===room){
-          if(p.connected)delete data.players[id];
+          if(p.connected||now-p.time>WAIT_LEASE_MS)delete data.players[id];
           else {
             data.players[id]={time:now,status:'waiting',ip:p.ip};
             data.queue.push(id);
