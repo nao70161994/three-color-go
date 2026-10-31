@@ -14,6 +14,10 @@
     "balance": "node scripts/balance.mjs",
     "balance:matchup": "node scripts/balance.mjs --matchup",
     "test:strength": "node scripts/strength-report.mjs",
-    "study:sizes": "node scripts/size-study.mjs"
+    "study:sizes": "node scripts/size-study.mjs",
+    "train:selfplay": "python3 scripts/train-selfplay-rl.py",
+    "benchmark:neural": "node scripts/benchmark-neural.mjs",
+    "train:board-mcts": "python3 scripts/train-board-mcts.py",
+    "benchmark:board-mcts": "node scripts/benchmark-board.mjs"
   }
 }
