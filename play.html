@@ -125,13 +125,13 @@ footer{text-align:center;font-size:11px;color:#7293a4;margin-top:22px}
  * No territory scoring or komi. Positional superko on stone placements.
  */
 
-export const COLORS = ['black', 'white', 'red'];
-export const LABELS = { black: '黒', white: '白', red: '赤' };
+const COLORS = ['black', 'white', 'red'];
+const LABELS = { black: '黒', white: '白', red: '赤' };
 const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 
-export function pointKey(q, r) { return `${q},${r}`; }
+function pointKey(q, r) { return `${q},${r}`; }
 
-export function pointsOnBoard(radius = 4) {
+function pointsOnBoard(radius = 4) {
   const points = [];
   for (let r = -radius; r <= radius; r++) {
     for (let q = -radius; q <= radius; q++) {
@@ -141,18 +141,18 @@ export function pointsOnBoard(radius = 4) {
   return points;
 }
 
-export function adjacentKeys(key, radius) {
+function adjacentKeys(key, radius) {
   const [q, r] = key.split(',').map(Number);
   return DIRECTIONS.map(([dq, dr]) => [q+dq, r+dr])
     .filter(([x, y]) => Math.max(Math.abs(x), Math.abs(y), Math.abs(x+y)) <= radius)
     .map(([x,y]) => pointKey(x,y));
 }
 
-export function boardHash(board) {
+function boardHash(board) {
   return Object.keys(board).sort().map(k => `${k}:${board[k]}`).join('|');
 }
 
-export function createGame(radius = 4) {
+function createGame(radius = 4) {
   if (!Number.isInteger(radius) || radius < 2 || radius > 10) throw new Error('盤面半径は2～10にしてください');
   return {
     radius,
@@ -185,7 +185,7 @@ function groupWithLiberties(board, start, radius) {
 }
 
 /** Pure legal move. Returns {ok, state, captured} or {ok:false, reason}. */
-export function play(state, q, r) {
+function play(state, q, r) {
   if (state.ended) return {ok:false, reason:'すでに終局しています'};
   if (!Number.isInteger(q) || !Number.isInteger(r) ||
       Math.max(Math.abs(q), Math.abs(r), Math.abs(q+r)) > state.radius) {
@@ -222,7 +222,7 @@ export function play(state, q, r) {
   return {ok:true, state:next, captured};
 }
 
-export function pass(state) {
+function pass(state) {
   if (state.ended) return {ok:false, reason:'すでに終局しています'};
   const passes = state.passes + 1;
   return {ok:true, state: {
@@ -233,13 +233,13 @@ export function pass(state) {
   }};
 }
 
-export function scores(state) {
+function scores(state) {
   const count = {black:0, white:0, red:0};
   Object.values(state.board).forEach(color => { count[color]++; });
   return count;
 }
 
-export function winner(state) {
+function winner(state) {
   if (!state.ended) return [];
   const s = scores(state), max = Math.max(...Object.values(s));
   return COLORS.filter(c => s[c] === max);
