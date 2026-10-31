@@ -1,7 +1,5 @@
 name: direct policy learning-rate and multi-CPU study
 on:
-  push:
-    branches: [exp/direct-policy-learning-rate-sweep]
   pull_request:
     paths:
       - scripts/train-direct-policy.py
@@ -49,7 +47,7 @@ jobs:
               assert r['probeSamples']>0
           PY
   sweep:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
