@@ -288,7 +288,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   try {next=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
   stopBots();
   replay=null;state=next;
-  mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=radius>=8;
+  mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=false;
   past=[];actions=[];save();render();if(zoomBoard)centerBoard();scheduleBots();
   return {ok:true,state:snapshot(state)};
 }
@@ -324,7 +324,7 @@ function loadRecord(record,{resumeSavedBots=false}={}) {
   state=next;mode=nextMode;cpuLevel=nextLevel;
   spectatorSpeed=[180,600,1200].includes(record.spectatorSpeed)?record.spectatorSpeed:600;
   spectatorPaused=nextMode==='bots' ? (!resumeSavedBots || record.spectatorPaused===true) : false;
-  zoomBoard=typeof record.zoomBoard==='boolean'?record.zoomBoard:state.radius>=8;
+  zoomBoard=typeof record.zoomBoard==='boolean'?record.zoomBoard:false;
   showLegal=nextShowLegal;showDanger=nextShowDanger;past=states;actions=normalized;
   save();render();if(zoomBoard)centerBoard();scheduleBots();
   return {ok:true,state:snapshot(state)};
