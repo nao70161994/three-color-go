@@ -38,7 +38,7 @@ const SIZE = 29, ROOT3 = Math.sqrt(3);
 let state = createGame(4);
 let mode = 'cpu', past = [], actions = [], botTimer = null;
 let cpuLevel = 'hard', showLegal = false, showDanger = true;
-let spectatorPaused = false, spectatorSpeed = 600, zoomBoard = false;
+let spectatorPaused = false, spectatorSpeed = 600, zoomBoard = false, zoomBoardExplicit = false;
 let replay = null;
 const STORAGE = 'three-color-go.v2';
 
@@ -82,7 +82,7 @@ function closeReplay() {
   return {ok:true,...getReplayState()};
 }
 function save() {
-  try { localStorage.setItem(STORAGE,JSON.stringify({version:1,mode,radius:state.radius,cpuLevel,showLegal,showDanger,spectatorPaused,spectatorSpeed,zoomBoard,actions})); }
+  try { localStorage.setItem(STORAGE,JSON.stringify({version:1,mode,radius:state.radius,cpuLevel,showLegal,showDanger,spectatorPaused,spectatorSpeed,zoomBoard,zoomBoardExplicit,actions})); }
   catch { /* Storage may be blocked in private mode. */ }
 }
 function commit(result,action, schedule=true) {
@@ -130,7 +130,7 @@ function centerBoard() {
 }
 function setBoardZoom(enabled) {
   if(typeof enabled!=='boolean')return {ok:false,reason:'拡大表示にはtrue/falseを指定してください'};
-  zoomBoard=enabled;save();render();
+  zoomBoard=enabled;zoomBoardExplicit=true;save();render();
   if(zoomBoard)centerBoard();
   return {ok:true,zoom:zoomBoard};
 }
@@ -288,7 +288,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   try {next=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
   stopBots();
   replay=null;state=next;
-  mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=false;
+  mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
   past=[];actions=[];save();render();if(zoomBoard)centerBoard();scheduleBots();
   return {ok:true,state:snapshot(state)};
 }
@@ -324,7 +324,10 @@ function loadRecord(record,{resumeSavedBots=false}={}) {
   state=next;mode=nextMode;cpuLevel=nextLevel;
   spectatorSpeed=[180,600,1200].includes(record.spectatorSpeed)?record.spectatorSpeed:600;
   spectatorPaused=nextMode==='bots' ? (!resumeSavedBots || record.spectatorPaused===true) : false;
-  zoomBoard=typeof record.zoomBoard==='boolean'?record.zoomBoard:false;
+  // Old saves were automatically zoomed, not necessarily by user choice.
+  // Only honor zoom on restore when a v0.8.3+ user explicitly selected it.
+  zoomBoardExplicit=record.zoomBoardExplicit===true;
+  zoomBoard=zoomBoardExplicit && record.zoomBoard===true;
   showLegal=nextShowLegal;showDanger=nextShowDanger;past=states;actions=normalized;
   save();render();if(zoomBoard)centerBoard();scheduleBots();
   return {ok:true,state:snapshot(state)};
@@ -376,7 +379,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '0.8.1',
+  version: '0.8.3',
   getState: ()=>snapshot(state),
   getReplayState,
   openReplay,
@@ -400,7 +403,7 @@ window.threeColorGo = Object.freeze({
   undo,
   reset: (options={})=>reset({radius:options.radius??state.radius,nextMode:options.mode??'local',nextLevel:options.cpuLevel??cpuLevel}),
   setMode: (next)=>reset({radius:state.radius,nextMode:next}),
-  exportRecord: ()=>({version:1,radius:state.radius,mode,cpuLevel,showLegal,showDanger,spectatorPaused,spectatorSpeed,zoomBoard,actions:actions.map(a=>({...a}))}),
+  exportRecord: ()=>({version:1,radius:state.radius,mode,cpuLevel,showLegal,showDanger,spectatorPaused,spectatorSpeed,zoomBoard,zoomBoardExplicit,actions:actions.map(a=>({...a}))}),
   importRecord: loadRecord,
   autoPlay: (limit=100,seed=1)=>{
     if(replay)return {ok:false,reason:'棋譜再生を終了してください'};
