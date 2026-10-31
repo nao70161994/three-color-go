@@ -146,6 +146,9 @@ async function run(){
   const thought=game.autoPlay(1,99);
   const elapsed=performance.now()-begin;
   check(thought.ok && thought.moves===1,'標準盤面で強いCPUが合法手を生成');
+  const trace=game.getCpuDecision();
+  check(trace && trace.candidates.length>0,'CPUが比較した候補と評価値を取得');
+  check(trace.candidates[0].score>=trace.candidates.at(-1).score,'CPU候補が評価値順に並ぶ');
   check(elapsed<10000,'標準盤面のCPUの思考が10秒未満');
   check(game.reset({mode:'bots',radius:3,cpuLevel:'easy'}).ok,'CPU3人の観戦モードを開始できる');
   check(!doc.querySelector('#spectatorControls').hidden,'観戦操作欄が表示される');
