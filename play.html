@@ -750,7 +750,9 @@ function chooseStrongMove(state,random=Math.random,inspection=null) {
   const cells=pointsOnBoard(state.radius).length;
   if(state.moveCount>=cells*2)return null;
   const width=state.radius<=3?6:state.radius===4?5:state.radius===5?3:2;
-  const opponentWidth=state.radius<=3?2:1;
+  // Compare at least two plausible replies from each rival on standard boards.
+  // Huge boards retain a single reply per rival to keep mobile turns responsive.
+  const opponentWidth=state.radius<=5?2:1;
   const me=COLORS[state.turn];
   const roots=candidates(state,me,width,random);
   if(!roots.length)return null;
