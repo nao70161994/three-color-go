@@ -987,8 +987,9 @@ function createOnlineSession({Peer,getRecord,applyMove,receiveRecord,receiveDelt
     const p=peer=new Peer(hostId);p.on('connection',hostConn);
     return new Promise((resolve,reject)=>{
       let done=false;
-      p.on('open',()=>{done=true;connected=true;message='招待リンクを共有してください';notify();resolve(status());});
-      p.on('error',e=>{message='接続エラー: '+e.message;notify();if(!done){done=true;reject(e);}});
+      const timeout=setTimeout(()=>{if(!done){done=true;reject(Error('部屋作成がタイムアウトしました'));}},20000);
+      p.on('open',()=>{if(done)return;done=true;clearTimeout(timeout);connected=true;message='招待リンクを共有してください';notify();resolve(status());});
+      p.on('error',e=>{message='接続エラー: '+e.message;notify();if(!done){done=true;clearTimeout(timeout);reject(e);}});
     });
   }
   function joinRoom(room,providedToken=token()){
@@ -998,19 +999,20 @@ function createOnlineSession({Peer,getRecord,applyMove,receiveRecord,receiveDelt
     const p=peer=new Peer();
     return new Promise((resolve,reject)=>{
       let done=false;
-      p.on('error',e=>{message='接続エラー: '+e.message;notify();if(!done){done=true;reject(e);}});
+      const timeout=setTimeout(()=>{if(!done){done=true;reject(Error('ホストへの接続がタイムアウトしました'));}},20000);
+      p.on('error',e=>{message='接続エラー: '+e.message;notify();if(!done){done=true;clearTimeout(timeout);reject(e);}});
       p.on('open',()=>{
         const conn=connection=p.connect(room,{reliable:true,serialization:'json'});
         conn.on('open',()=>send(conn,{type:'hello',token:providedToken}));
-        conn.on('close',()=>{connected=false;message='接続が切れました';notify();});
-        conn.on('error',e=>{message=e.message;notify();if(!done){done=true;reject(e);}});
+        conn.on('close',()=>{connected=false;message='接続が切れました';notify();if(!done){done=true;clearTimeout(timeout);reject(Error(message));}});
+        conn.on('error',e=>{message=e.message;notify();if(!done){done=true;clearTimeout(timeout);reject(e);}});
         conn.on('data',msg=>{
           if(!msg || msg.v!==ONLINE_PROTOCOL)return;
-          if(msg.type==='full'){message='満席です';notify();if(!done){done=true;reject(Error(message));}}
+          if(msg.type==='full'){message='満席です';notify();if(!done){done=true;clearTimeout(timeout);reject(Error(message));}}
           if(msg.type==='welcome'){
             seat=msg.seat;connected=true;peerCount=msg.players||0;
             receiveRecord(msg.record);message='接続しました';notify();
-            if(!done){done=true;resolve({status:status(),token:providedToken});}
+            if(!done){done=true;clearTimeout(timeout);resolve({status:status(),token:providedToken});}
           }else if(msg.type==='sync' && connected){
             peerCount=msg.players;receiveRecord(msg.record);notify();
           }else if(msg.type==='delta' && connected){
@@ -1127,7 +1129,7 @@ const MATCH_INDEX = 'three-color-go.matches.v1';
 const MATCH_PREFIX='three-color-go.match.';
 const MATCH_ENDPOINT_KEY='three-color-go.matchmaker-url';
 const MATCH_TIMEOUT=150000;
-let randomMatching=false;
+let randomMatching=false, saveWarning=false;
 
 function center(q,r) { return [SIZE*ROOT3*(q+r/2), SIZE*1.5*r]; }
 function vertices(x,y) {
@@ -1243,7 +1245,8 @@ function save(){
       old.forEach(id=>localStorage.removeItem(MATCH_PREFIX+id));
       localStorage.setItem(MATCH_INDEX,JSON.stringify(ids));
     }
-  }catch{/* Private mode or quota exceeded; current match remains in memory. */}
+    saveWarning=false;
+  }catch{saveWarning=true;}
 }
 function commit(result,action, schedule=true) {
   if(replay)return {ok:false,reason:'棋譜再生を終了してから着手してください'};
@@ -1251,7 +1254,7 @@ function commit(result,action, schedule=true) {
   stopBots();
   const expected=state.moveCount;
   past.push(state); state=result.state; actions.push(action);pendingMove=null;
-  save(); render();
+  save(); render();updateMatchList();
   if(mode==='online' && network?.status().host)network.broadcastMove(action,expected);
   if (schedule) scheduleBots();
   return {ok:true,captured:result.captured ?? [],state:snapshot(state)};
@@ -1316,7 +1319,7 @@ function scheduleBots(){
   const generation=aiGeneration;
   botTimer=setTimeout(()=>{
     botTimer=null;
-    if(typeof Worker==='undefined'||location.protocol==='file:'){
+    if(cpuLevel!=='hard'||typeof Worker==='undefined'||location.protocol==='file:'){
       const move=botMove();if(move)place(move.q,move.r);else doPass();return;
     }
     try{
@@ -1518,6 +1521,7 @@ function render() {
   } else {
     msgEl.textContent=replay?'棋譜を再生中です · 対局は一時停止しています':view.lastAction;
   }
+  if(saveWarning)msgEl.textContent+=' · ⚠保存できません（ストレージ容量・権限を確認）';
 }
 function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   if (!['cpu','local','bots','online'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
@@ -1838,7 +1842,7 @@ window.threeColorGo = Object.freeze({
 });
 
 render();restore();updateMatchList();scheduleBots();
-if('serviceWorker' in navigator && location.protocol==='https:'){
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1')){
   navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
 const inviteRoom=new URL(location.href).searchParams.get('room');
