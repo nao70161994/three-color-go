@@ -1,0 +1,113 @@
+name: experimental full-board PV MCTS
+on:
+  pull_request:
+    paths:
+      - src/pv-ai.js
+      - scripts/pv-selfplay.mjs
+      - scripts/train-pv-selfplay.py
+      - scripts/benchmark-pv.mjs
+      - tests/pv-ai.test.js
+      - .github/workflows/pv-mcts.yml
+  push:
+    branches: [feat/full-board-policy-value-mcts]
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: Number of policy-value learning iterations
+        type: number
+        default: 8
+      games:
+        description: Self-play games per iteration
+        type: number
+        default: 4
+      simulations:
+        description: MCTS simulations per move
+        type: number
+        default: 12
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Run end-to-end zero-teacher PV smoke learning and held-out evaluation
+        run: |
+          python scripts/train-pv-selfplay.py --iterations 2 --games 2 \
+            --simulations 4 --radii 2,3 --seed 17 \
+            --out reports/pv-smoke.json
+          node scripts/benchmark-pv.mjs --model reports/pv-smoke.json \
+            --games 6 --radius 2 --simulations 4 --seed 987 \
+            --out reports/pv-smoke-evaluation.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pv-smoke-candidate
+          path: reports/pv-smoke*.json
+          retention-days: 7
+  experiment:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Train candidate with outcome-only MCTS self-play
+        env:
+          ITERATIONS: ${{ inputs.iterations || '8' }}
+          GAMES: ${{ inputs.games || '4' }}
+          SIMULATIONS: ${{ inputs.simulations || '12' }}
+        run: |
+          set -o pipefail
+          mkdir -p reports
+          python scripts/train-pv-selfplay.py --iterations "$ITERATIONS" \
+            --games "$GAMES" --simulations "$SIMULATIONS" --radii 2,3,4 \
+            --seed 20261031 --out reports/pv-candidate.json \
+            | tee reports/pv-training.jsonl
+      - name: Held-out comparison with the actual hard CPU
+        run: |
+          node scripts/benchmark-pv.mjs --model reports/pv-candidate.json \
+            --games 12 --radius 3 --simulations 12 --seed 20261101 \
+            --out reports/pv-r3.json
+          node scripts/benchmark-pv.mjs --model reports/pv-candidate.json \
+            --games 12 --radius 4 --simulations 12 --seed 20261102 \
+            --out reports/pv-r4.json
+      - name: Summarize measured results without automatic promotion
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync,appendFileSync} from 'node:fs';
+          const r=[3,4].map(n=>JSON.parse(readFileSync('reports/pv-r'+n+'.json')));
+          const lines=['## Experimental 3-player whole-board Policy-Value + MCTS',
+            'Outcome-only self-play; NOT deployed.',
+            '| Radius | Games | PV > hard (stones) | Hard > PV | PV win-share | Average PV − Hard |',
+            '|---|---:|---:|---:|---:|---:|',
+            ...r.map(x=>'| '+x.radius+' | '+x.finished+'/'+x.games+' | '+x.pvAhead+
+              ' | '+x.hardAhead+' | '+x.stats.pv.rate+' | '+x.meanPVMinusHard+' |')];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pv-policy-value-experiment
+          path: reports/*
+          retention-days: 30
