@@ -66,3 +66,49 @@ jobs:
           name: seeded-analysis-v0.3
           path: reports/*.json
           retention-days: 30
+
+  balance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Measure seat bias and endgame quality (90 games)
+        run: node scripts/balance.mjs --games 90 --radius 3 --seed 20261031 --samples 3 --out reports/balance-v0.6.json > /tmp/balance.json
+      - name: Compare balanced CPU against guarded CPU in rotated seats (90 games)
+        run: node scripts/balance.mjs --matchup --games 30 --radius 3 --seed 20261031 --samples 3 --out reports/matchup-v0.6.json > /tmp/matchup.json
+      - name: Publish readable balance summary
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const a=JSON.parse(fs.readFileSync('/tmp/balance.json','utf8'));
+          const b=JSON.parse(fs.readFileSync('/tmp/matchup.json','utf8'));
+          if(a.finished+a.truncated!==90 || b.finished+b.truncated!==90) process.exit(1);
+          const lines=[
+            '## Three Color Hex Go v0.6 - seeded balance study',
+            '### Balanced-vs-balanced: 90 games, seed 20261031, radius 3',
+            'Finished: '+a.finished+'; truncated: '+a.truncated+'; ties: '+a.ties,
+            'Win rates: '+JSON.stringify(a.seats.map(x=>({seat:x.color,rate:x.winRate}))),
+            'Average moves: '+a.averages.turns,
+            'Average final occupancy: '+a.averages.occupancy,
+            'High occupancy >=80%: '+a.highOccupancyFraction,
+            'Last-third non-capture move fraction: '+a.averages.lastThirdNonCaptureFraction,
+            'Average lead changes: '+a.averages.leadChanges,
+            'Joint captures: '+a.jointCaptures,
+            '### Balanced vs two guarded: 90 games, alternating challenger seat',
+            'Finished: '+b.finished+'; truncated: '+b.truncated,
+            'Balanced win rate with ties split: '+b.challengerWinRate,
+            'Win rates by challenger seat: '+JSON.stringify(b.seats.map(x=>({seat:x.color,rate:x.winRate}))),
+            '**Caution:** These are seeded bot outcomes, not human balance statistics. High occupancy is a proxy, not proof of boring play.'
+          ];
+          const summary=lines.join('\n')+'\n';
+          console.log(summary);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,summary);
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: balance-report-v0.6
+          path: reports/*.json
+          retention-days: 30
