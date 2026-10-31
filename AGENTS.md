@@ -25,8 +25,17 @@ A playable 3-player Go variant. Three colors, hexagonal board (6 neighbors), sto
 - Never claim the live GitHub Pages site is deployed until the Pages workflow has succeeded and the URL can be loaded.
 - Never silently rewrite rules. A bot choosing to pass is not a mandatory game-end rule.
 
+## v0.3 self-play and measurement
+- New default tactical bot: `chooseMove(state, seededRandom(seed), 'tactical')`.
+- Old baseline: `chooseMove(state, seededRandom(seed), 'baseline')`.
+- Run `npm run analyze -- --games 300 --seed 2026 --radius 3 --out reports/report.json` to produce a reproducible JSON report.
+- Run `npm run analyze:compare -- --games 30 --seed 2026 --radius 3` to compare tactical against two baseline bots in all three seats (90 games).
+- Use `sampleRecords[].actions` with the existing browser or CLI `importRecord` command to replay bugs.
+- Treat results as behavioral data from the specified bot versions, not a proof of game balance.
+- Truncated games do not count as wins. Tie wins split the win share evenly.
+
 ## Known limitations
-- CPU is only a lightweight, deterministic-under-seed heuristic, not a competitive Go engine.
+- CPU is a tactical one-ply, deterministic-under-seed heuristic, not a competitive Go engine.
 - No online play.
 - No dead-stone agreement or automatic removal after 3 passes.
 - Browser save uses localStorage and may be unavailable in restricted browsing environments.
