@@ -1,0 +1,204 @@
+name: Continue all five direct policy learning rates to 5120 games
+on:
+  pull_request:
+    paths:
+      - scripts/train-direct-policy.py
+      - scripts/report-direct-learning-curves.mjs
+      - scripts/compare-direct-lr-resumed.mjs
+      - tests/direct-lr-resumed.test.js
+      - .github/workflows/direct-five-lr-resumed.yml
+  workflow_dispatch:
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/direct-lr-long.test.js tests/direct-lr-resumed.test.js
+  sweep:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include:
+          - {rate: "0.001", key: lr001}
+          - {rate: "0.0003", key: lr0003}
+          - {rate: "0.0001", key: lr0001}
+          - {rate: "0.00003", key: lr00003}
+          - {rate: "0.00001", key: lr00001}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Fetch original 2560-game optimizer checkpoints for this rate
+        uses: actions/download-artifact@v4
+        with:
+          name: lr-long-${{ matrix.key }}
+          run-id: 41224155328
+          github-token: ${{ github.token }}
+          path: reports/${{ matrix.key }}
+      - name: Validate checkpoint provenance and exact optimizer configuration
+        env:
+          KEY: ${{ matrix.key }}
+          RATE: ${{ matrix.rate }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path("reports")/os.environ["KEY"]
+          snapshot=root/"model-iter0320.json"
+          training=root/"learning-curve-summary.json"
+          import torch
+          ckpt=torch.load(root/"model-iter0320.pt",
+                          weights_only=False,map_location="cpu")
+          assert ckpt["format"]=="direct-actor-critic-training-v1"
+          assert ckpt["iteration"]==320 and ckpt["totalGames"]==2560
+          assert ckpt["config"]=={"seed":20261101,"games":8,
+            "radii":[2,3,4],"temperature":1.0,
+            "learningRate":float(os.environ["RATE"]),
+            "entropy":0.015,"epochs":1,"batchSize":32}
+          assert json.loads(snapshot.read_text())["metadata"]["games"]==2560
+          assert json.loads(training.read_text())["trainingGames"]==2560
+          print("Verified trusted 2560-game checkpoint:",root)
+          PY
+      - name: Resume EXACT old Adam, model and RNG state to 5120 games (+2560)
+        env:
+          RATE: ${{ matrix.rate }}
+          KEY: ${{ matrix.key }}
+        run: |
+          set -euo pipefail
+          python scripts/train-direct-policy.py \
+            --iterations 640 --games 8 --radii 2,3,4 \
+            --seed 20261101 --temperature 1 --batch-size 32 \
+            --epochs 1 --entropy .015 --learning-rate "$RATE" \
+            --checkpoint-every 40 --resume "reports/$KEY/model-iter0320.pt" \
+            --out "reports/$KEY/model-resumed.json" \
+            | tee "reports/$KEY/training-extension.jsonl"
+      - name: Verify PyTorch / JavaScript parity of extended model
+        env:
+          KEY: ${{ matrix.key }}
+        run: python scripts/check-pv2-parity.py "reports/$KEY/model-resumed.json"
+      - name: Evaluate 2880..5120 game checkpoints against four CPU pairs
+        env:
+          KEY: ${{ matrix.key }}
+        run: |
+          set -euo pipefail
+          for i in 360 400 440 480 520 560 600 640; do
+            printf -v iteration '%04d' "$i"
+            for radius in 3 4; do
+              if [[ "$radius" == 3 ]]; then seed=20261121; else seed=20261122; fi
+              for group in hard-balanced balanced-balanced tactical-guarded baseline-baseline; do
+                opponents=$(echo "$group" | tr '-' ',')
+                node scripts/benchmark-direct-matchups.mjs \
+                  --model "reports/$KEY/model-resumed-iter$iteration.json" \
+                  --radius "$radius" --games 12 --seed "$seed" \
+                  --opponents "$opponents" \
+                  --out "reports/$KEY/eval-resumed-iter$iteration-r$radius-$group.json" > /dev/null
+              done
+            done
+          done
+      - name: Fresh-seed final benchmark at 5120 games, 192 games per rate
+        env:
+          KEY: ${{ matrix.key }}
+        run: |
+          set -euo pipefail
+          for radius in 3 4; do
+            if [[ "$radius" == 3 ]]; then seed=20270221; else seed=20270222; fi
+            for group in hard-balanced balanced-balanced tactical-guarded baseline-baseline; do
+              opponents=$(echo "$group" | tr '-' ',')
+              node scripts/benchmark-direct-matchups.mjs \
+                --model "reports/$KEY/model-resumed.json" \
+                --radius "$radius" --games 24 --seed "$seed" \
+                --opponents "$opponents" \
+                --out "reports/$KEY/holdout-resumed-r$radius-$group.json" > /dev/null
+            done
+          done
+      - name: Summarize extension learning curve 2560 to 5120
+        env:
+          KEY: ${{ matrix.key }}
+        run: |
+          node scripts/report-direct-learning-curves.mjs \
+            --training-log "reports/$KEY/training-extension.jsonl" \
+            --eval-prefix "reports/$KEY/eval-resumed" \
+            --start-iteration 320 --checkpoint-every 40 --iterations 640 \
+            --games 12 \
+            --groups hard-balanced,balanced-balanced,tactical-guarded,baseline-baseline \
+            --out "reports/$KEY/extended-learning-curve-summary.json" >/dev/null
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lr-resumed-${{ matrix.key }}
+          path: reports/${{ matrix.key }}/
+          retention-days: 30
+  compare:
+    if: github.event_name == 'workflow_dispatch'
+    needs: sweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: lr-long-*
+          run-id: 41224155328
+          github-token: ${{ github.token }}
+          path: collected/original
+          merge-multiple: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: lr-resumed-*
+          path: collected/extended
+          merge-multiple: false
+      - name: Compare all five rates over the whole 5120-game trajectory
+        run: |
+          set -euo pipefail
+          for key in lr001 lr0003 lr0001 lr00003 lr00001; do
+            mkdir -p "grouped/original/$key" "grouped/extended/$key"
+            cp "collected/original/lr-long-$key/learning-curve-summary.json" \
+               "grouped/original/$key/"
+            cp "collected/extended/lr-resumed-$key/extended-learning-curve-summary.json" \
+               "grouped/extended/$key/learning-curve-summary.json"
+            for r in 3 4; do
+              for group in hard-balanced balanced-balanced tactical-guarded baseline-baseline; do
+                cp "collected/extended/lr-resumed-$key/holdout-resumed-r$r-$group.json" \
+                   "grouped/extended/$key/holdout-r$r-$group.json"
+              done
+            done
+          done
+          node scripts/compare-direct-lr-resumed.mjs \
+            --root grouped --out grouped/five-lr-5120.json \
+            | tee grouped/five-lr-5120-summary.md
+          cat grouped/five-lr-5120-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: five-lr-5120-comparison
+          path: |
+            grouped/five-lr-5120.json
+            grouped/five-lr-5120.md
+          retention-days: 30
