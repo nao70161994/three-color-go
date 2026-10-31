@@ -15,6 +15,7 @@
 - 合法手・自殺手・全局同形判定は引き続き従来のゲームエンジンを利用し、危険な自アタリ・眼埋めもCPU共通フィルターで避けます。
 - 広い盤面では候補を48手まで事前選別し、メインスレッドを塞がないようWeb Workerで推論します。オフライン単一HTML版でもモデルを内蔵して動作します。
 - 重みは `src/neural-weights.js`、推論コードは `src/neural-ai.js`。保存形式は従来と互換です。
+- 学習の再現用スクリプト：`scripts/train-neural-policy.py`。Python 3 + `numpy` + `torch` を準備し、`python scripts/train-neural-policy.py` で再学習・モデルファイル再生成できます（CPU環境や依存ライブラリで重みが完全一致しない場合があります）。
 
 ## v1.4.1：スマホの盤面操作を改善
 
