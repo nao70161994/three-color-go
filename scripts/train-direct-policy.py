@@ -125,7 +125,7 @@ def main():
                    default=ROOT / "reports" / "direct-policy-candidate.json")
     args = p.parse_args()
     radii = [int(r) for r in args.radii.split(",")]
-    if not (1 <= args.iterations <= 1000 and 1 <= args.games <= 100 and
+    if not (1 <= args.iterations <= 10000 and 1 <= args.games <= 100 and
             0 <= args.seed <= 0xffffffff and
             0 < args.temperature <= 10 and
             0 < args.learning_rate <= .1 and
