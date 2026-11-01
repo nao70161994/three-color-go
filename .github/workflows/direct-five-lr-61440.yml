@@ -1,0 +1,207 @@
+name: Continue all five direct-policy learning rates to 61440 games
+on:
+  push:
+    branches: [exp/direct-five-lr-61440-resume]
+    paths:
+      - .github/workflows/direct-five-lr-61440.yml
+  pull_request:
+    paths:
+      - scripts/train-direct-policy.py
+      - scripts/compare-direct-lr-61440.mjs
+      - tests/direct-lr-61440.test.js
+      - .github/workflows/direct-five-lr-61440.yml
+  workflow_dispatch:
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/direct-lr-resumed.test.js tests/direct-lr-61440.test.js
+  sweep:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include:
+          - {rate: "0.001", key: lr001}
+          - {rate: "0.0003", key: lr0003}
+          - {rate: "0.0001", key: lr0001}
+          - {rate: "0.00003", key: lr00003}
+          - {rate: "0.00001", key: lr00001}
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Download previous 40960-game full optimizer state for this rate
+        uses: actions/download-artifact@v4
+        with:
+          name: lr-40960-${{ matrix.key }}
+          run-id: 41281288011
+          github-token: ${{ github.token }}
+          path: reports/${{ matrix.key }}
+      - name: Validate prior optimizer, RNG and training configuration
+        env:
+          RATE: ${{ matrix.rate }}
+          KEY: ${{ matrix.key }}
+        run: |
+          python - <<'PY'
+          import os
+          import torch
+          from pathlib import Path
+          root=Path("reports")/os.environ["KEY"]
+          c=torch.load(root/"model-40960-iter5120.pt",
+                       weights_only=False,map_location="cpu")
+          assert c["format"]=="direct-actor-critic-training-v1"
+          assert c["iteration"]==5120 and c["totalGames"]==40960
+          assert c["config"]=={
+            "seed":20261101, "games":8, "radii":[2,3,4],
+            "temperature":1.0,"learningRate":float(os.environ["RATE"]),
+            "entropy":0.015,"epochs":1,"batchSize":32}
+          assert "optimizer" in c and "model" in c
+          for field in ("shuffleRng","globalRandom","numpyRng","torchRng"):
+            assert field in c
+          print("Validated exact continuation of",os.environ["KEY"])
+          PY
+      - name: Continue model and Adam/RNG from 40960 through 61440 games (+40960)
+        env:
+          RATE: ${{ matrix.rate }}
+          KEY: ${{ matrix.key }}
+        run: |
+          set -euo pipefail
+          python scripts/train-direct-policy.py \
+            --iterations 7680 --games 8 --radii 2,3,4 \
+            --seed 20261101 --temperature 1 --batch-size 32 \
+            --epochs 1 --entropy .015 --learning-rate "$RATE" \
+            --checkpoint-every 40 \
+            --resume "reports/$KEY/model-40960-iter5120.pt" \
+            --out "reports/$KEY/model-61440.json" \
+            | tee "reports/$KEY/training-40960-to-61440.jsonl"
+      - name: Verify final PyTorch / JavaScript inference parity
+        env:
+          KEY: ${{ matrix.key }}
+        run: python scripts/check-pv2-parity.py "reports/$KEY/model-61440.json"
+      - name: Evaluate 64 more checkpoint snapshots on same four CPU pairs
+        env:
+          KEY: ${{ matrix.key }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 5160 40 7680); do
+            printf -v iteration '%04d' "$i"
+            for radius in 3 4; do
+              if [[ "$radius" == 3 ]]; then seed=20261121; else seed=20261122; fi
+              for group in hard-balanced balanced-balanced tactical-guarded baseline-baseline; do
+                opponents=$(echo "$group" | tr '-' ',')
+                node scripts/benchmark-direct-matchups.mjs \
+                  --model "reports/$KEY/model-61440-iter$iteration.json" \
+                  --radius "$radius" --games 12 --seed "$seed" \
+                  --opponents "$opponents" \
+                  --out "reports/$KEY/eval-61440-iter$iteration-r$radius-$group.json" >/dev/null
+              done
+            done
+          done
+      - name: Evaluate final 61440-game model with NEW unseen seeds (192 games/rate)
+        env:
+          KEY: ${{ matrix.key }}
+        run: |
+          set -euo pipefail
+          for radius in 3 4; do
+            if [[ "$radius" == 3 ]]; then seed=20291121; else seed=20291122; fi
+            for group in hard-balanced balanced-balanced tactical-guarded baseline-baseline; do
+              opponents=$(echo "$group" | tr '-' ',')
+              node scripts/benchmark-direct-matchups.mjs \
+                --model "reports/$KEY/model-61440.json" \
+                --radius "$radius" --games 24 --seed "$seed" \
+                --opponents "$opponents" \
+                --out "reports/$KEY/holdout-r$radius-$group.json" >/dev/null
+            done
+          done
+      - name: Summarize training, captures and strength over added 40960 games
+        env:
+          KEY: ${{ matrix.key }}
+        run: |
+          node scripts/report-direct-learning-curves.mjs \
+            --training-log "reports/$KEY/training-40960-to-61440.jsonl" \
+            --eval-prefix "reports/$KEY/eval-61440" \
+            --start-iteration 5120 --checkpoint-every 40 --iterations 7680 \
+            --games 12 \
+            --groups hard-balanced,balanced-balanced,tactical-guarded,baseline-baseline \
+            --out "reports/$KEY/extension-61440-summary.json" >/dev/null
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lr-61440-${{ matrix.key }}
+          path: reports/${{ matrix.key }}/
+          retention-days: 30
+  compare:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: sweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch complete first 40960 games of all five histories
+        uses: actions/download-artifact@v4
+        with:
+          name: five-lr-40960-comparison
+          run-id: 41281288011
+          github-token: ${{ github.token }}
+          path: history
+      - name: Download all five extended models and evaluation results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lr-61440-*
+          path: collected/new
+          merge-multiple: false
+      - name: Assemble 192-checkpoint comparison and independent holdout
+        run: |
+          set -euo pipefail
+          for key in lr001 lr0003 lr0001 lr00003 lr00001; do
+            mkdir -p "comparison/new/$key"
+            src="collected/new/lr-61440-$key"
+            cp "$src/extension-61440-summary.json" "comparison/new/$key/"
+            for radius in 3 4; do
+              for group in hard-balanced balanced-balanced tactical-guarded baseline-baseline; do
+                cp "$src/holdout-r$radius-$group.json" "comparison/new/$key/"
+              done
+            done
+          done
+          node scripts/compare-direct-lr-61440.mjs \
+            --history history/five-lr-40960.json \
+            --new-root comparison/new \
+            --out comparison/five-lr-61440.json \
+            | tee comparison/five-lr-61440-summary.md
+          cat comparison/five-lr-61440-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: five-lr-61440-comparison
+          path: |
+            comparison/five-lr-61440.json
+            comparison/five-lr-61440.md
+          retention-days: 30
