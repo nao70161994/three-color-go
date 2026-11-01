@@ -24,7 +24,7 @@ test('40960 continuation joins exactly 128 checkpoints and validates independent
       mkdirSync(folder,{recursive:true});
       const checkpoints=Array.from({length:64},(_,i)=>({
         iteration:2600+i*40,
-        gamesTrained:(1320+i*40)*8,
+        gamesTrained:(2600+i*40)*8,
         evaluations:[3,4].flatMap(radius=>groups.map(group=>({
           radius,opponents:group.split('-'),games:12,
           meanStoneShare:lr*10,winShareRate:.1,meanStones:3
@@ -33,7 +33,7 @@ test('40960 continuation joins exactly 128 checkpoints and validates independent
       writeFileSync(join(folder,'extension-40960-summary.json'),JSON.stringify({
         startIteration:2560,iterations:5120,trainingGames:40960,
         evalGamesPerMatch:12,checkpoints,
-        learning:Array.from({length:1280},(_,i)=>({
+        learning:Array.from({length:2560},(_,i)=>({
           radius:[2,3,4][i%3],
           meanCapturedStones:[2,3,4],
           meanTotalSurvivingStones:20,meanTurns:50
