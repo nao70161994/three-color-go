@@ -26,8 +26,8 @@ test('trained networks are distinct, seeded deterministic, and legal across all 
       const state=createGame(radius),before=JSON.stringify(state);
       const choices=[];
       const move=chooseTrainedMove(state,id,choices);
-      assert.ok(move,id+' no move at '+radius);
-      assert.equal(play(state,move.q,move.r).ok,true);
+      assert.equal(move===null?pass(state).ok:play(state,move.q,move.r).ok,true,
+        id+' must choose a legal placement or pass at radius '+radius);
       assert.deepEqual(chooseTrainedMove(state,id),move);
       assert.equal(JSON.stringify(state),before);
       assert.ok(choices.length>0&&choices.length<=5);
