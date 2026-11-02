@@ -1,0 +1,71 @@
+name: Verify completed 6336-game strength comparison report
+on:
+  push:
+    branches: [exp/direct-strength-crossplay-102400]
+    paths:
+      - .github/workflows/direct-strength-review-verified.yml
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Download finished comparison artifact (all independent games already ran)
+        uses: actions/download-artifact@v4
+        with:
+          name: strength-102400-comparison
+          run-id: 41409728999
+          github-token: ${{ github.token }}
+          path: results
+      - name: Check complete matrix, confidence intervals, and report integrity
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,math
+          from pathlib import Path
+          p=Path('results/strength-102400.json')
+          data=json.loads(p.read_text())
+          cpu=data['candidates']; duels=data['pairs']
+          assert len(cpu)==9 and len(duels)==15
+          assert data['cpuGamesPerCandidate']==384
+          assert data['h2hGamesPerPair']==192
+          assert sum(r['games'] for r in cpu)==3456
+          assert sum(r['games'] for r in duels)==2880
+          assert len(set(x['id'] for x in cpu))==9
+          assert len(set((x['a'],x['b']) for x in duels))==15
+          expected={'lr001-final','lr0003-final','lr0001-final',
+            'lr00003-final','lr00001-final'}
+          assert expected.issubset(set(x['id'] for x in cpu))
+          for r in cpu:
+            assert r['games']==384 and 0<=r['stoneShare']<=1
+            assert 0<=r['winShare']<=1
+            assert 0<=r['hardBalancedShare']<=1
+          for r in duels:
+            assert r['games']==192
+            assert r['awins']+r['bwins']+r['ties']==192
+            assert len(r['cells'])==4
+            assert all(x['games']==48 for x in r['cells'])
+            assert len(r['ci95'])==2
+            assert all(math.isfinite(x) for x in [r['avgStoneDiff'],*r['ci95']])
+            assert r['ci95'][0]<=r['ci95'][1]
+          main=next(r for r in duels if r['a']=='lr001-final' and r['b']=='lr0003-final')
+          assert main['awins']>main['bwins'] and main['ci95'][0]>0
+          s=Path('results/strength-102400.md').read_text()
+          assert s==data['markdown']
+          assert '全' not in s or len(s)>1000
+          print('Verified all 6336 independent games (9 CPU candidates + 15 H2H pairs).')
+          print('CPU leader:',cpu[0]['id'],f'{cpu[0]["stoneShare"]*100:.2f}%')
+          print('Top-two latest H2H A/B:',main['awins'],main['bwins'],main['ties'])
+          PY
+          cat results/strength-102400.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-strength-102400-results
+          path: results/
+          retention-days: 30
