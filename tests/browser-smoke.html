@@ -166,6 +166,14 @@ async function run(){
   check(game.getPresentation().seatLevels[1]==='trained-lr001-final' &&
     game.getPresentation().seatLevels[2]==='trained-lr0003-peak',
     '学習済みモデルを白と赤で取り違えない');
+  check(game.play(0,0).ok && game.autoPlay(1,77).ok &&
+    game.getCpuDecision()?.level==='trained-lr001-final',
+    '白の実際の着手に0.001最有力モデルの重みを使用');
+  check(game.autoPlay(1,79).ok &&
+    game.getCpuDecision()?.level==='trained-lr0003-peak',
+    '赤の実際の着手には異なる0.0003モデルの重みを使用');
+  check(game.reset({mode:'custom',radius:2,seatLevels:['human','trained-lr001-final','trained-lr0003-peak']}).ok,
+    '個別モデル検証後に新規対局へ戻せる');
   const redSeat=doc.getElementById('seatRed');
   redSeat.value='human';
   redSeat.dispatchEvent(new win.Event('input',{bubbles:true}));
