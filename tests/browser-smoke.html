@@ -30,7 +30,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function run(){
   const win=frame.contentWindow, doc=frame.contentDocument, game=win.threeColorGo;
   check(game && typeof game.getState==='function','AI操作用APIが存在');
-  check(game.version==='1.6.1','公開APIのバージョンがv1.6.1');
+  check(game.version==='1.7.0','公開APIのバージョンがv1.7.0');
   check(doc.querySelector('#boardSize').value==='4','初期サイズは半径4・61マス');
   check(doc.querySelector('#replayOpen').disabled,'棋譜が空なら再生ボタンは無効');
   check(doc.querySelector('#boardSize option[value="3"]').textContent.includes('小（37マス）'),'新しい小サイズは37マス');
@@ -135,6 +135,70 @@ async function run(){
     'CPU対戦再開後も学習AIが保持される');
   check(game.play(0,0).ok && game.getPresentation().cpuLevel==='trained-lr001-final',
     '人間が初手を打った後も学習AIが保持される');
+
+
+  // Free seating with individual agents and two-human play.
+  check(!!doc.querySelector('#mode option[value="custom"]'),'自由編成モードを選べる');
+  check(game.reset({mode:'custom',radius:2,seatLevels:['human','human','easy']}).ok,
+    '人間2人＋CPU1人で開始できる');
+  check(!doc.getElementById('seatSettings').hidden && doc.getElementById('cpuSetting').hidden,
+    '自由編成では各色の選択欄を表示');
+  check(game.play(0,0).ok && !doc.getElementById('passBtn').disabled,
+    '黒の人間の後、白の人間が打てる');
+  check(game.getState().moveCount===1 && game.getState().currentPlayer==='white',
+    '人間同士の連続手番にCPUが割り込まない');
+  check(game.play(1,0).ok,'2人目の人間が着手できる');
+  await sleep(480);
+  check(game.getState().moveCount===3 && game.getState().currentPlayer==='black',
+    '赤のCPUだけが自動着手して黒の人間に戻る');
+  check(game.undo().ok && game.getState().currentPlayer==='white',
+    '一手戻すとCPUの手番を巻き戻し人間の手番に戻る');
+  check(game.reset({mode:'custom',radius:2,seatLevels:['human','easy','normal']}).ok,
+    '人間1人＋異なるCPU2種類で開始できる');
+  check(game.getPresentation().seatLevels.join(',')==='human,easy,normal',
+    '白と赤に別々のCPUを割り当てられる');
+  check(game.play(0,0).ok,'人間が初手を打てる');
+  await sleep(780);
+  check(game.getState().moveCount===3 && game.getState().currentPlayer==='black',
+    '異なるCPUが順に打った後、黒に手番が戻る');
+  check(game.reset({mode:'custom',radius:2,seatLevels:['human','trained-lr001-final','trained-lr0003-peak']}).ok,
+    '2種類の自己対戦学習済みモデルを個別に選べる');
+  check(game.getPresentation().seatLevels[1]==='trained-lr001-final' &&
+    game.getPresentation().seatLevels[2]==='trained-lr0003-peak',
+    '学習済みモデルを白と赤で取り違えない');
+  check(game.play(0,0).ok && game.autoPlay(1,77).ok &&
+    game.getCpuDecision()?.level==='trained-lr001-final',
+    '白の実際の着手に0.001最有力モデルの重みを使用');
+  check(game.autoPlay(1,79).ok &&
+    game.getCpuDecision()?.level==='trained-lr0003-peak',
+    '赤の実際の着手には異なる0.0003モデルの重みを使用');
+  check(game.reset({mode:'custom',radius:2,seatLevels:['human','trained-lr001-final','trained-lr0003-peak']}).ok,
+    '個別モデル検証後に新規対局へ戻せる');
+  const redSeat=doc.getElementById('seatRed');
+  redSeat.value='human';
+  redSeat.dispatchEvent(new win.Event('input',{bubbles:true}));
+  check(game.getPresentation().seatLevels[2]==='human',
+    '対局中に赤を人間に変更できる');
+  redSeat.value='trained-lr001-peak';
+  doc.getElementById('resetBtn').click();
+  check(game.getPresentation().seatLevels[2]==='trained-lr001-peak',
+    'スマホの変更未通知でもゲーム開始で選択が維持される');
+  const mixed=game.exportRecord();
+  check(mixed.seatLevels.join(',')==='human,trained-lr001-final,trained-lr001-peak',
+    '各色のモデル設定を棋譜に保存');
+  check(game.reset({mode:'local',radius:2}).ok && game.importRecord(mixed).ok &&
+    game.getPresentation().seatLevels.join(',')===mixed.seatLevels.join(','),
+    '棋譜から個別CPU設定を復元');
+  check(!game.importRecord({...mixed,seatLevels:['human','bad','easy']}).ok,
+    '不正なCPU設定を含む棋譜を拒否');
+  check(game.reset({mode:'custom',radius:2,seatLevels:['easy','normal','hard']}).ok &&
+    !doc.getElementById('spectatorControls').hidden && game.pauseBots().ok,
+    '異なるCPU3人の対戦を一時停止できる');
+  check(game.stepBot().ok && game.getState().moveCount===1,
+    'CPU3人の自由編成でも1手進められる');
+  check(game.reset({mode:'local',radius:2}).ok &&
+    game.getPresentation().seatLevels.length===3,
+    '自由編成から従来の3人人間対戦へ戻せる');
 
   check(game.setCpuLevel('neural').ok&&game.getPresentation().cpuLevel==='neural','学習CPUへ切り替え');
   check(game.getNeuralModelInfo().shape.join('-')==='12-24-16-8-1',
@@ -312,7 +376,7 @@ async function run(){
   check(standalone.reset({mode:'local',radius:2}).ok,'オフライン版を初期化');
   check(standalone.play(0,0).ok,'オフライン版で着手できる');
   check(standalone.getState().scores.black===1,'オフライン版で得点を表示');
-  check(standalone.version==='1.6.1','オフライン版がv1.6.1へ同期している');
+  check(standalone.version==='1.7.0','オフライン版がv1.7.0へ同期している');
   check(standalone.setCpuLevel('neural').ok,'単一HTML版でも学習済みCPUへ切り替え可能');
   check(standalone.setCpuLevel('trained-lr001-final').ok&&
     standalone.setCpuLevel('trained-lr001-peak').ok&&

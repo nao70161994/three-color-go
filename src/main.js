@@ -52,6 +52,8 @@ const replayEndEl = document.getElementById('replayEnd');
 const replayCloseEl = document.getElementById('replayClose');
 const cpuLevelEl = document.getElementById('cpuLevel');
 const cpuSettingEl = document.getElementById('cpuSetting');
+const seatSettingsEl=document.getElementById('seatSettings');
+const seatLevelEls=['seatBlack','seatWhite','seatRed'].map(id=>document.getElementById(id));
 const legalToggleEl = document.getElementById('legalToggle');
 const dangerToggleEl = document.getElementById('dangerToggle');
 const passBtn = document.getElementById('passBtn');
@@ -63,6 +65,16 @@ let state = createGame(4);
 let mode = 'cpu', past = [], actions = [], botTimer = null;
 let cpuLevel = 'hard', showLegal = false, showDanger = true;
 const CPU_LEVELS=['easy','normal','hard','neural',...TRAINED_LEVELS];
+const SEAT_LEVELS=['human',...CPU_LEVELS];
+const DEFAULT_SEATS=['human','human','trained-lr001-final'];
+let seatLevels=DEFAULT_SEATS.slice();
+function selectedSeatLevels(){
+  return seatLevelEls.map((el,i)=>SEAT_LEVELS.includes(el.value)?el.value:seatLevels[i]);
+}
+function watchOnly(){return mode==='bots'||(mode==='custom'&&seatLevels.every(level=>level!=='human'));}
+function cpuTurn(){return mode==='bots'||(mode==='cpu'&&state.turn!==0)||
+  (mode==='custom'&&seatLevels[state.turn]!=='human');}
+function turnCpuLevel(){return mode==='custom'?seatLevels[state.turn]:cpuLevel;}
 // Read the actual select, including an Android picker choice before its change event.
 function selectedCpuLevel(){
   return CPU_LEVELS.includes(cpuLevelEl.value)?cpuLevelEl.value:cpuLevel;
@@ -128,7 +140,7 @@ function closeReplay() {
   return {ok:true,...getReplayState()};
 }
 function record() {
-  return {version:1,radius:state.radius,mode,cpuLevel,showLegal,showDanger,
+  return {version:1,radius:state.radius,mode,cpuLevel,seatLevels:seatLevels.slice(),showLegal,showDanger,
     spectatorPaused,spectatorSpeed,zoomBoard,zoomBoardExplicit,
     zoomScale,actions:actions.map(a=>({...a}))};
 }
@@ -208,6 +220,7 @@ function commit(result,action, schedule=true) {
   const expected=state.moveCount;
   // An uncommitted mobile select change must not be lost on first stone or pass.
   if(mode==='cpu'||mode==='bots')cpuLevel=selectedCpuLevel();
+  if(mode==='custom')seatLevels=selectedSeatLevels();
   past.push(state); state=result.state; actions.push(action);
   save(); render();updateMatchList();
   if(mode==='online' && network?.status().host)network.broadcastMove(action,expected);
@@ -222,40 +235,41 @@ function permittedForHuman() {
   if(replay)return false;
   if(mode==='local')return true;
   if(mode==='cpu')return state.turn===0;
+  if(mode==='custom')return seatLevels[state.turn]==='human';
   if(mode==='online') {
     const info=onlineStatus();
     return info.connected && info.ready && info.seat===state.turn;
   }
   return false;
 }
-function botMove(random=Math.random) {
-  if(!['hard','neural',...TRAINED_LEVELS].includes(cpuLevel))
-    return chooseDifficultyMove(state,random,cpuLevel);
+function botMove(random=Math.random,level=turnCpuLevel()) {
+  if(!['hard','neural',...TRAINED_LEVELS].includes(level))
+    return chooseDifficultyMove(state,random,level);
   const candidates=[];
-  const chosen=TRAINED_LEVELS.includes(cpuLevel)
-    ? chooseTrainedMove(state,cpuLevel,candidates)
-    : cpuLevel==='neural' ? chooseNeuralMove(state,random,candidates)
+  const chosen=TRAINED_LEVELS.includes(level)
+    ? chooseTrainedMove(state,level,candidates)
+    : level==='neural' ? chooseNeuralMove(state,random,candidates)
       : chooseStrongMove(state,random,candidates);
-  lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],
-    chosen,candidates,notes:TRAINED_LEVELS.includes(cpuLevel)
+  lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],level,
+    chosen,candidates,notes:TRAINED_LEVELS.includes(level)
       ? '自己対戦学習済み方策の着手確率（勝率ではありません）'
-      : cpuLevel==='neural'
+      : level==='neural'
         ? '学習モデルの相対スコア（棋力・勝率を保証しません）'
         : '3手読みの相対評価値（勝率ではありません）'};
   return chosen;
 }
 function pauseBots() {
-  if(mode!=='bots')return {ok:false,reason:'CPU3人の対局モードではありません'};
+  if(!watchOnly())return {ok:false,reason:'全員CPUの対局ではありません'};
   spectatorPaused=true;stopBots();save();render();
   return {ok:true,paused:true};
 }
 function resumeBots() {
-  if(mode!=='bots'||replay)return {ok:false,reason:'再開できません'};
+  if(!watchOnly()||replay)return {ok:false,reason:'再開できません'};
   spectatorPaused=false;save();render();scheduleBots();
   return {ok:true,paused:false};
 }
 function stepBot() {
-  if(mode!=='bots'||!spectatorPaused||replay||state.ended)
+  if(!watchOnly()||!spectatorPaused||replay||state.ended)
     return {ok:false,reason:'一時停止中のCPU3人対局だけ1手進められます'};
   const move=botMove();
   return move?place(move.q,move.r):doPass();
@@ -278,12 +292,12 @@ function setBoardZoom(enabled) {
 }
 function scheduleBots(){
   stopBots();
-  if(replay||state.ended||!((mode==='cpu'&&state.turn!==0)||(mode==='bots'&&!spectatorPaused)))return;
-  const generation=aiGeneration;
+  if(replay||state.ended||!cpuTurn()||(watchOnly()&&spectatorPaused))return;
+  const generation=aiGeneration,level=turnCpuLevel();
   botTimer=setTimeout(()=>{
     botTimer=null;
-    if(!['hard','neural',...TRAINED_LEVELS].includes(cpuLevel)||typeof Worker==='undefined'||location.protocol==='file:'){
-      const move=botMove();if(move)place(move.q,move.r);else doPass();return;
+    if(!['hard','neural',...TRAINED_LEVELS].includes(level)||typeof Worker==='undefined'||location.protocol==='file:'){
+      const move=botMove(Math.random,level);if(move)place(move.q,move.r);else doPass();return;
     }
     try{
       if(!aiWorker){
@@ -291,7 +305,7 @@ function scheduleBots(){
         aiWorker.onerror=()=>{
           aiWorker?.terminate();aiWorker=null;
           if(generation===aiGeneration) {
-            const move=botMove();if(move)place(move.q,move.r);else doPass();
+            const move=botMove(Math.random,level);if(move)place(move.q,move.r);else doPass();
           }
         };
       }
@@ -302,9 +316,9 @@ function scheduleBots(){
         if(decision)lastCpuDecision=decision;
         if(move)place(move.q,move.r);else doPass();
       };
-      aiWorker.postMessage({state,level:cpuLevel,generation});
+      aiWorker.postMessage({state,level,generation});
     }catch{
-      const move=botMove();if(move)place(move.q,move.r);else doPass();
+      const move=botMove(Math.random,level);if(move)place(move.q,move.r);else doPass();
     }
   },mode==='bots'?spectatorSpeed:240);
 }
@@ -347,6 +361,17 @@ function setCpuLevel(value) {
   cpuLevel=value;
   save();render();scheduleBots();
   return {ok:true,cpuLevel};
+}
+function setSeatLevel(index,value){
+  if(!Number.isInteger(index)||index<0||index>=3||!SEAT_LEVELS.includes(value))
+    return {ok:false,reason:'色またはプレイヤーの指定が不正です'};
+  stopBots();
+  seatLevels[index]=value;
+  seatLevelEls[index].value=value;
+  if(!watchOnly())spectatorPaused=false;
+  lastCpuDecision=null;
+  save();render();scheduleBots();
+  return {ok:true,seatLevels:seatLevels.slice()};
 }
 let renderedRadius=null;
 const cellCache=new Map();
@@ -417,7 +442,7 @@ function render() {
   const view=visibleState();
   const color=COLORS[view.turn],counts=scores(view);
   turnStoneEl.className='stone '+color;
-  turnTextEl.textContent=view.ended?'対局終了':LABELS[color]+'の番'+((mode==='bots'||(mode==='cpu'&&view.turn!==0))?'（CPU）':'')+(mode==='online'?' · オンライン':'');
+  turnTextEl.textContent=view.ended?'対局終了':LABELS[color]+'の番'+((mode==='bots'||(mode==='cpu'&&view.turn!==0)||(mode==='custom'&&seatLevels[view.turn]!=='human'))?'（CPU）':mode==='custom'?'（人間）':'')+(mode==='online'?' · オンライン':'');
   turnLabelEl.textContent=replay?'棋譜再生 · '+replay.index+' / '+actions.length+'手':view.ended?'勝敗が決まりました':view.passes+'人連続パス · '+view.moveCount+'手';
   modeEl.value=mode;
   boardSizeEl.value=String(state.radius);
@@ -440,7 +465,12 @@ function render() {
     replayNextEl.disabled=replay.index===actions.length;
     replayEndEl.disabled=replay.index===actions.length;
   }
-  cpuSettingEl.hidden=mode==='local'||mode==='online';
+  cpuSettingEl.hidden=mode==='local'||mode==='online'||mode==='custom';
+  seatSettingsEl.hidden=mode!=='custom';
+  seatLevelEls.forEach((el,i)=>{
+    if(document.activeElement!==el)el.value=seatLevels[i];
+    el.disabled=!!replay;
+  });
   onlinePanelEl.hidden=mode!=='online';
   const session=onlineStatus();
   onlineStatusEl.textContent=netMessage+(mode==='online'&&session.host?' · 参加人数 '+(session.players+1)+'/3':'');
@@ -452,7 +482,7 @@ function render() {
   onlineJoinEl.disabled=session.connected || !!replay || randomMatching;
   onlineLeaveEl.disabled=mode!=='online'||(!network&&!randomMatching);
   boardSizeEl.disabled=!!replay || isGuest();
-  spectatorControlsEl.hidden=mode!=='bots';
+  spectatorControlsEl.hidden=!watchOnly();
   spectatorToggleEl.textContent=spectatorPaused?'再開':'一時停止';
   spectatorToggleEl.disabled=!!replay||view.ended;
   spectatorStepEl.disabled=!!replay||!spectatorPaused||view.ended;
@@ -485,9 +515,11 @@ function render() {
   }
   if(saveWarning)msgEl.textContent+=' · ⚠保存できません（ストレージ容量・権限を確認）';
 }
-function reset({radius=state.radius,nextMode=mode,nextLevel=selectedCpuLevel()}={}) {
-  if (!['cpu','local','bots','online'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
+function reset({radius=state.radius,nextMode=mode,nextLevel=selectedCpuLevel(),nextSeats=selectedSeatLevels()}={}) {
+  if (!['cpu','local','bots','custom','online'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
   if (!CPU_LEVELS.includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
+  if(!Array.isArray(nextSeats)||nextSeats.length!==3||!nextSeats.every(x=>SEAT_LEVELS.includes(x)))
+    return {ok:false,reason:'各色のプレイヤー設定が不正です'};
   let next;
   try {next=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
   stopBots();
@@ -496,7 +528,8 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=selectedCpuLevel()}=
     if(mode==='online'){network?.close();network=null;}
   }
   replay=null;state=next;keyboardFocusKey='0,0';
-  mode=nextMode;cpuLevel=nextLevel;cpuLevelEl.value=cpuLevel;spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
+  mode=nextMode;cpuLevel=nextLevel;cpuLevelEl.value=cpuLevel;seatLevels=nextSeats.slice();
+  seatLevelEls.forEach((el,i)=>{el.value=seatLevels[i];});spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
   past=[];actions=[];lastCpuDecision=null;currentMatchId=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
   if(nextMode==='online'&&network?.status().host)network.broadcast();
   updateMatchList();
@@ -509,7 +542,8 @@ function undo() {
   if (!past.length) return {ok:false,reason:'戻せる手がありません'};
   do {
     state=past.pop();actions.pop();
-  } while (mode==='cpu' && past.length && state.turn!==0);
+  } while (past.length && ((mode==='cpu'&&state.turn!==0)||
+    (mode==='custom'&&seatLevels.includes('human')&&seatLevels[state.turn]!=='human')));
   save();render();scheduleBots();
   return {ok:true,state:snapshot(state)};
 }
@@ -526,17 +560,22 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
     states.push(next);next=result.state;
     normalized.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
   }
-  const nextMode=networkSync?'online':(['cpu','local','bots'].includes(record.mode)?record.mode:'local');
+  const nextMode=networkSync?'online':(['cpu','local','bots','custom'].includes(record.mode)?record.mode:'local');
   const nextLevel=CPU_LEVELS.includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
+  const nextSeats=record.seatLevels===undefined?DEFAULT_SEATS.slice():record.seatLevels;
+  if(!Array.isArray(nextSeats)||nextSeats.length!==3||!nextSeats.every(x=>SEAT_LEVELS.includes(x)))
+    return {ok:false,reason:'棋譜のプレイヤー設定が不正です'};
   const nextShowLegal=typeof record.showLegal==='boolean'?record.showLegal:showLegal;
   const nextShowDanger=typeof record.showDanger==='boolean'?record.showDanger:showDanger;
   stopBots();
   if(mode==='online' && !networkSync){network?.close();network=null;}
   replay=null;
   state=next;mode=nextMode;cpuLevel=nextLevel;cpuLevelEl.value=cpuLevel;
+  seatLevels=nextSeats.slice();seatLevelEls.forEach((el,i)=>{el.value=seatLevels[i];});
   if(!networkSync)currentMatchId=null;
   spectatorSpeed=[180,600,1200].includes(record.spectatorSpeed)?record.spectatorSpeed:600;
-  spectatorPaused=nextMode==='bots' ? (!resumeSavedBots || record.spectatorPaused===true) : false;
+  spectatorPaused=(nextMode==='bots'||(nextMode==='custom'&&nextSeats.every(x=>x!=='human')))
+    ? (!resumeSavedBots || record.spectatorPaused===true) : false;
   // Old saves were automatically zoomed, not necessarily by user choice.
   // Only honor zoom on restore when a v0.8.3+ user explicitly selected it.
   zoomBoardExplicit=record.zoomBoardExplicit===true;
@@ -791,6 +830,10 @@ resetBtn.addEventListener('click',()=>{
 // Some mobile native pickers dispatch input before change (or only one of them).
 cpuLevelEl.addEventListener('input',()=>setCpuLevel(cpuLevelEl.value));
 cpuLevelEl.addEventListener('change',()=>setCpuLevel(cpuLevelEl.value));
+seatLevelEls.forEach((el,i)=>{
+  el.addEventListener('input',()=>setSeatLevel(i,el.value));
+  el.addEventListener('change',()=>setSeatLevel(i,el.value));
+});
 legalToggleEl.addEventListener('click',()=>setHints({legal:!showLegal}));
 dangerToggleEl.addEventListener('click',()=>setHints({danger:!showDanger}));
 modeEl.addEventListener('change',()=>{
@@ -803,7 +846,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.6.1',
+  version: '1.7.0',
   getNeuralModelInfo: neuralModelInfo,
   getTrainedModelsInfo: trainedModelsInfo,
   getState: ()=>snapshot(state),
@@ -817,13 +860,15 @@ window.threeColorGo = Object.freeze({
   closeReplay,
   legalMoves: ()=>legalMoves(state),
   getPresentation: ()=>({
-    mode,cpuLevel,showLegal,showDanger,replay:!!replay,
+    mode,cpuLevel,seatLevels:seatLevels.slice(),currentCpuLevel:cpuTurn()?turnCpuLevel():null,
+    showLegal,showDanger,replay:!!replay,
     spectatorPaused,spectatorSpeed,zoomBoard,
     lastCpuDecision,
     ...boardHints()
   }),
   setHints,
   setCpuLevel,
+  setSeatLevel,
   pauseBots,
   resumeBots,
   stepBot,
@@ -832,7 +877,7 @@ window.threeColorGo = Object.freeze({
   play: (q,r)=>mode==='online'?sendOnlineAction({type:'play',q,r}):place(q,r),
   pass: ()=>mode==='online'?sendOnlineAction({type:'pass'}):doPass(),
   undo,
-  reset: (options={})=>reset({radius:options.radius??state.radius,nextMode:options.mode??'local',nextLevel:options.cpuLevel??cpuLevel}),
+  reset: (options={})=>reset({radius:options.radius??state.radius,nextMode:options.mode??'local',nextLevel:options.cpuLevel??cpuLevel,nextSeats:options.seatLevels??selectedSeatLevels()}),
   setMode: (next)=>reset({radius:state.radius,nextMode:next}),
   exportRecord: record,
   importRecord: (value)=>loadRecord(value),
