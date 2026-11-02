@@ -1,18 +1,22 @@
 import {chooseDifficultyMove,seededRandom} from './agent.js';
 import {chooseStrongMove} from './strong-ai.js';
 import {chooseNeuralMove} from './neural-ai.js';
+import {chooseTrainedMove,TRAINED_LEVELS} from './trained-direct-ai.js';
 // Separate thread: large-board search must not block taps or scrolling.
 self.addEventListener('message',({data})=>{
   const {state,level,generation}=data;
   try{
     let move,decision=null;
-    if(level==='hard'||level==='neural'){
+    if(level==='hard'||level==='neural'||TRAINED_LEVELS.includes(level)){
       const candidates=[];
-      move=level==='neural'
-        ? chooseNeuralMove(state,Math.random,candidates)
-        : chooseStrongMove(state,Math.random,candidates);
+      move=TRAINED_LEVELS.includes(level)
+        ? chooseTrainedMove(state,level,candidates)
+        : level==='neural' ? chooseNeuralMove(state,Math.random,candidates)
+          : chooseStrongMove(state,Math.random,candidates);
       decision={turn:state.moveCount+1,chosen:move,
-        candidates,notes:level==='neural'?'学習モデルの相対スコア':'3手探索の相対スコア'};
+        candidates,notes:TRAINED_LEVELS.includes(level)
+          ? '自己対戦学習済み方策の着手確率（勝率ではありません）'
+          : level==='neural'?'学習モデルの相対スコア':'3手探索の相対スコア'};
     }else move=chooseDifficultyMove(state,Math.random,level);
     self.postMessage({generation,move,decision});
   }catch(error){self.postMessage({generation,error:String(error.message||error)});}

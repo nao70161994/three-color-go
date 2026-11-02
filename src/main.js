@@ -2,6 +2,7 @@ import { COLORS, LABELS, pointsOnBoard, pointKey, createGame, play, pass, scores
 import { chooseMove, chooseDifficultyMove, dangerGroups, legalMoves, seededRandom, snapshot } from './agent.js';
 import { chooseStrongMove } from './strong-ai.js';
 import { chooseNeuralMove, neuralModelInfo } from './neural-ai.js';
+import { chooseTrainedMove, TRAINED_LEVELS, trainedModelsInfo } from './trained-direct-ai.js';
 import { analyzeRecord, formatAnalysis, explainPosition } from './insights.js';
 import { createOnlineSession, loadPeerJS, roomLink, validRoom, secureToken } from './online.js';
 import { makeMatchmaker } from './matchmaking.js';
@@ -221,16 +222,19 @@ function permittedForHuman() {
   return false;
 }
 function botMove(random=Math.random) {
-  if(!['hard','neural'].includes(cpuLevel))
+  if(!['hard','neural',...TRAINED_LEVELS].includes(cpuLevel))
     return chooseDifficultyMove(state,random,cpuLevel);
   const candidates=[];
-  const chosen=cpuLevel==='neural'
-    ? chooseNeuralMove(state,random,candidates)
-    : chooseStrongMove(state,random,candidates);
+  const chosen=TRAINED_LEVELS.includes(cpuLevel)
+    ? chooseTrainedMove(state,cpuLevel,candidates)
+    : cpuLevel==='neural' ? chooseNeuralMove(state,random,candidates)
+      : chooseStrongMove(state,random,candidates);
   lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],
-    chosen,candidates,notes:cpuLevel==='neural'
-      ? '学習モデルの相対スコア（棋力・勝率を保証しません）'
-      : '3手読みの相対評価値（勝率ではありません）'};
+    chosen,candidates,notes:TRAINED_LEVELS.includes(cpuLevel)
+      ? '自己対戦学習済み方策の着手確率（勝率ではありません）'
+      : cpuLevel==='neural'
+        ? '学習モデルの相対スコア（棋力・勝率を保証しません）'
+        : '3手読みの相対評価値（勝率ではありません）'};
   return chosen;
 }
 function pauseBots() {
@@ -271,7 +275,7 @@ function scheduleBots(){
   const generation=aiGeneration;
   botTimer=setTimeout(()=>{
     botTimer=null;
-    if(!['hard','neural'].includes(cpuLevel)||typeof Worker==='undefined'||location.protocol==='file:'){
+    if(!['hard','neural',...TRAINED_LEVELS].includes(cpuLevel)||typeof Worker==='undefined'||location.protocol==='file:'){
       const move=botMove();if(move)place(move.q,move.r);else doPass();return;
     }
     try{
@@ -329,7 +333,7 @@ function setHints(options={}) {
   return {ok:true,legal:showLegal,danger:showDanger};
 }
 function setCpuLevel(value) {
-  if (!['easy','normal','hard','neural'].includes(value))
+  if (!['easy','normal','hard','neural',...TRAINED_LEVELS].includes(value))
     return {ok:false,reason:'不明なCPU難易度'};
   cpuLevel=value;
   save();render();scheduleBots();
@@ -473,7 +477,7 @@ function render() {
 }
 function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   if (!['cpu','local','bots','online'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
-  if (!['easy','normal','hard','neural'].includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
+  if (!['easy','normal','hard','neural',...TRAINED_LEVELS].includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
   let next;
   try {next=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
   stopBots();
@@ -513,7 +517,7 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
     normalized.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
   }
   const nextMode=networkSync?'online':(['cpu','local','bots'].includes(record.mode)?record.mode:'local');
-  const nextLevel=['easy','normal','hard','neural'].includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
+  const nextLevel=['easy','normal','hard','neural',...TRAINED_LEVELS].includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
   const nextShowLegal=typeof record.showLegal==='boolean'?record.showLegal:showLegal;
   const nextShowDanger=typeof record.showDanger==='boolean'?record.showDanger:showDanger;
   stopBots();
@@ -787,8 +791,9 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.5.0',
+  version: '1.6.0',
   getNeuralModelInfo: neuralModelInfo,
+  getTrainedModelsInfo: trainedModelsInfo,
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),
   explainPosition: ()=>explainPosition(state),
