@@ -1,0 +1,215 @@
+name: Validate which trained 3-color-Go AI is strongest (fresh CPU and head-to-head)
+on:
+  push:
+    branches: [exp/direct-strength-crossplay-102400]
+    paths:
+      - .github/workflows/direct-strength-crossplay.yml
+  pull_request:
+    paths:
+      - scripts/benchmark-direct-headtohead.mjs
+      - scripts/compare-direct-strength.mjs
+      - tests/direct-headtohead.test.js
+      - .github/workflows/direct-strength-crossplay.yml
+  workflow_dispatch:
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node --test tests/direct-headtohead.test.js tests/direct-policy.test.js
+  prepare:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Get all five complete 102400-game histories
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lr-102400-*
+          run-id: 41374428089
+          github-token: ${{ github.token }}
+          path: incoming
+      - name: Extract and validate latest and earlier peak networks (9 candidates)
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          items=[
+            ('lr001-final','lr001','model-102400.json',.001,102400),
+            ('lr0003-final','lr0003','model-102400.json',.0003,102400),
+            ('lr0001-final','lr0001','model-102400.json',.0001,102400),
+            ('lr00003-final','lr00003','model-102400.json',.00003,102400),
+            ('lr00001-final','lr00001','model-102400.json',.00001,102400),
+            ('lr001-peak','lr001','model-102400-iter11960.json',.001,95680),
+            ('lr0003-peak','lr0003','model-102400-iter11920.json',.0003,95360),
+            ('lr00003-peak','lr00003','model-102400-iter11520.json',.00003,92160),
+            ('lr00001-peak','lr00001','model-102400-iter11960.json',.00001,95680),
+          ]
+          Path('models').mkdir(exist_ok=True)
+          for label,key,filename,lr,games in items:
+            source=Path('incoming')/('lr-102400-'+key)/filename
+            data=json.loads(source.read_text())
+            assert data['architecture']=='hex-group-pv-16-v2'
+            assert data['metadata']['games']==games
+            assert abs(data['metadata']['learningRate']-lr)<1e-10
+            (Path('models')/(label+'.json')).write_text(json.dumps(data))
+            print('Validated candidate:',label, games)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frozen-strength-candidates
+          path: models/
+          retention-days: 30
+  cpu:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      max-parallel: 9
+      matrix:
+        id: [lr001-final, lr0003-final, lr0001-final, lr00003-final, lr00001-final, lr001-peak, lr0003-peak, lr00003-peak, lr00001-peak]
+    runs-on: ubuntu-latest
+    timeout-minutes: 250
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/download-artifact@v4
+        with:
+          name: frozen-strength-candidates
+          path: models
+      - name: Independent 384-match CPU benchmark on same unseen seeds
+        env:
+          ID: ${{ matrix.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p "reports/cpu/$ID"
+          for radius in 3 4; do
+            if [[ "$radius" == 3 ]]; then seed=20421231; else seed=20421232; fi
+            for group in hard-balanced balanced-balanced tactical-guarded baseline-baseline; do
+              opponents=$(echo "$group" | tr '-' ',')
+              node scripts/benchmark-direct-matchups.mjs \
+                --model "models/$ID.json" --radius "$radius" \
+                --games 48 --seed "$seed" --opponents "$opponents" \
+                --out "reports/cpu/$ID/r$radius-$group.json" >/dev/null
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpu-${{ matrix.id }}
+          path: reports/cpu/${{ matrix.id }}/
+          retention-days: 30
+  duel:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        include:
+          - {a: lr001-final, b: lr0003-final}
+          - {a: lr001-final, b: lr0001-final}
+          - {a: lr001-final, b: lr00003-final}
+          - {a: lr001-final, b: lr00001-final}
+          - {a: lr0003-final, b: lr0001-final}
+          - {a: lr0003-final, b: lr00003-final}
+          - {a: lr0003-final, b: lr00001-final}
+          - {a: lr0001-final, b: lr00003-final}
+          - {a: lr0001-final, b: lr00001-final}
+          - {a: lr00003-final, b: lr00001-final}
+          - {a: lr001-peak, b: lr0003-peak}
+          - {a: lr001-final, b: lr001-peak}
+          - {a: lr0003-final, b: lr0003-peak}
+          - {a: lr001-peak, b: lr0003-final}
+          - {a: lr001-final, b: lr0003-peak}
+    runs-on: ubuntu-latest
+    timeout-minutes: 250
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/download-artifact@v4
+        with:
+          name: frozen-strength-candidates
+          path: models
+      - name: Head-to-head vs SAME third CPU, all 6 seat rotations, 192 matches/pair
+        env:
+          A: ${{ matrix.a }}
+          B: ${{ matrix.b }}
+        run: |
+          set -euo pipefail
+          output="reports/duel/$A--$B"
+          mkdir -p "$output"
+          for radius in 3 4; do
+            if [[ "$radius" == 3 ]]; then seed=20421331; else seed=20421332; fi
+            for opponent in hard balanced; do
+              node scripts/benchmark-direct-headtohead.mjs \
+                --model-a "models/$A.json" --model-b "models/$B.json" \
+                --radius "$radius" --games 48 --seed "$seed" \
+                --opponent "$opponent" --out "$output/r$radius-$opponent.json" >/dev/null
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: duel-${{ matrix.a }}--${{ matrix.b }}
+          path: reports/duel/${{ matrix.a }}--${{ matrix.b }}/
+          retention-days: 30
+  compare:
+    needs: [cpu,duel]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cpu-*
+          path: collected/cpu
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: duel-*
+          path: collected/duels
+      - name: Validate and aggregate all 9 CPU candidates and 15 head-to-head pairs
+        run: |
+          set -euo pipefail
+          for dir in collected/cpu/cpu-*; do
+            id=$(basename "$dir")
+            mkdir -p "compiled/cpu/${id#cpu-}"
+            cp "$dir/"*.json "compiled/cpu/${id#cpu-}/"
+          done
+          for dir in collected/duels/duel-*; do
+            id=$(basename "$dir")
+            mkdir -p "compiled/duels/${id#duel-}"
+            cp "$dir/"*.json "compiled/duels/${id#duel-}/"
+          done
+          node scripts/compare-direct-strength.mjs compiled/cpu compiled/duels comparison/strength-102400.json \
+            | tee comparison/strength-102400-summary.md
+          cat comparison/strength-102400-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: strength-102400-comparison
+          path: comparison/
+          retention-days: 30
