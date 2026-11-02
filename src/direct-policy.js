@@ -3,7 +3,8 @@
  *
  * Each move uses ONE PV2 forward pass and a legal-move mask. No MCTS,
  * rollouts, heuristic scores, hand-authored "good-move" filters, or tree
- * lookahead. Legal validation uses the actual game rules only.
+ * lookahead. Pass is a legal policy action alongside placements on every turn.
+ * Legal validation uses the actual game rules only.
  */
 import {COLORS,pointsOnBoard,scores,play,pass} from './game.js';
 import {legalMoves,seededRandom} from './agent.js';
@@ -19,9 +20,9 @@ export function policyLegalActions(state){
   const points=pointsOnBoard(state.radius),cap=points.length*2;
   if(state.moveCount>=cap)return [{type:'pass',index:points.length}];
   const options=legalMoves(state);
-  if(!options.length)return [{type:'pass',index:points.length}];
   const indexes=new Map(points.map(({q,r},i)=>[q+','+r,i]));
-  return options.map(({q,r})=>({type:'play',q,r,index:indexes.get(q+','+r)}));
+  return [...options.map(({q,r})=>({type:'play',q,r,index:indexes.get(q+','+r)})),
+    {type:'pass',index:points.length}];
 }
 export function directPolicy(state,model,{temperature=1}={}){
   if(!Number.isFinite(temperature)||temperature<=0||temperature>10)
