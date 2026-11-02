@@ -53,4 +53,4 @@ CPUは従来のhard-balanced／balanced-balanced／tactical-guarded／baseline-b
 
 ## 実行上の注記
 
-新しい評価のprepare、9本のCPU評価、15本の直接対戦はすべて成功した。初回集計ジョブは集計JSON/MDの作成とartifact uploadに成功したが、同じ処理内の `tee` の出力先ディレクトリを先に作らず**終了コード1**となった。集計値はGitHub artifactで確認済み。この出力順序のみの失敗で、対戦結果の失敗ではない。別途検証ワークフローでファイルの整合性確認を行う。
+新しい評価のprepare、9本のCPU評価、15本の直接対戦はすべて成功した。初回集計ジョブは集計JSON/MDの作成とartifact uploadに成功したが、同じ処理内の `tee` の出力先ディレクトリを先に作らず**終了コード1**となった。集計値はGitHub artifactで確認済み。この出力順序のみの失敗で、対戦結果の失敗ではない。[独立検証用run #41410504583](https://github.com/nao70161994/three-color-go/actions/runs/41410504583) で **9候補×384局・15組×192局、計6,336局の集計整合性検査を実施して成功**。出力先ディレクトリをリポジトリで保持する修正（`comparison/.gitkeep`）も適用済みで、同種の出力エラーを防止。
