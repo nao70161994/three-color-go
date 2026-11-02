@@ -78,6 +78,8 @@ def main():
     p.add_argument("--batch-size", type=int, default=32)
     p.add_argument("--init-model", type=Path,
                    help="Optional saved PV2 weights to fine-tune with pass actions")
+    p.add_argument("--init-pass-margin", type=float,
+                   help="Calibrate untrained pass-head bias below placement logits at empty start before continued self-play")
     p.add_argument("--out", type=Path,
                    default=ROOT / "reports" / "direct-policy-candidate.json")
     args = p.parse_args()
@@ -86,6 +88,9 @@ def main():
             0 <= args.seed <= 0xffffffff and
             0 < args.temperature <= 10 and
             0 < args.learning_rate <= .1 and
+            (args.init_pass_margin is None or
+             (args.init_model is not None and 0 <= args.init_pass_margin <= 10
+              and math.isfinite(args.init_pass_margin))) and
             0 <= args.entropy <= .5 and 1 <= args.epochs <= 10 and
             1 <= args.batch_size <= 512 and
             radii and all(2 <= r <= 5 for r in radii) and
@@ -115,6 +120,17 @@ def main():
                     raise ValueError("Incompatible weight shape: " + src)
                 layer.weight.copy_(torch.tensor(payload["weights"]).reshape(shape))
                 layer.bias.copy_(torch.tensor(payload["bias"]))
+        if args.init_pass_margin is not None:
+            # The pass head was absent from ordinary moves in legacy training.
+            # Calibrate only its starting bias, then optimize it with ordinary
+            # on-policy pass-vs-placement samples and the same terminal reward.
+            with torch.no_grad():
+                empty = [[0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0] for _ in range(19)]
+                initial_logits, _ = net(empty, 2)
+                correction = (initial_logits[0] -
+                              initial_logits[-1] -
+                              args.init_pass_margin)
+                net.pass_head.bias.add_(correction)
     optimizer = torch.optim.Adam(net.parameters(), lr=args.learning_rate)
     total_games, total_positions = 0, 0
     sampled_passes=0; optional_passes=0
@@ -192,7 +208,8 @@ def main():
         "passInLegalActions": True,
         "passesSampled": sampled_passes,
         "optionalPassesSampled": optional_passes,
-        "initializedFrom": str(args.init_model) if args.init_model else None
+        "initializedFrom": str(args.init_model) if args.init_model else None,
+        "initialPassMargin": args.init_pass_margin
     })
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(model, separators=(",", ":")) + "\n",
