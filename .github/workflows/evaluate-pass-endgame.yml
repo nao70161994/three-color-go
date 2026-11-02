@@ -1,4 +1,4 @@
-name: evaluate pass decisions and eye safety
+name: evaluate pass decisions and eye safety (after guard)
 on:
   push:
     branches: [fix/pass-action-in-policy-and-training]
