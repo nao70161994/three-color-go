@@ -1,0 +1,121 @@
+name: Five pass-inclusive 20000-game policy continuations
+on:
+  push:
+    branches: [fix/pure-policy-and-five-pass-finetunes]
+    paths:
+      - .github/workflows/five-pass-20k.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  train:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include:
+          - {rate: "0.001", key: lr001}
+          - {rate: "0.0003", key: lr0003}
+          - {rate: "0.0001", key: lr0001}
+          - {rate: "0.00003", key: lr00003}
+          - {rate: "0.00001", key: lr00001}
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU-only training dependencies
+        run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Fetch authentic 102400-game checkpoint of each original learning rate
+        uses: actions/download-artifact@v4
+        with:
+          name: lr-102400-${{ matrix.key }}
+          run-id: 41374428089
+          github-token: ${{ github.token }}
+          path: reports/${{ matrix.key }}/source
+      - name: Validate provenance and model format before continuation
+        env:
+          KEY: ${{ matrix.key }}
+          RATE: ${{ matrix.rate }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json,os
+          folder=Path("reports")/os.environ["KEY"]
+          p=folder/"source/model-102400.json"
+          m=json.loads(p.read_text())
+          assert m["architecture"]=="hex-group-pv-16-v2"
+          assert m["metadata"]["games"]==102400
+          assert abs(m["metadata"]["learningRate"]-float(os.environ["RATE"]))<1e-10
+          assert len(m["layers"]["pass"]["weights"])==16
+          print("Validated 102400-game source",os.environ["KEY"],p)
+          PY
+      - name: Add 20000 new pass-inclusive games from original model weights
+        env:
+          KEY: ${{ matrix.key }}
+          RATE: ${{ matrix.rate }}
+        run: |
+          set -euo pipefail
+          python scripts/train-direct-policy.py \
+            --init-model "reports/$KEY/source/model-102400.json" \
+            --init-pass-margin 1.5 \
+            --iterations 2500 --games 8 --seed 20261107 \
+            --radii 2,3,4 --temperature 1.5 \
+            --learning-rate "$RATE" --batch-size 32 \
+            --epochs 1 --entropy 0.015 --checkpoint-every 100 \
+            --out "reports/$KEY/pass-20k-$KEY.json" \
+            | tee "reports/$KEY/pass-training-20k.jsonl"
+      - name: Verify 20000 additions, real voluntary passes and model parity
+        env:
+          KEY: ${{ matrix.key }}
+          RATE: ${{ matrix.rate }}
+        run: |
+          set -euo pipefail
+          python scripts/check-pv2-parity.py "reports/$KEY/pass-20k-$KEY.json"
+          python - <<'PY'
+          from pathlib import Path
+          import json,os
+          folder=Path("reports")/os.environ["KEY"]
+          m=json.loads((folder/("pass-20k-"+os.environ["KEY"]+".json")).read_text())
+          assert m["metadata"]["games"]==20000
+          assert m["metadata"]["passInLegalActions"] is True
+          assert m["metadata"]["optionalPassesSampled"]>0
+          assert abs(m["metadata"]["learningRate"]-float(os.environ["RATE"]))<1e-10
+          print(json.dumps({"model":os.environ["KEY"],"originalGames":102400,
+            "addedGames":20000,"cumulativeGames":122400,
+            "optionalPasses":m["metadata"]["optionalPassesSampled"]}))
+          PY
+      - name: Publish independently resumable training checkpoints and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pass-20k-${{ matrix.key }}
+          path: |
+            reports/${{ matrix.key }}/pass-20k-*.json
+            reports/${{ matrix.key }}/pass-20k-*.pt
+            reports/${{ matrix.key }}/pass-training-20k.jsonl
+          retention-days: 30
+  summary:
+    needs: train
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Report model matrix outcomes
+        env:
+          TRAIN_RESULT: ${{ needs.train.result }}
+        run: |
+          echo "Five independent pass-inclusive continuation models: $TRAIN_RESULT" >> "$GITHUB_STEP_SUMMARY"
+          echo "Source: verified 102400-game checkpoints, Actions run 41374428089." >> "$GITHUB_STEP_SUMMARY"
+          echo "Each successful run adds exactly 20000 games, with pass available alongside every legal placement." >> "$GITHUB_STEP_SUMMARY"
+          echo "No automatic deployment or heuristic eye veto; artifacts must be evaluated before promotion." >> "$GITHUB_STEP_SUMMARY"
