@@ -19,7 +19,10 @@ export function getTrainedModel(id){
   if(!loaded.has(id))loaded.set(id,validatePV2Model(CHECKPOINTS[id]));
   return loaded.get(id);
 }
-/** Greedy direct action from a real saved self-play checkpoint, without search. */
+/** Greedy direct action from a saved checkpoint, without search.
+ * The legacy weights did not compare ordinary passes in self-play:
+ * inference now permits pass, but pass skill needs retraining.
+ */
 export function chooseTrainedMove(state,id='trained-lr001-final',inspection=null){
   const model=getTrainedModel(id);
   if(state.ended)return null;

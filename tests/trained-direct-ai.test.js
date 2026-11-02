@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createGame,play,pass} from '../src/game.js';
 import {TRAINED_LEVELS,trainedModelsInfo,chooseTrainedMove,getTrainedModel} from '../src/trained-direct-ai.js';
-import {evaluatePV2} from '../src/pv2-ai.js';
+import {evaluatePV2,createInitialPV2Model} from '../src/pv2-ai.js';
+import {policyLegalActions,directPolicy,selectDirectPolicyMove} from '../src/direct-policy.js';
+import {pointsOnBoard} from '../src/game.js';
 
 test('three real saved self-play checkpoints load with actual architecture and metadata',()=>{
   assert.equal(TRAINED_LEVELS.length,3);
@@ -48,4 +50,27 @@ test('all models work for three colors and pass if game ended',()=>{
     assert.equal(chooseTrainedMove(state,id),null);
   }
   assert.throws(()=>getTrainedModel('wrong'),/Unknown trained/);
+});
+
+test('pass competes with playable moves and can be deliberately chosen',()=>{
+  const state=createGame(3),num=pointsOnBoard(3).length;
+  const actions=policyLegalActions(state);
+  assert.equal(actions.length,num+1);
+  assert.deepEqual(actions.at(-1),{type:'pass',index:num});
+  assert.ok(actions.some(a=>a.type==='play'));
+  const model=createInitialPV2Model(10);
+  // Give pass a strong learned logit and verify it wins the same softmax.
+  model.layers.pass.weights.fill(0);
+  model.layers.pass.bias[0]=1e3;
+  const pred=directPolicy(state,model);
+  assert.equal(pred.actions.length,num+1);
+  assert.equal(pred.probabilities.at(-1),1);
+  assert.equal(selectDirectPolicyMove(state,model,{greedy:true}).action.type,'pass');
+  assert.equal(selectDirectPolicyMove(state,model,{greedy:true}).move,null);
+  assert.equal(pass(state).ok,true);
+  for(const id of TRAINED_LEVELS){
+    const trained=directPolicy(state,getTrainedModel(id));
+    assert.equal(trained.actions.at(-1).type,'pass');
+    assert.ok(Number.isFinite(trained.probabilities.at(-1)));
+  }
 });
