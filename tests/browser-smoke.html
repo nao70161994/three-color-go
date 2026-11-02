@@ -30,7 +30,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function run(){
   const win=frame.contentWindow, doc=frame.contentDocument, game=win.threeColorGo;
   check(game && typeof game.getState==='function','AI操作用APIが存在');
-  check(game.version==='1.6.0','公開APIのバージョンがv1.6.0');
+  check(game.version==='1.6.1','公開APIのバージョンがv1.6.1');
   check(doc.querySelector('#boardSize').value==='4','初期サイズは半径4・61マス');
   check(doc.querySelector('#replayOpen').disabled,'棋譜が空なら再生ボタンは無効');
   check(doc.querySelector('#boardSize option[value="3"]').textContent.includes('小（37マス）'),'新しい小サイズは37マス');
@@ -101,6 +101,41 @@ async function run(){
       id+'モデルがブラウザ上で合法着手できる');
   }
   check(game.getTrainedModelsInfo().length===3,'学習モデル3本の学習履歴を取得可能');
+  // Reproduce a real selection via the native picker, followed immediately by game start.
+  check(game.reset({mode:'cpu',radius:2,cpuLevel:'hard'}).ok,'学習済みAI選択テストの初期化');
+  const levelSelect=doc.getElementById('cpuLevel');
+  for(const id of ['trained-lr001-final','trained-lr001-peak','trained-lr0003-peak']){
+    levelSelect.value=id;
+    levelSelect.dispatchEvent(new win.Event('input',{bubbles:true}));
+    check(game.getPresentation().cpuLevel===id && game.exportRecord().cpuLevel===id,
+      id+' が画面から選ばれて保存される');
+    doc.getElementById('resetBtn').click();
+    check(game.getPresentation().cpuLevel===id && levelSelect.value===id,
+      id+' はゲーム開始時にも「むずかしい」に戻らない');
+  }
+  // A selection may be visible before Android emits its change event.
+  levelSelect.value='trained-lr001-final';
+  doc.getElementById('resetBtn').click();
+  check(game.getPresentation().cpuLevel==='trained-lr001-final',
+    '未通知のスマホ選択も開始ボタンで引き継ぐ');
+  const sizeSelect=doc.getElementById('boardSize');
+  sizeSelect.value='3';
+  sizeSelect.dispatchEvent(new win.Event('change',{bubbles:true}));
+  check(game.getPresentation().cpuLevel==='trained-lr001-final',
+    '盤面サイズ変更後も学習AIが保持される');
+  const modeSelect=doc.getElementById('mode');
+  modeSelect.value='bots';
+  modeSelect.dispatchEvent(new win.Event('change',{bubbles:true}));
+  check(game.getPresentation().cpuLevel==='trained-lr001-final',
+    'CPU観戦モード開始後も学習AIが保持される');
+  check(game.pauseBots().ok,'学習AIの観戦を停止できる');
+  modeSelect.value='cpu';
+  modeSelect.dispatchEvent(new win.Event('change',{bubbles:true}));
+  check(game.getPresentation().cpuLevel==='trained-lr001-final',
+    'CPU対戦再開後も学習AIが保持される');
+  check(game.play(0,0).ok && game.getPresentation().cpuLevel==='trained-lr001-final',
+    '人間が初手を打った後も学習AIが保持される');
+
   check(game.setCpuLevel('neural').ok&&game.getPresentation().cpuLevel==='neural','学習CPUへ切り替え');
   check(game.getNeuralModelInfo().shape.join('-')==='12-24-16-8-1',
     '保存済み学習モデルを読み込める');
@@ -277,7 +312,7 @@ async function run(){
   check(standalone.reset({mode:'local',radius:2}).ok,'オフライン版を初期化');
   check(standalone.play(0,0).ok,'オフライン版で着手できる');
   check(standalone.getState().scores.black===1,'オフライン版で得点を表示');
-  check(standalone.version==='1.6.0','オフライン版がv1.5.0へ同期している');
+  check(standalone.version==='1.6.1','オフライン版がv1.6.1へ同期している');
   check(standalone.setCpuLevel('neural').ok,'単一HTML版でも学習済みCPUへ切り替え可能');
   check(standalone.setCpuLevel('trained-lr001-final').ok&&
     standalone.setCpuLevel('trained-lr001-peak').ok&&

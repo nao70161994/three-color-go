@@ -62,6 +62,11 @@ const SIZE = 29, ROOT3 = Math.sqrt(3);
 let state = createGame(4);
 let mode = 'cpu', past = [], actions = [], botTimer = null;
 let cpuLevel = 'hard', showLegal = false, showDanger = true;
+const CPU_LEVELS=['easy','normal','hard','neural',...TRAINED_LEVELS];
+// Read the actual select, including an Android picker choice before its change event.
+function selectedCpuLevel(){
+  return CPU_LEVELS.includes(cpuLevelEl.value)?cpuLevelEl.value:cpuLevel;
+}
 let spectatorPaused = false, spectatorSpeed = 600, zoomBoard = false, zoomBoardExplicit = false;
 let replay = null, network = null, netMessage = '部屋を作るか招待URLで参加してください';
 let pinchStart = null, zoomScale = 1;
@@ -201,6 +206,8 @@ function commit(result,action, schedule=true) {
   if (!result.ok) { msgEl.textContent=result.reason; return {ok:false,reason:result.reason}; }
   stopBots();
   const expected=state.moveCount;
+  // An uncommitted mobile select change must not be lost on first stone or pass.
+  if(mode==='cpu'||mode==='bots')cpuLevel=selectedCpuLevel();
   past.push(state); state=result.state; actions.push(action);
   save(); render();updateMatchList();
   if(mode==='online' && network?.status().host)network.broadcastMove(action,expected);
@@ -333,8 +340,10 @@ function setHints(options={}) {
   return {ok:true,legal:showLegal,danger:showDanger};
 }
 function setCpuLevel(value) {
-  if (!['easy','normal','hard','neural',...TRAINED_LEVELS].includes(value))
+  if (!CPU_LEVELS.includes(value))
     return {ok:false,reason:'不明なCPU難易度'};
+  cpuLevelEl.value=value;
+  if(cpuLevel===value)return {ok:true,cpuLevel};
   cpuLevel=value;
   save();render();scheduleBots();
   return {ok:true,cpuLevel};
@@ -412,7 +421,8 @@ function render() {
   turnLabelEl.textContent=replay?'棋譜再生 · '+replay.index+' / '+actions.length+'手':view.ended?'勝敗が決まりました':view.passes+'人連続パス · '+view.moveCount+'手';
   modeEl.value=mode;
   boardSizeEl.value=String(state.radius);
-  cpuLevelEl.value=cpuLevel;
+  // Avoid overriding the native Android picker while the selection is in progress.
+  if(document.activeElement!==cpuLevelEl)cpuLevelEl.value=cpuLevel;
   modeEl.disabled=!!replay;
   boardSizeEl.disabled=!!replay;
   cpuLevelEl.disabled=!!replay;
@@ -475,9 +485,9 @@ function render() {
   }
   if(saveWarning)msgEl.textContent+=' · ⚠保存できません（ストレージ容量・権限を確認）';
 }
-function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
+function reset({radius=state.radius,nextMode=mode,nextLevel=selectedCpuLevel()}={}) {
   if (!['cpu','local','bots','online'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
-  if (!['easy','normal','hard','neural',...TRAINED_LEVELS].includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
+  if (!CPU_LEVELS.includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
   let next;
   try {next=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
   stopBots();
@@ -486,7 +496,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
     if(mode==='online'){network?.close();network=null;}
   }
   replay=null;state=next;keyboardFocusKey='0,0';
-  mode=nextMode;cpuLevel=nextLevel;spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
+  mode=nextMode;cpuLevel=nextLevel;cpuLevelEl.value=cpuLevel;spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
   past=[];actions=[];lastCpuDecision=null;currentMatchId=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
   if(nextMode==='online'&&network?.status().host)network.broadcast();
   updateMatchList();
@@ -517,13 +527,13 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
     normalized.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
   }
   const nextMode=networkSync?'online':(['cpu','local','bots'].includes(record.mode)?record.mode:'local');
-  const nextLevel=['easy','normal','hard','neural',...TRAINED_LEVELS].includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
+  const nextLevel=CPU_LEVELS.includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
   const nextShowLegal=typeof record.showLegal==='boolean'?record.showLegal:showLegal;
   const nextShowDanger=typeof record.showDanger==='boolean'?record.showDanger:showDanger;
   stopBots();
   if(mode==='online' && !networkSync){network?.close();network=null;}
   replay=null;
-  state=next;mode=nextMode;cpuLevel=nextLevel;
+  state=next;mode=nextMode;cpuLevel=nextLevel;cpuLevelEl.value=cpuLevel;
   if(!networkSync)currentMatchId=null;
   spectatorSpeed=[180,600,1200].includes(record.spectatorSpeed)?record.spectatorSpeed:600;
   spectatorPaused=nextMode==='bots' ? (!resumeSavedBots || record.spectatorPaused===true) : false;
@@ -778,6 +788,8 @@ undoBtn.addEventListener('click',undo);
 resetBtn.addEventListener('click',()=>{
   if (state.moveCount===0 || confirm('対局を最初からやり直しますか？')) reset();
 });
+// Some mobile native pickers dispatch input before change (or only one of them).
+cpuLevelEl.addEventListener('input',()=>setCpuLevel(cpuLevelEl.value));
 cpuLevelEl.addEventListener('change',()=>setCpuLevel(cpuLevelEl.value));
 legalToggleEl.addEventListener('click',()=>setHints({legal:!showLegal}));
 dangerToggleEl.addEventListener('click',()=>setHints({danger:!showDanger}));
@@ -791,7 +803,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.6.0',
+  version: '1.6.1',
   getNeuralModelInfo: neuralModelInfo,
   getTrainedModelsInfo: trainedModelsInfo,
   getState: ()=>snapshot(state),
