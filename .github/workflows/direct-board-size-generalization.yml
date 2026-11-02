@@ -1,0 +1,119 @@
+name: Test frozen direct-policy AI on radii 2 through 12
+on:
+  push:
+    branches: [exp/direct-board-size-generalization]
+    paths:
+      - .github/workflows/direct-board-size-generalization.yml
+  pull_request:
+    paths:
+      - scripts/benchmark-direct-board-size.mjs
+      - scripts/compare-direct-board-sizes.mjs
+      - tests/direct-board-size.test.js
+      - .github/workflows/direct-board-size-generalization.yml
+  workflow_dispatch:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test frozen neural legal first move at radii 2,3,4,5,6,8,12 and six-seat CPU games
+        run: node --test tests/direct-board-size.test.js
+  evaluate:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: smoke
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        include:
+          - {key: r2-base, radius: 2, games: 24, opponents: "baseline,baseline"}
+          - {key: r3-base, radius: 3, games: 24, opponents: "baseline,baseline"}
+          - {key: r4-base, radius: 4, games: 24, opponents: "baseline,baseline"}
+          - {key: r5-base, radius: 5, games: 12, opponents: "baseline,baseline"}
+          - {key: r6-base, radius: 6, games: 6, opponents: "baseline,baseline"}
+          - {key: r8-base, radius: 8, games: 6, opponents: "baseline,baseline"}
+          - {key: r12-base, radius: 12, games: 6, opponents: "baseline,baseline"}
+          - {key: r2-mixed, radius: 2, games: 12, opponents: "balanced,baseline"}
+          - {key: r3-mixed, radius: 3, games: 12, opponents: "balanced,baseline"}
+          - {key: r4-mixed, radius: 4, games: 12, opponents: "balanced,baseline"}
+          - {key: r5-mixed, radius: 5, games: 6, opponents: "balanced,baseline"}
+          - {key: r6-mixed, radius: 6, games: 6, opponents: "balanced,baseline"}
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch trained frozen 102400-game model, optimizer not needed for inference
+        uses: actions/download-artifact@v4
+        with:
+          name: lr-102400-lr001
+          run-id: 41374428089
+          github-token: ${{ github.token }}
+          path: model
+      - name: Measure one fixed-policy AI vs two conventional CPUs in all seat positions
+        env:
+          KEY: ${{ matrix.key }}
+          RADIUS: ${{ matrix.radius }}
+          GAMES: ${{ matrix.games }}
+          OPPONENTS: ${{ matrix.opponents }}
+        run: |
+          set -euo pipefail
+          mkdir -p "reports/$KEY"
+          node scripts/benchmark-direct-board-size.mjs \
+            --model "model/model-102400.json" \
+            --radius "$RADIUS" --games "$GAMES" \
+            --opponents "$OPPONENTS" --seed 20441101 \
+            --max-seconds 4500 --out "reports/$KEY/result.json" \
+            | tee "reports/$KEY/progress.jsonl"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: size-${{ matrix.key }}
+          path: reports/${{ matrix.key }}/
+          retention-days: 30
+  compare:
+    needs: evaluate
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: size-*
+          path: collected
+      - name: Combine independent size-evaluation samples and elapsed time
+        run: |
+          set -euo pipefail
+          mkdir -p comparison compiled
+          for dir in collected/size-*; do
+            key=$(basename "$dir")
+            mkdir -p "compiled/${key#size-}"
+            cp "$dir/result.json" "compiled/${key#size-}/result.json"
+          done
+          node scripts/compare-direct-board-sizes.mjs compiled comparison/direct-board-size-generalization.json \
+            | tee comparison/direct-board-size-summary.md
+          cat comparison/direct-board-size-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: direct-board-size-generalization
+          path: comparison/
+          retention-days: 30
