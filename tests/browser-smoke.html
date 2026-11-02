@@ -95,6 +95,11 @@ async function run(){
   check(!game.importRecord({radius:2,actions:[{type:'play',q:500,r:500}]}).ok,'不正な棋譜を拒否');
   check(game.setCpuLevel('normal').ok && game.getPresentation().cpuLevel==='normal','CPU難易度を試合中にも切り替えられる');
   check(!!doc.querySelector('#cpuLevel option[value="neural"]'),'学習CPUを選択肢に表示');
+  for(const level of ['maxn','mcts','hybrid']) {
+    check(!!doc.querySelector('#cpuLevel option[value="'+level+'"]'),level+' CPUを選択可能');
+    check(game.reset({mode:'bots',radius:2,cpuLevel:level}).ok&&game.pauseBots().ok&&game.stepBot().ok,
+      level+' CPUが合法手で一手進められる');
+  }
   check(game.setCpuLevel('neural').ok&&game.getPresentation().cpuLevel==='neural','学習CPUへ切り替え');
   check(game.getNeuralModelInfo().shape.join('-')==='12-24-16-8-1',
     '保存済み学習モデルを読み込める');
@@ -271,8 +276,10 @@ async function run(){
   check(standalone.reset({mode:'local',radius:2}).ok,'オフライン版を初期化');
   check(standalone.play(0,0).ok,'オフライン版で着手できる');
   check(standalone.getState().scores.black===1,'オフライン版で得点を表示');
-  check(standalone.version==='1.5.0','オフライン版がv1.5.0へ同期している');
+  check(standalone.version==='1.6.0','オフライン版がv1.5.0へ同期している');
   check(standalone.setCpuLevel('neural').ok,'単一HTML版でも学習済みCPUへ切り替え可能');
+  check(standalone.setCpuLevel('maxn').ok&&standalone.setCpuLevel('mcts').ok&&
+    standalone.setCpuLevel('hybrid').ok,'オフライン版でも追加3方式を選択可能');
   check(standalone.reset({mode:'bots',radius:2,cpuLevel:'neural'}).ok
     && standalone.pauseBots().ok && standalone.stepBot().ok,
     '単一HTMLオフライン版でも学習済みCPUが着手');

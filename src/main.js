@@ -2,6 +2,7 @@ import { COLORS, LABELS, pointsOnBoard, pointKey, createGame, play, pass, scores
 import { chooseMove, chooseDifficultyMove, dangerGroups, legalMoves, seededRandom, snapshot } from './agent.js';
 import { chooseStrongMove } from './strong-ai.js';
 import { chooseNeuralMove, neuralModelInfo } from './neural-ai.js';
+import { chooseExperimentalMove, EXPERIMENTAL_LEVELS } from './experimental-ai.js';
 import { analyzeRecord, formatAnalysis, explainPosition } from './insights.js';
 import { createOnlineSession, loadPeerJS, roomLink, validRoom, secureToken } from './online.js';
 import { makeMatchmaker } from './matchmaking.js';
@@ -221,16 +222,17 @@ function permittedForHuman() {
   return false;
 }
 function botMove(random=Math.random) {
-  if(!['hard','neural'].includes(cpuLevel))
+  if(!['hard','neural',...EXPERIMENTAL_LEVELS].includes(cpuLevel))
     return chooseDifficultyMove(state,random,cpuLevel);
   const candidates=[];
   const chosen=cpuLevel==='neural'
     ? chooseNeuralMove(state,random,candidates)
-    : chooseStrongMove(state,random,candidates);
+    : cpuLevel==='hard' ? chooseStrongMove(state,random,candidates)
+      : chooseExperimentalMove(state,random,cpuLevel,candidates);
+  const notes={hard:'3手読みの相対評価値',neural:'学習モデルの相対スコア',
+    maxn:'3人MaxN探索の評価値',mcts:'3人MCTSの試行平均',hybrid:'ニューラル候補＋戦術探索の評価値'};
   lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],
-    chosen,candidates,notes:cpuLevel==='neural'
-      ? '学習モデルの相対スコア（棋力・勝率を保証しません）'
-      : '3手読みの相対評価値（勝率ではありません）'};
+    chosen,candidates,notes:notes[cpuLevel]+'（勝率ではありません）'};
   return chosen;
 }
 function pauseBots() {
@@ -271,7 +273,7 @@ function scheduleBots(){
   const generation=aiGeneration;
   botTimer=setTimeout(()=>{
     botTimer=null;
-    if(!['hard','neural'].includes(cpuLevel)||typeof Worker==='undefined'||location.protocol==='file:'){
+    if(!['hard','neural',...EXPERIMENTAL_LEVELS].includes(cpuLevel)||typeof Worker==='undefined'||location.protocol==='file:'){
       const move=botMove();if(move)place(move.q,move.r);else doPass();return;
     }
     try{
@@ -329,7 +331,7 @@ function setHints(options={}) {
   return {ok:true,legal:showLegal,danger:showDanger};
 }
 function setCpuLevel(value) {
-  if (!['easy','normal','hard','neural'].includes(value))
+  if (!['easy','normal','hard','neural',...EXPERIMENTAL_LEVELS].includes(value))
     return {ok:false,reason:'不明なCPU難易度'};
   cpuLevel=value;
   save();render();scheduleBots();
@@ -473,7 +475,7 @@ function render() {
 }
 function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   if (!['cpu','local','bots','online'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
-  if (!['easy','normal','hard','neural'].includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
+  if (!['easy','normal','hard','neural',...EXPERIMENTAL_LEVELS].includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
   let next;
   try {next=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
   stopBots();
@@ -513,7 +515,7 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
     normalized.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
   }
   const nextMode=networkSync?'online':(['cpu','local','bots'].includes(record.mode)?record.mode:'local');
-  const nextLevel=['easy','normal','hard','neural'].includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
+  const nextLevel=['easy','normal','hard','neural',...EXPERIMENTAL_LEVELS].includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
   const nextShowLegal=typeof record.showLegal==='boolean'?record.showLegal:showLegal;
   const nextShowDanger=typeof record.showDanger==='boolean'?record.showDanger:showDanger;
   stopBots();
@@ -787,7 +789,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.5.0',
+  version: '1.6.0',
   getNeuralModelInfo: neuralModelInfo,
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),

@@ -183,7 +183,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
     </header>
     <div class="settings">
       <div class="setting"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">1人で遊ぶ（CPU 2人）</option><option value="bots">CPU 3人の対局を観戦</option><option value="local">3人で交代</option><option value="online">オンライン3人対戦（試験版）</option></select></div>
-      <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option><option value="neural">ディープラーニング（実験版）</option></select></div>
+      <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option><option value="neural">ディープラーニング（実験版）</option><option value="maxn">MaxN（3人の利益を先読み）</option><option value="mcts">MCTS（試行対局で探索）</option><option value="hybrid">ハイブリッド（学習＋先読み）</option></select></div>
     </div>
     <section id="onlinePanel" class="onlinePanel" hidden aria-label="オンライン3人対戦">
       <div class="onlineActions">
@@ -276,9 +276,9 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
         <li>陣地点、アゲハマ点、コミはなし。</li>
         <li>棋譜を再生すると手番や点数も過去の状態で確認でき、対局へ戻ると続きから遊べます。</li>
       </ul>
-      <p>「むずかしい」は相手2人の応手を先読みします。「ディープラーニング」は模擬対局の評価データから学習した小型ニューラルネットワークで着手候補を採点します（既存CPUより強い保証はありません）。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
+      <p>「むずかしい」は相手2人の応手を先読みします。「ディープラーニング」は模擬対局の評価データから学習した小型ニューラルネットワークで着手候補を採点します（既存CPUより強い保証はありません）。「MaxN」は各プレイヤーの石数と危険度を個別に評価し、「MCTS」は短い試行を繰り返し、「ハイブリッド」は学習候補を戦術探索で再評価します。いずれも実験版で、既存CPUより強いと確定したものではありません。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
     </details>
-    <footer>v1.5 · ディープラーニングCPU（実験版）・1タップ着手・スマホ対応</footer>
+    <footer>v1.6 · 3人MaxN / MCTS / 学習ハイブリッドAI・スマホ対応</footer>
   </main>
   <script>window.THREE_COLOR_MATCH_URL="";</script>
   <script>
@@ -1017,6 +1017,226 @@ function chooseNeuralMove(state,random=Math.random,inspection=null){
 }
 
 
+/**
+ * Three independent experimental agents:
+ * - MaxN: each of the three players optimizes their own utility.
+ * - MCTS: bounded, multi-player UCT with real-rule short rollouts.
+ * - Hybrid: learned policy proposals plus tactical 3-player verification.
+ *
+ * All simulations use game.play()/pass() (including superko); no rule shortcuts.
+ * Width, depth and rollouts are deliberately bounded for mobile browsers.
+ */
+const EXPERIMENTAL_LEVELS=['maxn','mcts','hybrid'];
+const boardSize=state=>3*state.radius*(state.radius+1)+1;
+const cap=(x,a,b)=>Math.max(a,Math.min(b,x));
+const ownIndex=state=>state.turn;
+const vector=(state)=>{
+  const count=scores(state),value=COLORS.map(c=>count[c]*6);
+  const visited=new Set(),frontiers=COLORS.map(()=>new Set());
+  for(const [key,color] of Object.entries(state.board)){
+    if(visited.has(key))continue;
+    const group=groupInfo(state.board,key,state.radius);
+    group.stones.forEach(s=>visited.add(s));
+    const seat=COLORS.indexOf(color),size=group.stones.length;
+    if(group.liberties.length===1)value[seat]-=Math.min(24,size)*9;
+    else if(group.liberties.length===2)value[seat]-=Math.min(24,size)*2;
+    else value[seat]+=Math.min(15,size)*.2;
+    group.liberties.forEach(k=>frontiers[seat].add(k));
+  }
+  for(let i=0;i<3;i++)value[i]+=frontiers[i].size*.35;
+  return value;
+};
+const advantage=(values,seat)=>{
+  const rivals=values.filter((_,i)=>i!==seat);
+  return values[seat]-Math.max(...rivals)*.55-Math.min(...rivals)*.2;
+};
+
+function options(state,width,random=Math.random){
+  if(state.ended||state.moveCount>=boardSize(state)*2)return [];
+  const seat=ownIndex(state),color=COLORS[seat],board=state.board;
+  const points=pointsOnBoard(state.radius);
+  const urgency=new Map(),seen=new Set();
+  for(const [key,occupant] of Object.entries(board)){
+    if(seen.has(key))continue;
+    const g=groupInfo(board,key,state.radius);
+    g.stones.forEach(s=>seen.add(s));
+    if(g.liberties.length>2)continue;
+    const bonus=(g.liberties.length===1?10:2)*Math.min(g.stones.length,8)
+      *(occupant===color?1.25:1);
+    for(const liberty of g.liberties)
+      urgency.set(liberty,(urgency.get(liberty)||0)+bonus);
+  }
+  const preliminary=points.filter(({q,r})=>!board[pointKey(q,r)]).map(({q,r})=>{
+    const key=pointKey(q,r),near=adjacentKeys(key,state.radius);
+    const friendly=near.filter(k=>board[k]===color).length;
+    const hostile=near.filter(k=>board[k]&&board[k]!==color).length;
+    const distance=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r));
+    return {q,r,priority:(urgency.get(key)||0)+friendly*1.8+
+      hostile*2.6+near.filter(k=>!board[k]).length*.1-distance*.08};
+  }).sort((a,b)=>b.priority-a.priority);
+  // Keep all tactical liberties, then nearby moves. A full scan acts as a
+  // fallback if a locality shortlist contains no playable candidates.
+  const limit=state.radius<=4?preliminary.length:state.radius<=7?28:18;
+  const pool=preliminary.slice(0,limit);
+  const used=new Set(pool.map(p=>pointKey(p.q,p.r)));
+  for(const candidate of preliminary)
+    if(urgency.has(pointKey(candidate.q,candidate.r))&&!used.has(pointKey(candidate.q,candidate.r))){
+      pool.push(candidate);used.add(pointKey(candidate.q,candidate.r));
+    }
+  const rankMoves=selected=>{
+    const ranked=[];
+    for(const {q,r} of selected){
+      if(isOwnEye(state,q,r,color))continue;
+      const result=play(state,q,r);
+      if(!result.ok||isUnsafeCpuMove(state,q,r,result))continue;
+      const utilities=vector(result.state);
+      ranked.push({q,r,state:result.state,utilities,
+        rank:advantage(utilities,seat)+result.captured.length*2.5+
+          (urgency.get(pointKey(q,r))||0)*.2+random()*.01});
+    }
+    ranked.sort((a,b)=>b.rank-a.rank);
+    return ranked;
+  };
+  let ranked=rankMoves(pool);
+  if(!ranked.length&&pool.length!==preliminary.length)ranked=rankMoves(preliminary);
+  return ranked.slice(0,width);
+}
+function successor(state,move){
+  if(move)return move.state;
+  const result=pass(state);
+  return result.ok?result.state:state;
+}
+function searchMaxN(state,depth,width,random){
+  if(depth===0||state.ended)return vector(state);
+  const moves=options(state,width,random);
+  if(!moves.length)return searchMaxN(successor(state,null),depth-1,width,random);
+  const seat=ownIndex(state);
+  let best=null,bestValue=-Infinity;
+  for(const move of moves){
+    const evaluated=searchMaxN(move.state,depth-1,width,random);
+    if(evaluated[seat]>bestValue){best=evaluated;bestValue=evaluated[seat];}
+  }
+  return best;
+}
+function chooseMaxN(state,random,inspection){
+  const seat=ownIndex(state);
+  const width=state.radius<=4?6:state.radius<=7?4:3;
+  const replyWidth=state.radius<=4?3:2;
+  const roots=options(state,width,random);
+  let chosen=null,best=-Infinity;
+  for(const move of roots){
+    const evaluation=searchMaxN(move.state,2,replyWidth,random);
+    const score=advantage(evaluation,seat)+advantage(move.utilities,seat)*.12;
+    if(score>best){best=score;chosen={q:move.q,r:move.r};}
+    inspection?.push({q:move.q,r:move.r,score});
+  }
+  return chosen;
+}
+function normalized(state){
+  const v=vector(state),denom=boardSize(state)*.45+8;
+  return v.map((x,i)=>{
+    const rivals=(v[(i+1)%3]+v[(i+2)%3])/2;
+    return Math.tanh((x-rivals)/denom);
+  });
+}
+function createNode(state,move=null){
+  return {state,move,visits:0,total:[0,0,0],children:[],untried:null};
+}
+function candidateEntries(state,width,random){
+  const available=options(state,width,random);
+  return available.length?available:[{q:null,r:null,state:successor(state,null)}];
+}
+function chooseMCTS(state,random,inspection){
+  const seat=ownIndex(state);
+  const large=state.radius>=8;
+  const simulations=large?18:state.radius>=5?36:72;
+  const maxDepth=large?4:6;
+  const nodeWidth=large?4:7;
+  const root=createNode(state);
+  for(let trial=0;trial<simulations;trial++){
+    let current=root,depth=0;
+    const path=[root];
+    while(depth<maxDepth&&!current.state.ended){
+      if(!current.untried)current.untried=candidateEntries(current.state,nodeWidth,random);
+      if(current.children.length<current.untried.length){
+        const item=current.untried[current.children.length];
+        const child=createNode(item.state,{q:item.q,r:item.r});
+        current.children.push(child);
+        current=child;path.push(child);depth++;break;
+      }
+      if(!current.children.length)break;
+      const chooser=current.state.turn;
+      let bestChild=null,bestValue=-Infinity;
+      for(const child of current.children){
+        const uct=child.total[chooser]/Math.max(1,child.visits)+
+          .75*Math.sqrt(Math.log(current.visits+1)/Math.max(1,child.visits));
+        if(uct>bestValue){bestValue=uct;bestChild=child;}
+      }
+      current=bestChild;path.push(current);depth++;
+    }
+    let rollout=current.state;
+    while(depth<maxDepth&&!rollout.ended){
+      const possible=candidateEntries(rollout,2,random);
+      const selected=possible.length>1&&random()<.25?possible[1]:possible[0];
+      rollout=selected.state;depth++;
+    }
+    const result=normalized(rollout);
+    for(const node of path){
+      node.visits++;
+      for(let i=0;i<3;i++)node.total[i]+=result[i];
+    }
+  }
+  const ranked=root.children.filter(n=>n.move.q!==null)
+    .sort((a,b)=>b.visits-a.visits||
+      b.total[seat]/b.visits-a.total[seat]/a.visits);
+  for(const node of ranked)
+    inspection?.push({q:node.move.q,r:node.move.r,
+      score:node.total[seat]/node.visits,visits:node.visits});
+  return ranked.length?ranked[0].move:null;
+}
+function chooseHybrid(state,random,inspection){
+  const neural=[];
+  chooseNeuralMove(state,random,neural);
+  const tactical=options(state,state.radius>=8?4:6,random);
+  const combined=new Map();
+  for(const move of tactical)combined.set(pointKey(move.q,move.r),move);
+  // The old network supplies *proposals*, not an uncalibrated win probability.
+  for(const move of neural){
+    const key=pointKey(move.q,move.r);
+    if(combined.has(key)||isOwnEye(state,move.q,move.r))continue;
+    const result=play(state,move.q,move.r);
+    if(!result.ok||isUnsafeCpuMove(state,move.q,move.r,result))continue;
+    const utilities=vector(result.state);
+    combined.set(key,{...move,state:result.state,utilities});
+  }
+  const seat=ownIndex(state);
+  const topNeural=neural[0]?.score??0;
+  let chosen=null,best=-Infinity;
+  for(const move of combined.values()){
+    const replyWidth=state.radius>=8?1:2;
+    const after=searchMaxN(move.state,2,replyWidth,random);
+    const neuralScore=neural.find(n=>n.q===move.q&&n.r===move.r)?.score;
+    const prior=neuralScore===undefined?0:cap(neuralScore-topNeural,-5,0)*.5+1;
+    const score=advantage(after,seat)+advantage(move.utilities,seat)*.2+prior;
+    if(score>best){best=score;chosen={q:move.q,r:move.r};}
+    inspection?.push({q:move.q,r:move.r,score,neural:neuralScore??null});
+  }
+  return chosen;
+}
+
+/** Return a legal move or null (pass), with deterministic behavior under a seed. */
+function chooseExperimentalMove(state,random=Math.random,level='maxn',inspection=null){
+  if(!EXPERIMENTAL_LEVELS.includes(level))throw Error('Unknown experimental AI level');
+  if(state.ended||state.moveCount>=boardSize(state)*2)return null;
+  const results=Array.isArray(inspection)?inspection:null;
+  const move=level==='maxn'?chooseMaxN(state,random,results):
+    level==='mcts'?chooseMCTS(state,random,results):
+      chooseHybrid(state,random,results);
+  if(results)results.sort((a,b)=>b.score-a.score).splice(5);
+  return move;
+}
+
+
 function explainPosition(state) {
   const threats=dangerGroups(state);
   const counts=scores(state);
@@ -1472,16 +1692,17 @@ function permittedForHuman() {
   return false;
 }
 function botMove(random=Math.random) {
-  if(!['hard','neural'].includes(cpuLevel))
+  if(!['hard','neural',...EXPERIMENTAL_LEVELS].includes(cpuLevel))
     return chooseDifficultyMove(state,random,cpuLevel);
   const candidates=[];
   const chosen=cpuLevel==='neural'
     ? chooseNeuralMove(state,random,candidates)
-    : chooseStrongMove(state,random,candidates);
+    : cpuLevel==='hard' ? chooseStrongMove(state,random,candidates)
+      : chooseExperimentalMove(state,random,cpuLevel,candidates);
+  const notes={hard:'3手読みの相対評価値',neural:'学習モデルの相対スコア',
+    maxn:'3人MaxN探索の評価値',mcts:'3人MCTSの試行平均',hybrid:'ニューラル候補＋戦術探索の評価値'};
   lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],
-    chosen,candidates,notes:cpuLevel==='neural'
-      ? '学習モデルの相対スコア（棋力・勝率を保証しません）'
-      : '3手読みの相対評価値（勝率ではありません）'};
+    chosen,candidates,notes:notes[cpuLevel]+'（勝率ではありません）'};
   return chosen;
 }
 function pauseBots() {
@@ -1522,7 +1743,7 @@ function scheduleBots(){
   const generation=aiGeneration;
   botTimer=setTimeout(()=>{
     botTimer=null;
-    if(!['hard','neural'].includes(cpuLevel)||typeof Worker==='undefined'||location.protocol==='file:'){
+    if(!['hard','neural',...EXPERIMENTAL_LEVELS].includes(cpuLevel)||typeof Worker==='undefined'||location.protocol==='file:'){
       const move=botMove();if(move)place(move.q,move.r);else doPass();return;
     }
     try{
@@ -1580,7 +1801,7 @@ function setHints(options={}) {
   return {ok:true,legal:showLegal,danger:showDanger};
 }
 function setCpuLevel(value) {
-  if (!['easy','normal','hard','neural'].includes(value))
+  if (!['easy','normal','hard','neural',...EXPERIMENTAL_LEVELS].includes(value))
     return {ok:false,reason:'不明なCPU難易度'};
   cpuLevel=value;
   save();render();scheduleBots();
@@ -1724,7 +1945,7 @@ function render() {
 }
 function reset({radius=state.radius,nextMode=mode,nextLevel=cpuLevel}={}) {
   if (!['cpu','local','bots','online'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
-  if (!['easy','normal','hard','neural'].includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
+  if (!['easy','normal','hard','neural',...EXPERIMENTAL_LEVELS].includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
   let next;
   try {next=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
   stopBots();
@@ -1764,7 +1985,7 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
     normalized.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
   }
   const nextMode=networkSync?'online':(['cpu','local','bots'].includes(record.mode)?record.mode:'local');
-  const nextLevel=['easy','normal','hard','neural'].includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
+  const nextLevel=['easy','normal','hard','neural',...EXPERIMENTAL_LEVELS].includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
   const nextShowLegal=typeof record.showLegal==='boolean'?record.showLegal:showLegal;
   const nextShowDanger=typeof record.showDanger==='boolean'?record.showDanger:showDanger;
   stopBots();
@@ -2038,7 +2259,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.5.0',
+  version: '1.6.0',
   getNeuralModelInfo: neuralModelInfo,
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),
