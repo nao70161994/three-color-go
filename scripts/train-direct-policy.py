@@ -14,7 +14,6 @@ import runpy
 import subprocess
 import tempfile
 from pathlib import Path
-from collections import Counter
 
 import numpy as np
 import torch
@@ -80,18 +79,23 @@ def main():
                    help="Optional saved PV2 weights to fine-tune with pass actions")
     p.add_argument("--init-pass-margin", type=float,
                    help="Calibrate untrained pass-head bias below placement logits at empty start before continued self-play")
+    p.add_argument("--checkpoint-every", type=int, default=0,
+                   help="Save model/optimizer/RNG resumable .pt every N iterations, or 0")
+    p.add_argument("--resume", type=Path, default=None,
+                   help="Resume from a trusted .pt produced by this trainer; do not pass --init-model")
     p.add_argument("--out", type=Path,
                    default=ROOT / "reports" / "direct-policy-candidate.json")
     args = p.parse_args()
     radii = [int(r) for r in args.radii.split(",")]
-    if not (1 <= args.iterations <= 1000 and 1 <= args.games <= 100 and
+    if not (1 <= args.iterations <= 5000 and 1 <= args.games <= 100 and
             0 <= args.seed <= 0xffffffff and
             0 < args.temperature <= 10 and
             0 < args.learning_rate <= .1 and
             (args.init_pass_margin is None or
-             (args.init_model is not None and 0 <= args.init_pass_margin <= 10
+             (args.init_model is not None and args.resume is None and 0 <= args.init_pass_margin <= 10
               and math.isfinite(args.init_pass_margin))) and
-            0 <= args.entropy <= .5 and 1 <= args.epochs <= 10 and
+            0 <= args.entropy <= .5 and 0 <= args.checkpoint_every <= args.iterations and
+            not (args.resume and args.init_model) and 1 <= args.epochs <= 10 and
             1 <= args.batch_size <= 512 and
             radii and all(2 <= r <= 5 for r in radii) and
             all(math.isfinite(v) for v in
@@ -132,11 +136,37 @@ def main():
                               args.init_pass_margin)
                 net.pass_head.bias.add_(correction)
     optimizer = torch.optim.Adam(net.parameters(), lr=args.learning_rate)
-    total_games, total_positions = 0, 0
+    total_games, total_positions, start_iteration = 0, 0, 0
     sampled_passes=0; optional_passes=0
+    config={
+        "seed": args.seed,"games":args.games,"radii":radii,
+        "temperature":args.temperature,"learningRate":args.learning_rate,
+        "entropy":args.entropy,"epochs":args.epochs,"batchSize":args.batch_size,
+        "initPassMargin":args.init_pass_margin
+    }
+    if args.resume:
+        # torch.load uses pickle: read only .pt files produced by this trusted workflow.
+        state=torch.load(args.resume,map_location="cpu",weights_only=False)
+        if state.get("format")!="direct-pass-policy-resume-v1" or state.get("config")!=config:
+            raise RuntimeError("Incompatible training continuation checkpoint")
+        start_iteration=state["iteration"]
+        if not 0<start_iteration<args.iterations:
+            raise RuntimeError("Resume iteration outside target")
+        net.load_state_dict(state["model"])
+        optimizer.load_state_dict(state["optimizer"])
+        rng.setstate(state["shuffleRng"])
+        random.setstate(state["globalRandom"])
+        np.random.set_state(state["numpyRng"])
+        torch.set_rng_state(state["torchRng"])
+        total_games=state["totalGames"]
+        total_positions=state["totalPositions"]
+        sampled_passes=state["passesSampled"]
+        optional_passes=state["optionalPassesSampled"]
+        if total_games!=start_iteration*args.games:
+            raise RuntimeError("Invalid resumed game count")
     with tempfile.TemporaryDirectory(prefix="tgo-direct-") as directory:
         snapshot = Path(directory) / "frozen-policy.json"
-        for iteration in range(args.iterations):
+        for iteration in range(start_iteration,args.iterations):
             radius = radii[iteration % len(radii)]
             snapshot.write_text(json.dumps(exported(
                 net, args.seed, total_games, iteration, args.temperature)),
@@ -187,6 +217,25 @@ def main():
                     advantages.extend(float(x[1]) for x in terms)
             total_games += len(games)
             total_positions += len(samples)
+            if args.checkpoint_every and ((iteration+1)%args.checkpoint_every==0
+                                          or iteration+1==args.iterations):
+                path=args.out.with_name(f"{args.out.stem}-iter{iteration+1:04d}.pt")
+                path.parent.mkdir(parents=True,exist_ok=True)
+                torch.save({
+                    "format":"direct-pass-policy-resume-v1",
+                    "config":config,
+                    "iteration":iteration+1,
+                    "model":net.state_dict(),
+                    "optimizer":optimizer.state_dict(),
+                    "shuffleRng":rng.getstate(),
+                    "globalRandom":random.getstate(),
+                    "numpyRng":np.random.get_state(),
+                    "torchRng":torch.get_rng_state(),
+                    "totalGames":total_games,
+                    "totalPositions":total_positions,
+                    "passesSampled":sampled_passes,
+                    "optionalPassesSampled":optional_passes,
+                },path)
             print(json.dumps({
                 "iteration": iteration+1, "radius": radius,
                 "games": len(games), "samples": len(samples),
@@ -209,6 +258,7 @@ def main():
         "passesSampled": sampled_passes,
         "optionalPassesSampled": optional_passes,
         "initializedFrom": str(args.init_model) if args.init_model else None,
+        "resumeFrom": str(args.resume) if args.resume else None,
         "initialPassMargin": args.init_pass_margin
     })
     args.out.parent.mkdir(parents=True, exist_ok=True)
