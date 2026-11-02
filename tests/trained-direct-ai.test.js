@@ -5,6 +5,7 @@ import {TRAINED_LEVELS,trainedModelsInfo,chooseTrainedMove,getTrainedModel} from
 import {evaluatePV2,createInitialPV2Model} from '../src/pv2-ai.js';
 import {policyLegalActions,directPolicy,selectDirectPolicyMove} from '../src/direct-policy.js';
 import {pointsOnBoard} from '../src/game.js';
+import {isOwnEye,chooseMove,seededRandom} from '../src/agent.js';
 
 test('three real saved self-play checkpoints load with actual architecture and metadata',()=>{
   assert.equal(TRAINED_LEVELS.length,3);
@@ -78,5 +79,29 @@ test('pass competes with playable moves and can be deliberately chosen',()=>{
     const trained=directPolicy(state,getTrainedModel(id));
     assert.equal(trained.actions.at(-1).type,'pass');
     assert.ok(Number.isFinite(trained.probabilities.at(-1)));
+  }
+});
+
+test('trained CPU never fills its own enclosed eye; pass remains legal',()=>{
+  const ring={'1,0':'black','1,-1':'black','0,-1':'black',
+    '-1,0':'black','-1,1':'black','0,1':'black'};
+  const state={...createGame(2),board:ring,turn:0};
+  assert.ok(isOwnEye(state,0,0),'center is an enclosed own eye');
+  for(const id of TRAINED_LEVELS){
+    const move=chooseTrainedMove(state,id);
+    assert.ok(move===null||!isOwnEye(state,move.q,move.r),id+' must protect its eye');
+    for(const radius of [2,3]){
+      const random=seededRandom(20261105+radius);
+      let s=createGame(radius);
+      for(let turn=0;turn<180&&!s.ended;turn++){
+        const selected=s.turn===0?chooseTrainedMove(s,id):chooseMove(s,random,'balanced');
+        if(s.turn===0&&selected)
+          assert.ok(!isOwnEye(s,selected.q,selected.r),id+' filled own eye on turn '+turn);
+        const outcome=selected?play(s,selected.q,selected.r):pass(s);
+        assert.ok(outcome.ok);
+        s=outcome.state;
+      }
+      assert.ok(s.ended,'self-play with pass-aware trained CPU terminates');
+    }
   }
 });

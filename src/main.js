@@ -252,7 +252,7 @@ function botMove(random=Math.random,level=turnCpuLevel()) {
       : chooseStrongMove(state,random,candidates);
   lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],level,
     chosen,candidates,notes:TRAINED_LEVELS.includes(level)
-      ? '着手／パスの方策確率（パスを含め440局追加学習、勝率ではありません）'
+      ? '着手／パスの方策確率（自己眼の着手だけ安全除外、パス含め440局追加学習）'
       : level==='neural'
         ? '学習モデルの相対スコア（棋力・勝率を保証しません）'
         : '3手読みの相対評価値（勝率ではありません）'};
