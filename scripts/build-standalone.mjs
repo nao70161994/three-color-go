@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const stripImports=src=>src.replace(/^import .*;\r?\n/gm,'').replace(/^export (const|function) /gm,'$1 ');
+const stripImports=src=>src.replace(/^import .*;\r?\n/gm,'').replace(/^export (const|function) /gm,'$1 ').replace(/^export \\{[^\\n]+\\};?\\r?\\n?/gm,'');
 const index=read('index.html');
 const style=read('src/style.css');
 const game=stripImports(read('src/game.js'));
