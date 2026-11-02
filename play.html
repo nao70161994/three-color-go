@@ -295,9 +295,9 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
         <li>陣地点、アゲハマ点、コミはなし。</li>
         <li>棋譜を再生すると手番や点数も過去の状態で確認でき、対局へ戻ると続きから遊べます。</li>
       </ul>
-      <p>「自由編成」を選ぶと黒・白・赤を個別に人間または異なるCPUに設定できます（人間2人＋CPU1人も可能）。「むずかしい」は相手2人の応手を先読みします。「ディープラーニング」は模擬対局の評価データから学習した小型ニューラルネットワークで着手候補を採点します（既存CPUより強い保証はありません）。新しい3つの「深層学習」CPUは、探索なしで自己対戦学習したPV2モデルの保存済み重みを使用します。最有力は過去の独立CPU評価で選ばれたもので、すべての盤面や人間相手で最強と保証されたものではありません。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
+      <p>「自由編成」を選ぶと黒・白・赤を個別に人間または異なるCPUに設定できます（人間2人＋CPU1人も可能）。「むずかしい」は相手2人の応手を先読みします。「ディープラーニング」は模擬対局の評価データから学習した小型ニューラルネットワークで着手候補を採点します（既存CPUより強い保証はありません）。新しい3つの「深層学習」CPUは、探索なしで自己対戦学習したPV2モデルの保存済み重みを使用します。パスも選択可能ですが、旧保存済み重みは通常パスを比較して学習しておらず、適切なパス判断を保証しません。最有力は過去の独立CPU評価で選ばれたもので、すべての盤面や人間相手で最強と保証されたものではありません。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
     </details>
-    <footer>v1.7.0 · 黒・白・赤それぞれの人間／CPU設定に対応</footer>
+    <footer>v1.7.1 · 学習AIの通常パス候補を解禁・再学習準備</footer>
   </main>
   <script>window.THREE_COLOR_MATCH_URL="";</script>
   <script>
@@ -1149,7 +1149,8 @@ function evaluatePV2(state,model){
  *
  * Each move uses ONE PV2 forward pass and a legal-move mask. No MCTS,
  * rollouts, heuristic scores, hand-authored "good-move" filters, or tree
- * lookahead. Legal validation uses the actual game rules only.
+ * lookahead. Pass is a legal policy action alongside placements on every turn.
+ * Legal validation uses the actual game rules only.
  */
 
 function finalStoneShares(state){
@@ -1162,9 +1163,9 @@ function policyLegalActions(state){
   const points=pointsOnBoard(state.radius),cap=points.length*2;
   if(state.moveCount>=cap)return [{type:'pass',index:points.length}];
   const options=legalMoves(state);
-  if(!options.length)return [{type:'pass',index:points.length}];
   const indexes=new Map(points.map(({q,r},i)=>[q+','+r,i]));
-  return options.map(({q,r})=>({type:'play',q,r,index:indexes.get(q+','+r)}));
+  return [...options.map(({q,r})=>({type:'play',q,r,index:indexes.get(q+','+r)})),
+    {type:'pass',index:points.length}];
 }
 function directPolicy(state,model,{temperature=1}={}){
   if(!Number.isFinite(temperature)||temperature<=0||temperature>10)
@@ -1232,7 +1233,10 @@ function getTrainedModel(id){
   if(!loaded.has(id))loaded.set(id,validatePV2Model(CHECKPOINTS[id]));
   return loaded.get(id);
 }
-/** Greedy direct action from a real saved self-play checkpoint, without search. */
+/** Greedy direct action from a saved checkpoint, without search.
+ * The legacy weights did not compare ordinary passes in self-play:
+ * inference now permits pass, but pass skill needs retraining.
+ */
 function chooseTrainedMove(state,id='trained-lr001-final',inspection=null){
   const model=getTrainedModel(id);
   if(state.ended)return null;
@@ -1731,7 +1735,7 @@ function botMove(random=Math.random,level=turnCpuLevel()) {
       : chooseStrongMove(state,random,candidates);
   lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],level,
     chosen,candidates,notes:TRAINED_LEVELS.includes(level)
-      ? '自己対戦学習済み方策の着手確率（勝率ではありません）'
+      ? '着手／パスの方策確率（既存モデルのパス判断は未再学習）'
       : level==='neural'
         ? '学習モデルの相対スコア（棋力・勝率を保証しません）'
         : '3手読みの相対評価値（勝率ではありません）'};
@@ -2325,7 +2329,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.7.0',
+  version: '1.7.1',
   getNeuralModelInfo: neuralModelInfo,
   getTrainedModelsInfo: trainedModelsInfo,
   getState: ()=>snapshot(state),
