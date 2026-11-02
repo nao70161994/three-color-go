@@ -15,7 +15,7 @@ self.addEventListener('message',({data})=>{
           : chooseStrongMove(state,Math.random,candidates);
       decision={turn:state.moveCount+1,chosen:move,
         candidates,notes:TRAINED_LEVELS.includes(level)
-          ? '着手／パスの方策確率（既存モデルのパス判断は未再学習）'
+          ? '着手／パスの方策確率（パスを含め440局追加学習、勝率ではありません）'
           : level==='neural'?'学習モデルの相対スコア':'3手探索の相対スコア'};
     }else move=chooseDifficultyMove(state,Math.random,level);
     self.postMessage({generation,move,decision});

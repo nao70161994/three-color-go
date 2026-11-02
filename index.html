@@ -19,7 +19,7 @@
     </header>
     <div class="settings">
       <div class="setting"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">1人で遊ぶ（CPU 2人）</option><option value="bots">CPU 3人の対局を観戦</option><option value="custom">自由編成（色ごとに人間／CPU）</option><option value="local">3人で交代</option><option value="online">オンライン3人対戦（試験版）</option></select></div>
-      <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option><option value="neural">ディープラーニング（旧実験版）</option><option value="trained-lr001-final">深層学習：0.001／102,400局（最有力）</option><option value="trained-lr001-peak">深層学習：0.001／95,680局</option><option value="trained-lr0003-peak">深層学習：0.0003／95,360局</option></select></div>
+      <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option><option value="neural">ディープラーニング（旧実験版）</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option></select></div>
     </div>
     <section class="seatSettings" id="seatSettings" aria-label="色ごとのプレイヤー設定" hidden>
       <strong>各色の担当（対局中も変更できます）</strong>
@@ -121,9 +121,9 @@
         <li>陣地点、アゲハマ点、コミはなし。</li>
         <li>棋譜を再生すると手番や点数も過去の状態で確認でき、対局へ戻ると続きから遊べます。</li>
       </ul>
-      <p>「自由編成」を選ぶと黒・白・赤を個別に人間または異なるCPUに設定できます（人間2人＋CPU1人も可能）。「むずかしい」は相手2人の応手を先読みします。「ディープラーニング」は模擬対局の評価データから学習した小型ニューラルネットワークで着手候補を採点します（既存CPUより強い保証はありません）。新しい3つの「深層学習」CPUは、探索なしで自己対戦学習したPV2モデルの保存済み重みを使用します。パスも選択可能ですが、旧保存済み重みは通常パスを比較して学習しておらず、適切なパス判断を保証しません。最有力は過去の独立CPU評価で選ばれたもので、すべての盤面や人間相手で最強と保証されたものではありません。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
+      <p>「自由編成」を選ぶと黒・白・赤を個別に人間または異なるCPUに設定できます（人間2人＋CPU1人も可能）。「むずかしい」は相手2人の応手を先読みします。「ディープラーニング」は模擬対局の評価データから学習した小型ニューラルネットワークで着手候補を採点します（既存CPUより強い保証はありません）。新しい3つの「深層学習」CPUは、探索なしで自己対戦学習したPV2モデルの保存済み重みを使用します。合法手がある局面でもパスを方策候補に含め、それぞれ440局追加学習しています。序盤パスの過大評価を避ける初期値調整も行っていますが、最善の終局判断を保証するものではありません。最有力は過去の独立CPU評価で選ばれたもので、すべての盤面や人間相手で最強と保証されたものではありません。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
     </details>
-    <footer>v1.7.1 · 学習AIの通常パス候補を解禁・再学習準備</footer>
+    <footer>v1.8.0 · パスを含む自己対戦学習済みAI 3モデル</footer>
   </main>
   <script src="./match-config.js"></script>
   <script type="module" src="./src/main.js"></script>

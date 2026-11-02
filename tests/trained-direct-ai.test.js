@@ -8,12 +8,17 @@ import {pointsOnBoard} from '../src/game.js';
 
 test('three real saved self-play checkpoints load with actual architecture and metadata',()=>{
   assert.equal(TRAINED_LEVELS.length,3);
-  assert.deepEqual(trainedModelsInfo().map(x=>x.games),[102400,95680,95360]);
+  assert.deepEqual(trainedModelsInfo().map(x=>x.games),[102840,96120,95800]);
+  assert.deepEqual(trainedModelsInfo().map(x=>x.passTrainingGames),[440,440,440]);
+  assert.ok(trainedModelsInfo().every(x=>x.passLearned));
   assert.deepEqual(trainedModelsInfo().map(x=>x.learningRate),[0.001,0.001,0.0003]);
   for(const id of TRAINED_LEVELS){
     const m=getTrainedModel(id);
     assert.equal(m.architecture,'hex-group-pv-16-v2');
     assert.match(m.training,/on-policy actor-critic/);
+    assert.equal(m.metadata.passInLegalActions,true);
+    assert.equal(m.metadata.initialPassMargin,1.5);
+    assert.ok(m.metadata.optionalPassesSampled>0);
     assert.equal(m.layers.mix3.weights.length,512);
   }
 });
@@ -26,7 +31,8 @@ test('trained networks are distinct, seeded deterministic, and legal across all 
       const state=createGame(radius),before=JSON.stringify(state);
       const choices=[];
       const move=chooseTrainedMove(state,id,choices);
-      assert.equal(move===null?pass(state).ok:play(state,move.q,move.r).ok,true,
+      assert.ok(move,'trained pass-aware model should open with a placement at radius '+radius);
+      assert.equal(play(state,move.q,move.r).ok,true,
         id+' must choose a legal placement or pass at radius '+radius);
       assert.deepEqual(chooseTrainedMove(state,id),move);
       assert.equal(JSON.stringify(state),before);

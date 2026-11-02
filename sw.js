@@ -1,8 +1,8 @@
-const CACHE='three-color-go-v1.7.1';
+const CACHE='three-color-go-v1.8.0';
 const CORE=['./','./index.html','./manifest.webmanifest','./icons/app-icon.svg',
 './icons/icon-192.png','./icons/icon-512.png','./src/style.css',
 './src/game.js','./src/agent.js','./src/strong-ai.js','./src/neural-weights.js','./src/neural-ai.js','./src/pv2-ai.js','./src/direct-policy.js',
- './src/trained-model-data.js','./src/trained-direct-ai.js','./src/insights.js',
+ './src/trained-model-data.js','./src/pass-trained-model-data.js','./src/trained-direct-ai.js','./src/insights.js',
 './src/online.js','./src/matchmaking.js','./src/ai-worker.js','./src/main.js',
 './play.html','./match-config.js'];
 self.addEventListener('install',event=>event.waitUntil(
