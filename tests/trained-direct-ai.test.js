@@ -5,7 +5,8 @@ import {TRAINED_LEVELS,trainedModelsInfo,chooseTrainedMove,getTrainedModel} from
 import {evaluatePV2,createInitialPV2Model} from '../src/pv2-ai.js';
 import {policyLegalActions,directPolicy,selectDirectPolicyMove} from '../src/direct-policy.js';
 import {pointsOnBoard} from '../src/game.js';
-import {isOwnEye,chooseMove,seededRandom} from '../src/agent.js';
+import {chooseMove,seededRandom} from '../src/agent.js';
+import {readFileSync} from 'node:fs';
 
 test('three real saved self-play checkpoints load with actual architecture and metadata',()=>{
   assert.equal(TRAINED_LEVELS.length,3);
@@ -82,26 +83,37 @@ test('pass competes with playable moves and can be deliberately chosen',()=>{
   }
 });
 
-test('trained CPU never fills its own enclosed eye; pass remains legal',()=>{
+test('trained inference exactly follows raw legal policy without tactical filters',()=>{
+  const source=readFileSync(new URL('../src/trained-direct-ai.js',import.meta.url),'utf8');
+  assert.doesNotMatch(source,/isOwnEye|safeCpuMoves|isUnsafeCpuMove/);
   const ring={'1,0':'black','1,-1':'black','0,-1':'black',
     '-1,0':'black','-1,1':'black','0,1':'black'};
-  const state={...createGame(2),board:ring,turn:0};
-  assert.ok(isOwnEye(state,0,0),'center is an enclosed own eye');
+  const scenarios=[
+    createGame(2),
+    createGame(3),
+    {...createGame(2),board:ring,turn:0,moveCount:6}
+  ];
+  // Include real mid/late-game states from seeded play; verify same argmax
+  // even when the network's preferred action would look strategically bad.
+  const random=seededRandom(20261106);
+  let state=createGame(3);
+  for(let i=0;i<36&&!state.ended;i++){
+    scenarios.push(state);
+    const move=chooseMove(state,random,'balanced');
+    const outcome=move?play(state,move.q,move.r):pass(state);
+    assert.ok(outcome.ok);
+    state=outcome.state;
+  }
   for(const id of TRAINED_LEVELS){
-    const move=chooseTrainedMove(state,id);
-    assert.ok(move===null||!isOwnEye(state,move.q,move.r),id+' must protect its eye');
-    for(const radius of [2,3]){
-      const random=seededRandom(20261105+radius);
-      let s=createGame(radius);
-      for(let turn=0;turn<180&&!s.ended;turn++){
-        const selected=s.turn===0?chooseTrainedMove(s,id):chooseMove(s,random,'balanced');
-        if(s.turn===0&&selected)
-          assert.ok(!isOwnEye(s,selected.q,selected.r),id+' filled own eye on turn '+turn);
-        const outcome=selected?play(s,selected.q,selected.r):pass(s);
-        assert.ok(outcome.ok);
-        s=outcome.state;
-      }
-      assert.ok(s.ended,'self-play with pass-aware trained CPU terminates');
+    const model=getTrainedModel(id);
+    for(const scenario of scenarios){
+      const expected=selectDirectPolicyMove(scenario,model,{greedy:true});
+      const candidates=[];
+      const actual=chooseTrainedMove(scenario,id,candidates);
+      assert.deepEqual(actual,expected.move,id+' must use raw policy argmax');
+      assert.ok(actual===null||play(scenario,actual.q,actual.r).ok,
+        'only game-legal placements are playable');
+      assert.ok(candidates.every(c=>c.score>=0&&c.score<=1));
     }
   }
 });
