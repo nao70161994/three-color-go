@@ -18,9 +18,18 @@
       <p>3色で囲み、最後に残った石の数を競おう。</p>
     </header>
     <div class="settings">
-      <div class="setting"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">1人で遊ぶ（CPU 2人）</option><option value="bots">CPU 3人の対局を観戦</option><option value="local">3人で交代</option><option value="online">オンライン3人対戦（試験版）</option></select></div>
+      <div class="setting"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">1人で遊ぶ（CPU 2人）</option><option value="bots">CPU 3人の対局を観戦</option><option value="custom">自由編成（色ごとに人間／CPU）</option><option value="local">3人で交代</option><option value="online">オンライン3人対戦（試験版）</option></select></div>
       <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option><option value="neural">ディープラーニング（旧実験版）</option><option value="trained-lr001-final">深層学習：0.001／102,400局（最有力）</option><option value="trained-lr001-peak">深層学習：0.001／95,680局</option><option value="trained-lr0003-peak">深層学習：0.0003／95,360局</option></select></div>
     </div>
+    <section class="seatSettings" id="seatSettings" aria-label="色ごとのプレイヤー設定" hidden>
+      <strong>各色の担当（対局中も変更できます）</strong>
+      <div class="seatSettingsGrid">
+        <label for="seatBlack"><span class="stone tiny black"></span> 黒（先手）</label><select id="seatBlack"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,400局（最有力）</option><option value="trained-lr001-peak">深層学習：0.001／95,680局</option><option value="trained-lr0003-peak">深層学習：0.0003／95,360局</option></select>
+        <label for="seatWhite"><span class="stone tiny white"></span> 白（2手目）</label><select id="seatWhite"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,400局（最有力）</option><option value="trained-lr001-peak">深層学習：0.001／95,680局</option><option value="trained-lr0003-peak">深層学習：0.0003／95,360局</option></select>
+        <label for="seatRed"><span class="stone tiny red"></span> 赤（3手目）</label><select id="seatRed"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final" selected>深層学習：0.001／102,400局（最有力）</option><option value="trained-lr001-peak">深層学習：0.001／95,680局</option><option value="trained-lr0003-peak">深層学習：0.0003／95,360局</option></select>
+      </div>
+      <p>初期設定は人間2人＋学習済みCPU1人。人間の手番は同じ盤面を交代で操作します。全員CPUなら観戦・一時停止もできます。</p>
+    </section>
     <section id="onlinePanel" class="onlinePanel" hidden aria-label="オンライン3人対戦">
       <div class="onlineActions">
         <button id="onlineCreate" type="button">部屋を作る（黒）</button>
@@ -112,9 +121,9 @@
         <li>陣地点、アゲハマ点、コミはなし。</li>
         <li>棋譜を再生すると手番や点数も過去の状態で確認でき、対局へ戻ると続きから遊べます。</li>
       </ul>
-      <p>「むずかしい」は相手2人の応手を先読みします。「ディープラーニング」は模擬対局の評価データから学習した小型ニューラルネットワークで着手候補を採点します（既存CPUより強い保証はありません）。新しい3つの「深層学習」CPUは、探索なしで自己対戦学習したPV2モデルの保存済み重みを使用します。最有力は過去の独立CPU評価で選ばれたもので、すべての盤面や人間相手で最強と保証されたものではありません。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
+      <p>「自由編成」を選ぶと黒・白・赤を個別に人間または異なるCPUに設定できます（人間2人＋CPU1人も可能）。「むずかしい」は相手2人の応手を先読みします。「ディープラーニング」は模擬対局の評価データから学習した小型ニューラルネットワークで着手候補を採点します（既存CPUより強い保証はありません）。新しい3つの「深層学習」CPUは、探索なしで自己対戦学習したPV2モデルの保存済み重みを使用します。最有力は過去の独立CPU評価で選ばれたもので、すべての盤面や人間相手で最強と保証されたものではありません。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
     </details>
-    <footer>v1.6.1 · 学習済みAI選択の保持を修正・スマホ対応</footer>
+    <footer>v1.7.0 · 黒・白・赤それぞれの人間／CPU設定に対応</footer>
   </main>
   <script src="./match-config.js"></script>
   <script type="module" src="./src/main.js"></script>
