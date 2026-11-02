@@ -1,5 +1,4 @@
 import {selectDirectPolicyMove} from './direct-policy.js';
-import {isOwnEye} from './agent.js';
 import {validatePV2Model} from './pv2-ai.js';
 import {CHECKPOINTS} from './trained-model-data.js';
 import {PASS_CHECKPOINTS} from './pass-trained-model-data.js';
@@ -26,29 +25,18 @@ export function getTrainedModel(id){
   if(!loaded.has(id))loaded.set(id,validatePV2Model(PASS_CHECKPOINTS[id]));
   return loaded.get(id);
 }
-/** Highest-probability action from pass-aware fine-tuned weights.
- * Previous checkpoints remain in trained-model-data.js for reproducibility.
- * Pass shares the same softmax with placements. A minimal safety check
- * excludes filling an enclosed eye of the current connected friendly group.
- * This is an inference safety guard, NOT an outcome learned by the network.
+/** Greedy PV2 policy without strategic rule-based masks or search.
+ * Every legal placement and pass compete using the trained network's output.
+ * Rule legality is checked in direct-policy.js, not strategic 'eye' filters.
  */
 export function chooseTrainedMove(state,id='trained-lr001-final',inspection=null){
   const model=getTrainedModel(id);
   if(state.ended)return null;
   const result=selectDirectPolicyMove(state,model,{greedy:true});
-  let selected=-1;
-  for(let i=0;i<result.actions.length;i++){
-    const action=result.actions[i];
-    if(action.type==='play'&&isOwnEye(state,action.q,action.r))continue;
-    if(selected<0||result.probabilities[i]>result.probabilities[selected])selected=i;
-  }
-  // Pass is always legal in an active game; selected cannot be -1.
-  const action=result.actions[selected];
   if(Array.isArray(inspection)){
-    inspection.push(...result.actions.map((a,index)=>({
-      q:a.q??null,r:a.r??null,score:result.probabilities[index],
-      ownEye:a.type==='play'&&isOwnEye(state,a.q,a.r)
+    inspection.push(...result.actions.map((action,index)=>({
+      q:action.q??null,r:action.r??null,score:result.probabilities[index]
     })).sort((a,b)=>b.score-a.score).slice(0,5));
   }
-  return action.type==='pass'?null:{q:action.q,r:action.r};
+  return result.move;
 }

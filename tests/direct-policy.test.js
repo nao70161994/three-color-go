@@ -35,11 +35,13 @@ test('one-pass direct selection samples actual legal moves with probability one'
   assert.ok(a.move===null||play(state,a.move.q,a.move.r).ok);
   assert.ok(applyDirectPolicy(state,a.move).moveCount===1);
 });
-test('CPU cap forces pass and prevents endless games, without changing human rules',()=>{
+test('pass competes with every legal placement even after training horizon',()=>{
   const state=createGame(3),n=pointsOnBoard(3).length;
-  assert.deepEqual(policyLegalActions({...state,moveCount:n*2}),
-    [{type:'pass',index:n}]);
-  assert.equal(selectDirectPolicyMove({...state,moveCount:n*2},model).move,null);
+  const pastHorizon={...state,moveCount:n*2};
+  assert.equal(policyLegalActions(pastHorizon).length,n+1);
+  assert.deepEqual(policyLegalActions(pastHorizon).at(-1),
+    {type:'pass',index:n});
+  assert.ok(policyLegalActions(pastHorizon).some(a=>a.type==='play'));
   assert.deepEqual(policyLegalActions({...state,ended:true}),[]);
 });
 test('direct self-play updates all three seats with real terminal stone shares',()=>{

@@ -4,7 +4,7 @@
  * Each move uses ONE PV2 forward pass and a legal-move mask. No MCTS,
  * rollouts, heuristic scores, hand-authored "good-move" filters, or tree
  * lookahead. Pass is a legal policy action alongside placements on every turn.
- * Legal validation uses the actual game rules only.
+ * No artificial turn-count filter; legal validation uses the actual game rules only.
  */
 import {COLORS,pointsOnBoard,scores,play,pass} from './game.js';
 import {legalMoves,seededRandom} from './agent.js';
@@ -17,8 +17,7 @@ export function finalStoneShares(state){
 }
 export function policyLegalActions(state){
   if(state.ended)return [];
-  const points=pointsOnBoard(state.radius),cap=points.length*2;
-  if(state.moveCount>=cap)return [{type:'pass',index:points.length}];
+  const points=pointsOnBoard(state.radius);
   const options=legalMoves(state);
   const indexes=new Map(points.map(({q,r},i)=>[q+','+r,i]));
   return [...options.map(({q,r})=>({type:'play',q,r,index:indexes.get(q+','+r)})),

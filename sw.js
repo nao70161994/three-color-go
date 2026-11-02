@@ -1,4 +1,4 @@
-const CACHE='three-color-go-v1.8.0';
+const CACHE='three-color-go-v1.8.1';
 const CORE=['./','./index.html','./manifest.webmanifest','./icons/app-icon.svg',
 './icons/icon-192.png','./icons/icon-512.png','./src/style.css',
 './src/game.js','./src/agent.js','./src/strong-ai.js','./src/neural-weights.js','./src/neural-ai.js','./src/pv2-ai.js','./src/direct-policy.js',

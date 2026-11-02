@@ -4,7 +4,7 @@
  * Every state from ALL 3 colors becomes a policy-gradient sample.
  */
 import {readFileSync} from 'node:fs';
-import {COLORS,createGame,pointsOnBoard,scores} from '../src/game.js';
+import {COLORS,createGame,pointsOnBoard,scores,pass} from '../src/game.js';
 import {seededRandom} from '../src/agent.js';
 import {PV2_ARCH} from '../src/pv2-ai.js';
 import {
@@ -35,6 +35,14 @@ for(let game=0;game<games;game++){
   let state=createGame(radius),turns=0;
   const samples=[];let passes=0,optionalPasses=0;
   while(!state.ended&&turns<cap+3){
+    // Training horizon only: force 3 terminal passes outside policy samples.
+    // In the playable agent pass always competes with *all* legal placements.
+    if(turns>=cap){
+      const forced=pass(state);
+      if(!forced.ok)throw Error(forced.reason);
+      state=forced.state;turns++;
+      continue;
+    }
     const snapshot=encodePV2State(state);
     const choice=selectDirectPolicyMove(state,model,{random,temperature});
     if(!choice.action)throw Error('Missing legal action');
