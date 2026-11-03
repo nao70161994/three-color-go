@@ -9,7 +9,7 @@ permissions:
   actions: read
 concurrency:
   group: architecture-comparison-20k
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   milestone_01:
     strategy:
