@@ -34,12 +34,12 @@ const rotations=[
   ['cpu','a','b'],['cpu','b','a']
 ];
 const winShares={a:0,b:0,cpu:0},results=[];
+const cap=pointsOnBoard(radius).length*3;
 for(let i=0;i<games;i++){
   const order=rotations[i%6],block=Math.floor(i/6),
     gameSeed=(seed+block*100003)>>>0;
   const random=COLORS.map((_,seat)=>seededRandom((gameSeed+151*seat)>>>0));
   let state=createGame(radius),turns=0;
-  const cap=pointsOnBoard(radius).length*3;
   while(!state.ended&&turns<cap+3){
     const seat=state.turn,key=order[seat];
     const move=key==='a'||key==='b'
