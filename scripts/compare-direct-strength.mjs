@@ -34,23 +34,29 @@ const cpuResults=candidates.map(([id,learningRate,trainingGames])=>{
   const matches=[];
   for(const radius of [3,4])for(const group of groups){
     const r=load(join(cpuRoot,id,'r'+radius+'-'+group+'.json'));
-    if(r.radius!==radius||r.games!==48||r.finished!==48||r.truncated!==0||
+    if(r.radius!==radius||r.games!==48||r.finished+r.truncated!==48||
        r.opponents.join('-')!==group||
        Math.abs(r.learningRate-learningRate)>1e-9||
        r.trainingGames!==trainingGames||
-       !Number.isFinite(r.directMeanStoneShare)||!Number.isFinite(r.directWinShareRate))
+       !Number.isFinite(r.observedMeanStoneShare)||r.records?.length!==48)
       throw Error('Unexpected or incomplete independent CPU result: '+id+', r'+radius+','+group);
     matches.push(r);
   }
   const hard=matches.filter(x=>x.opponents.join('-')==='hard-balanced');
+  const finished=matches.reduce((n,r)=>n+r.finished,0);
+  const winsNumerator=matches.reduce((n,r)=>n+(r.directWinShareRate??0)*r.finished,0);
   return {id,learningRate,trainingGames,games:matches.reduce((n,r)=>n+r.games,0),
-    stoneShare:mean(matches.map(x=>x.directMeanStoneShare)),
-    winShare:mean(matches.map(x=>x.directWinShareRate)),
-    hardBalancedShare:mean(hard.map(x=>x.directMeanStoneShare)),
-    radius3Share:mean(matches.filter(x=>x.radius===3).map(x=>x.directMeanStoneShare)),
-    radius4Share:mean(matches.filter(x=>x.radius===4).map(x=>x.directMeanStoneShare)),
+    finished,truncated:matches.reduce((n,r)=>n+r.truncated,0),
+    stoneShare:mean(matches.map(x=>x.observedMeanStoneShare)),
+    finalStoneShare:finished?matches.reduce((n,r)=>n+(r.directMeanStoneShare??0)*r.finished,0)/finished:null,
+    winShare:finished?winsNumerator/finished:null,
+    hardBalancedShare:mean(hard.map(x=>x.observedMeanStoneShare)),
+    radius3Share:mean(matches.filter(x=>x.radius===3).map(x=>x.observedMeanStoneShare)),
+    radius4Share:mean(matches.filter(x=>x.radius===4).map(x=>x.observedMeanStoneShare)),
     matchups:matches.map(x=>({radius:x.radius,opponents:x.opponents,
-      meanStoneShare:x.directMeanStoneShare,winShareRate:x.directWinShareRate}))
+      finished:x.finished,truncated:x.truncated,
+      observedStoneShare:x.observedMeanStoneShare,
+      finalStoneShare:x.directMeanStoneShare,winShareRate:x.directWinShareRate}))
   };
 }).sort((a,b)=>b.stoneShare-a.stoneShare);
 const prng=(seed)=>()=>{seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return(seed>>>0)/4294967296};
@@ -60,9 +66,10 @@ const h2hResults=pairs.map(([a,b],index)=>{
     const r=load(join(duelRoot,a+'--'+b,'r'+radius+'-'+opponent+'.json'));
     if(r.radius!==radius||r.opponent!==opponent||r.games!==48||
        r.results?.length!==48||r.rotationsPerBlock!==6||
+       r.finished+r.truncated!==48||
        !Number.isFinite(r.meanStoneShare.a)||!Number.isFinite(r.meanStoneShare.b)||
-       !Number.isFinite(r.winShareRate.a)||!Number.isFinite(r.winShareRate.b)||
-       r.wins.a+r.wins.b+r.wins.tied!==48)
+       r.wins.a+r.wins.b+r.wins.tied!==48||
+       r.finishedWins.a+r.finishedWins.b+r.finishedWins.tied!==r.finished)
       throw Error('Incomplete head-to-head: '+a+' '+b+' r'+radius+' '+opponent);
     const blocks=[];
     for(let k=0;k<8;k++){
@@ -74,11 +81,14 @@ const h2hResults=pairs.map(([a,b],index)=>{
     cells.push({radius,opponent,...r,blocks});
   }
   const games=cells.reduce((n,r)=>n+r.games,0);
+  const finished=cells.reduce((n,r)=>n+r.finished,0);
+  const truncated=games-finished;
   const awins=cells.reduce((n,r)=>n+r.wins.a,0);
   const bwins=cells.reduce((n,r)=>n+r.wins.b,0);
   const ties=cells.reduce((n,r)=>n+r.wins.tied,0);
   const avgStoneDiff=mean(cells.map(r=>r.meanStoneShare.a-r.meanStoneShare.b));
-  const winShareDiff=mean(cells.map(r=>r.winShareRate.a-r.winShareRate.b));
+  const winShareDiff=finished?cells.reduce((n,r)=>n+
+    ((r.winShareRate.a??0)-(r.winShareRate.b??0))*r.finished,0)/finished:null;
   const rand=prng(412300+index*10001),bootstrap=[];
   for(let i=0;i<1500;i++){
     bootstrap.push(mean(cells.map(cell=>mean(Array.from({length:8},()=>{
@@ -88,41 +98,52 @@ const h2hResults=pairs.map(([a,b],index)=>{
   }
   bootstrap.sort((x,y)=>x-y);
   const ci95=[bootstrap[Math.floor(bootstrap.length*.025)],bootstrap[Math.floor(bootstrap.length*.975)]];
-  return {a,b,games,awins,bwins,ties,avgStoneDiff,winShareDiff,ci95,
-    relativeWinner:ci95[0]>0?a:ci95[1]<0?b:'undetermined',
+  return {a,b,games,finished,truncated,awins,bwins,ties,avgStoneDiff,winShareDiff,ci95,
+    observedStoneEdge:ci95[0]>0?a:ci95[1]<0?b:'undetermined',
+    finishedWins:{
+      a:cells.reduce((n,r)=>n+r.finishedWins.a,0),
+      b:cells.reduce((n,r)=>n+r.finishedWins.b,0),
+      tied:cells.reduce((n,r)=>n+r.finishedWins.tied,0)
+    },
     cells:cells.map(x=>({radius:x.radius,opponent:x.opponent,games:x.games,
+      finished:x.finished,truncated:x.truncated,
       awins:x.wins.a,bwins:x.wins.b,ties:x.wins.tied,
       aStoneShare:x.meanStoneShare.a,bStoneShare:x.meanStoneShare.b}))};
 });
+const present=v=>v===null||!Number.isFinite(v)?'-':(v*100).toFixed(2)+'%';
 const lines=[
- '# パス込み追加学習の5モデル・累計122,400局の独立棋力検証',
- '',
- '学習には使っていない新規評価seedで、半径3/4×CPU4組×各48局（各候補384局）、',
- '直接対戦は3人目をhard/balancedとし、半径3/4×各48局（各組合せ192局）。',
- '直接対戦は色・手番を6通りローテーション。CPU評価と直接対戦は別々に集計。',
- '',
- '## 共通条件の独立CPU評価',
- '',
- '| モデル | 追加学習局数 | 評価局数 | 最終石数割合 | 勝利配分率 | hard+balanced相手 |',
- '|---|---:|---:|---:|---:|---:|',
- ...cpuResults.map(x=>['| '+x.id,x.trainingGames,x.games,
-   percent(x.stoneShare),percent(x.winShare),percent(x.hardBalancedShare)+' |'].join(' | ')),
- '',
- '## AI同士の直接対戦（各192局・座席6通り）',
- '',
- '| AI A | AI B | AがBより多石 | BがAより多石 | 同石 | A-B残石割合差 | 差の95%ブロックbootstrap区間 | 判定 |',
- '|---|---|---:|---:|---:|---:|---:|---|',
- ...h2hResults.map(x=>[x.a,x.b,x.awins,x.bwins,x.ties,
-   ((x.avgStoneDiff)*100).toFixed(2)+'pt',
-   '['+x.ci95.map(q=>(100*q).toFixed(2)).join(', ')+']pt',
-   x.relativeWinner].join(' | ')).map(x=>'| '+x+' |'),
- '',
- 'bootstrap区間は6色座席ローテーションをまとめた8ブロック×4条件で層化リサンプリングした探索的指標。',
- '独立seedの一般的な母集団への厳密な確率保証ではない。対戦はどちらもgreedy/no-searchで、第三プレイヤーによる相互作用が残る。',
- '候補は事前指定した5学習率の最終状態のみを使用し、評価後に都合の良い途中checkpointを選んでいない。',
- '追加の20,000局にはパスが常時合法行動として含まれ、学習半径2〜4であり、実用的大盤面の強さや収束、公開CPUへの採用可否は未検証。公開CPUは変更していない。',
+  '# パス込み追加学習後の5モデル：独立3人対局ベンチマーク',
+  '',
+  '102,400局の元重みから各20,000局追加（累計122,400局）。合法着手とパスを同じネットワークで直接評価。',
+  '学習未使用seed：CPU比較 20471103/20471104、AI同士 20471203/20471204。半径3/4。',
+  'CPU比較：各モデル384局（4種のCPU組×2盤面×各48局）。全5モデルで1,920局。',
+  'モデル同士：10組×2盤面×第三CPU hard/balanced×48局＝1,920局。6座席ローテーション。',
+  '',
+  '**重要：3人連続パスで自然に終局しない場合、盤面マス数×3＋3手で観測を打ち切り、勝敗を付けない。**',
+  '以下の「観測石数割合」と「石数多」は、未終局の途中盤面も含み、最終勝率ではない。',
+  '',
+  '## 既存CPUとの比較（観測石数での暫定順位）',
+  '',
+  '| モデル | 全評価 | 自然終局 | 未終局 | 観測石数割合 | 自然終局のみの勝利配分率 | hard+balanced相手の観測石数割合 |',
+  '|---|---:|---:|---:|---:|---:|---:|',
+  ...cpuResults.map(x=>'| '+x.id+' | '+x.games+' | '+x.finished+' | '+x.truncated+' | '+
+    percent(x.stoneShare)+' | '+present(x.winShare)+' | '+percent(x.hardBalancedShare)+' |'),
+  '',
+  '## 5モデル同士の直接対戦（各組192局）',
+  '',
+  '| A | B | 自然終局/192 | AがBより多石 | BがAより多石 | 同石 | A-B観測石数差 | ブロックbootstrap95%区間 | 観測上の優位 |',
+  '|---|---|---:|---:|---:|---:|---:|---|---|',
+  ...h2hResults.map(x=>'| '+x.a+' | '+x.b+' | '+x.finished+'/'+x.games+' | '+
+    x.awins+' | '+x.bwins+' | '+x.ties+' | '+(100*x.avgStoneDiff).toFixed(2)+'pt | ['+
+    x.ci95.map(q=>(100*q).toFixed(2)).join(', ')+']pt | '+x.observedStoneEdge+' |'),
+  '',
+  'bootstrapは4条件ごと8ブロック（各ブロックは6色順）を層化再標本化。区間が0を跨ぐ場合、観測石数の優劣は未確定。',
+  '区間が0を跨がなくても、自然終局率が低い場合は「強い」とは断定できない。',
+  '推論はgreedy、探索・自己眼の戦略的手フィルターなし。第三プレイヤーの相互作用と盤面サイズ依存に注意。',
+  '未終局局があれば、終局できない問題そのものが実用上の重要な弱点。',
 ];
-const report={experiment:'direct-strength-crossplay-122400',cpuGamesPerCandidate:384,
+
+const report={experiment:'pass-five-strength-122400',cpuGamesPerCandidate:384,
  h2hGamesPerPair:192,candidates:cpuResults,pairs:h2hResults,markdown:lines.join('\n')+'\n'};
 mkdirSync(dirname(out),{recursive:true});
 writeFileSync(out,JSON.stringify(report,null,2)+'\n');
