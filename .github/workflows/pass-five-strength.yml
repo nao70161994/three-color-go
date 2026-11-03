@@ -1,4 +1,4 @@
-name: Five pass-aware model strength validation
+name: Five pass-aware model strength validation (censored games)
 on:
   push:
     branches: [experiment/pass-five-strength-122400]
@@ -157,7 +157,7 @@ jobs:
         with:
           pattern: passduel-*
           path: collected/duels
-      - name: Verify and summarize 3840 held-out matches
+      - name: Summarize 3840 held-out matches with censored games
         run: |
           set -euo pipefail
           for dir in collected/cpu/passcpu-*; do
