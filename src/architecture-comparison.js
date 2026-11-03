@@ -32,8 +32,12 @@ export function comparisonShape(kind){
   return shapes;
 }
 
+const validatedComparisonModels=new WeakSet();
 export function validateComparisonModel(model){
   if(model?.architecture!=='tgo-comparison-v1'||!model.layers)throw Error('Not a comparison model');
+  // Self-play calls inference on every turn; scanning 100k+ parameters per
+  // turn made attention rollouts impractical. Check each frozen model once.
+  if(validatedComparisonModels.has(model))return model;
   const shapes=comparisonShape(model.kind);
   for(const [name,[rows,cols]] of Object.entries(shapes)){
     const l=model.layers[name];
@@ -44,6 +48,7 @@ export function validateComparisonModel(model){
   if(model.metadata?.valueOutput!=='independent'||
       model.metadata?.phaseFeature!==false||
       model.metadata?.features!==10)throw Error('Incorrect comparison metadata');
+  validatedComparisonModels.add(model);
   return model;
 }
 const relu=x=>x.map(v=>Math.max(v,0));
