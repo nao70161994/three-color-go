@@ -47,6 +47,9 @@ const cpuResults=candidates.map(([id,learningRate,trainingGames])=>{
   const winsNumerator=matches.reduce((n,r)=>n+(r.directWinShareRate??0)*r.finished,0);
   return {id,learningRate,trainingGames,games:matches.reduce((n,r)=>n+r.games,0),
     finished,truncated:matches.reduce((n,r)=>n+r.truncated,0),
+    finishedByOriginalCap:matches.reduce((n,r)=>n+r.finishedByOriginalCap,0),
+    finishedAfterOriginalCap:matches.reduce((n,r)=>n+r.finishedAfterOriginalCap,0),
+    maxFinishedTurns:Math.max(...matches.map(x=>x.maxFinishedTurns??0)),
     stoneShare:mean(matches.map(x=>x.observedMeanStoneShare)),
     finalStoneShare:finished?matches.reduce((n,r)=>n+(r.directMeanStoneShare??0)*r.finished,0)/finished:null,
     winShare:finished?winsNumerator/finished:null,
@@ -54,7 +57,12 @@ const cpuResults=candidates.map(([id,learningRate,trainingGames])=>{
     radius3Share:mean(matches.filter(x=>x.radius===3).map(x=>x.observedMeanStoneShare)),
     radius4Share:mean(matches.filter(x=>x.radius===4).map(x=>x.observedMeanStoneShare)),
     matchups:matches.map(x=>({radius:x.radius,opponents:x.opponents,
+      horizonMultiplier:x.horizonMultiplier,
+      finishedByOriginalCap:x.finishedByOriginalCap,
+      finishedAfterOriginalCap:x.finishedAfterOriginalCap,
       finished:x.finished,truncated:x.truncated,
+      finishedByOriginalCap:x.finishedByOriginalCap,
+      finishedAfterOriginalCap:x.finishedAfterOriginalCap,
       observedStoneShare:x.observedMeanStoneShare,
       finalStoneShare:x.directMeanStoneShare,winShareRate:x.directWinShareRate}))
   };
@@ -83,6 +91,8 @@ const h2hResults=pairs.map(([a,b],index)=>{
   const games=cells.reduce((n,r)=>n+r.games,0);
   const finished=cells.reduce((n,r)=>n+r.finished,0);
   const truncated=games-finished;
+  const finishedByOriginalCap=cells.reduce((n,r)=>n+r.finishedByOriginalCap,0);
+  const finishedAfterOriginalCap=cells.reduce((n,r)=>n+r.finishedAfterOriginalCap,0);
   const awins=cells.reduce((n,r)=>n+r.wins.a,0);
   const bwins=cells.reduce((n,r)=>n+r.wins.b,0);
   const ties=cells.reduce((n,r)=>n+r.wins.tied,0);
@@ -98,7 +108,9 @@ const h2hResults=pairs.map(([a,b],index)=>{
   }
   bootstrap.sort((x,y)=>x-y);
   const ci95=[bootstrap[Math.floor(bootstrap.length*.025)],bootstrap[Math.floor(bootstrap.length*.975)]];
-  return {a,b,games,finished,truncated,awins,bwins,ties,avgStoneDiff,winShareDiff,ci95,
+  return {a,b,games,finished,truncated,finishedByOriginalCap,finishedAfterOriginalCap,
+    maxFinishedTurns:Math.max(...cells.map(x=>x.maxFinishedTurns??0)),
+    awins,bwins,ties,avgStoneDiff,winShareDiff,ci95,
     observedStoneEdge:ci95[0]>0?a:ci95[1]<0?b:'undetermined',
     finishedWins:{
       a:cells.reduce((n,r)=>n+r.finishedWins.a,0),
@@ -119,28 +131,29 @@ const lines=[
   'CPU比較：各モデル384局（4種のCPU組×2盤面×各48局）。全5モデルで1,920局。',
   'モデル同士：10組×2盤面×第三CPU hard/balanced×48局＝1,920局。6座席ローテーション。',
   '',
-  '**重要：3人連続パスで自然に終局しない場合、盤面マス数×3＋3手で観測を打ち切り、勝敗を付けない。**',
+  '**重要：旧検証は3×マス数＋3手で打ち切ったが、今回は20×マス数＋3手まで自然終局を観測。上限は安全用であり、ゲームルールではない。**',
   '以下の「観測石数割合」と「石数多」は、未終局の途中盤面も含み、最終勝率ではない。',
   '',
   '## 既存CPUとの比較（観測石数での暫定順位）',
   '',
-  '| モデル | 全評価 | 自然終局 | 未終局 | 観測石数割合 | 自然終局のみの勝利配分率 | hard+balanced相手の観測石数割合 |',
+  '| モデル | 全評価 | 旧上限内で終局 | 旧上限後に終局 | なお未終局 | 観測石数割合 | 自然終局のみの勝利配分率 | hard+balanced相手の観測石数割合 |',
   '|---|---:|---:|---:|---:|---:|---:|',
   ...cpuResults.map(x=>'| '+x.id+' | '+x.games+' | '+x.finished+' | '+x.truncated+' | '+
+    x.finishedByOriginalCap+' | '+x.finishedAfterOriginalCap+' | '+x.truncated+' | '+
     percent(x.stoneShare)+' | '+present(x.winShare)+' | '+percent(x.hardBalancedShare)+' |'),
   '',
   '## 5モデル同士の直接対戦（各組192局）',
   '',
-  '| A | B | 自然終局/192 | AがBより多石 | BがAより多石 | 同石 | A-B観測石数差 | ブロックbootstrap95%区間 | 観測上の優位 |',
-  '|---|---|---:|---:|---:|---:|---:|---|---|',
+  '| A | B | 自然終局/192 | 旧上限後に終局 | AがBより多石 | BがAより多石 | 同石 | A-B観測石数差 | ブロックbootstrap95%区間 | 観測上の優位 |',
+  '|---|---|---:|---:|---:|---:|---:|---:|---|---|',
   ...h2hResults.map(x=>'| '+x.a+' | '+x.b+' | '+x.finished+'/'+x.games+' | '+
-    x.awins+' | '+x.bwins+' | '+x.ties+' | '+(100*x.avgStoneDiff).toFixed(2)+'pt | ['+
+    x.finishedAfterOriginalCap+' | '+x.awins+' | '+x.bwins+' | '+x.ties+' | '+(100*x.avgStoneDiff).toFixed(2)+'pt | ['+
     x.ci95.map(q=>(100*q).toFixed(2)).join(', ')+']pt | '+x.observedStoneEdge+' |'),
   '',
   'bootstrapは4条件ごと8ブロック（各ブロックは6色順）を層化再標本化。区間が0を跨ぐ場合、観測石数の優劣は未確定。',
   '区間が0を跨がなくても、自然終局率が低い場合は「強い」とは断定できない。',
   '推論はgreedy、探索・自己眼の戦略的手フィルターなし。第三プレイヤーの相互作用と盤面サイズ依存に注意。',
-  '未終局局があれば、終局できない問題そのものが実用上の重要な弱点。',
+  '旧上限を超えて自然に終局する局の数が、旧打ち切り条件による評価の歪みを測る。20倍でも未終局の試合は勝敗不明のまま扱う。',
 ];
 
 const report={experiment:'pass-five-strength-122400',cpuGamesPerCandidate:384,

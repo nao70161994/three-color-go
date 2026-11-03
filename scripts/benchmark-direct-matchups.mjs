@@ -14,19 +14,21 @@ import {validatePV2Model} from '../src/pv2-ai.js';
 const args={};
 for(let i=2;i<process.argv.length;i+=2){
   const k=process.argv[i],v=process.argv[i+1];
-  if(!['--model','--radius','--games','--seed','--opponents','--out'].includes(k)||
+  if(!['--model','--radius','--games','--seed','--opponents','--out','--horizon-multiplier'].includes(k)||
       v===undefined)throw Error('Invalid evaluation argument '+k);
   args[k.slice(2)]=v;
 }
 if(!args.model)throw Error('--model required');
 const model=validatePV2Model(JSON.parse(readFileSync(args.model,'utf8')));
 const radius=Number(args.radius??3),games=Number(args.games??12),
-  seed=Number(args.seed??20261121);
+  seed=Number(args.seed??20261121),
+  horizonMultiplier=Number(args['horizon-multiplier']??3);
 const opponents=(args.opponents??'hard,balanced').split(',');
 const available=new Set(['hard','balanced','guarded','tactical','baseline']);
 if(!Number.isInteger(radius)||radius<2||radius>5||
    !Number.isInteger(games)||games<6||games>300||games%6!==0||
    !Number.isSafeInteger(seed)||seed<0||seed>0xffffffff||
+   !Number.isInteger(horizonMultiplier)||horizonMultiplier<3||horizonMultiplier>100||
    opponents.length!==2||opponents.some(x=>!available.has(x)))
   throw Error('Invalid evaluation setup');
 const rotations=[
@@ -40,7 +42,7 @@ for(let i=0;i<games;i++){
     gameSeed=(seed+round*100003)>>>0;
   const rand=COLORS.map((_,seat)=>seededRandom((gameSeed+151*seat)>>>0));
   let state=createGame(radius),turns=0;
-  const cap=pointsOnBoard(radius).length*3;
+  const cap=pointsOnBoard(radius).length*horizonMultiplier;
   while(!state.ended&&turns<cap+3){
     const seat=state.turn,key=order[seat];
     const type=key==='direct'?'direct':opponents[key==='op1'?0:1];
@@ -79,6 +81,10 @@ const report={
   trainingGames:model.metadata?.games??null,
   learningRate:model.metadata?.learningRate??null,
   radius,games,finished:finished.length,truncated:games-finished.length,
+  horizonMultiplier,horizon:pointsOnBoard(radius).length*horizonMultiplier+3,
+  finishedByOriginalCap:finished.filter(x=>x.turns<=pointsOnBoard(radius).length*3+3).length,
+  finishedAfterOriginalCap:finished.filter(x=>x.turns>pointsOnBoard(radius).length*3+3).length,
+  maxFinishedTurns:finished.length?Math.max(...finished.map(x=>x.turns)):null,
   seed,opponents,vsOp1:vs('op1'),vsOp2:vs('op2'),
   directWinShareRate:finished.length?+(winShare.direct/finished.length).toFixed(5):null,
   directMeanStoneShare:mean(r=>r.directStoneShare),
@@ -88,7 +94,7 @@ const report={
   promotionReady:false,
   samples:records.slice(0,6),
   records:records.map(r=>({ended:r.ended,turns:r.turns,order:r.order,gameSeed:r.gameSeed})),
-  caveat:'Nonfinished games are censored at 3x board cells +3 moves. Observed stone shares include censored snapshots; only finished games have a win. No forced pass.'
+  caveat:'Nonfinished games are censored at the configurable safety horizon, not assigned wins. Only actual 3-consecutive-pass finishes count. No forced pass.'
 };
 const output=JSON.stringify(report,null,2)+'\n';
 if(args.out){mkdirSync(dirname(args.out),{recursive:true});writeFileSync(args.out,output);}
