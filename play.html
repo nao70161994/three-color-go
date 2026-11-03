@@ -1137,8 +1137,13 @@ function evaluatePV2(state,model){
   for(const x of hidden)for(let h=0;h<16;h++)pooled[h]+=x[h]/count;
   const logits=hidden.map(x=>linear(model.layers.policy,x)[0]);
   logits.push(linear(model.layers.pass,pooled)[0]);
-  const relative=softmax(linear(model.layers.value,
-    relu(linear(model.layers.valueHidden,pooled))));
+  const rawValue=linear(model.layers.value,
+    relu(linear(model.layers.valueHidden,pooled)));
+  // Legacy checkpoints predict three stone shares (softmax). New timeout-
+  // penalty checkpoints predict independent real-valued returns, including
+  // negative outcomes, without constraining their sum to one.
+  const relative=model.metadata?.valueOutput==='independent'
+    ? rawValue : softmax(rawValue);
   const value=new Array(3);
   for(let k=0;k<3;k++)value[(state.turn+k)%3]=relative[k];
   return {logits,value};
@@ -1157,6 +1162,18 @@ function finalStoneShares(state){
   if(!state.ended)throw Error('Stone-share reward requires a finished game');
   const counts=scores(state),total=COLORS.reduce((n,c)=>n+counts[c],0);
   return COLORS.map(c=>total?counts[c]/total:1/3);
+}
+/** Reward is not zero-sum: timeout shifts all three observed shares equally.
+ * A censored board is not treated as an ordinary terminal board.
+ */
+function stoneShareTimeoutReward(state,timeoutPenalty=0.3){
+  if(!Number.isFinite(timeoutPenalty)||timeoutPenalty<0||timeoutPenalty>2)
+    throw Error('Invalid timeout penalty');
+  const count=scores(state),total=Object.values(count).reduce((a,b)=>a+b,0);
+  const stoneShares=COLORS.map(c=>total?count[c]/total:1/3);
+  const truncated=!state.ended;
+  return {stoneShares,rewards:stoneShares.map(v=>v-(truncated?timeoutPenalty:0)),
+    truncated};
 }
 function policyLegalActions(state){
   if(state.ended)return [];

@@ -15,6 +15,18 @@ export function finalStoneShares(state){
   const counts=scores(state),total=COLORS.reduce((n,c)=>n+counts[c],0);
   return COLORS.map(c=>total?counts[c]/total:1/3);
 }
+/** Reward is not zero-sum: timeout shifts all three observed shares equally.
+ * A censored board is not treated as an ordinary terminal board.
+ */
+export function stoneShareTimeoutReward(state,timeoutPenalty=0.3){
+  if(!Number.isFinite(timeoutPenalty)||timeoutPenalty<0||timeoutPenalty>2)
+    throw Error('Invalid timeout penalty');
+  const count=scores(state),total=Object.values(count).reduce((a,b)=>a+b,0);
+  const stoneShares=COLORS.map(c=>total?count[c]/total:1/3);
+  const truncated=!state.ended;
+  return {stoneShares,rewards:stoneShares.map(v=>v-(truncated?timeoutPenalty:0)),
+    truncated};
+}
 export function policyLegalActions(state){
   if(state.ended)return [];
   const points=pointsOnBoard(state.radius);
