@@ -1,0 +1,183 @@
+name: Five pass-aware model strength validation (censored games)
+on:
+  push:
+    branches: [experiment/pass-five-strength-122400]
+    paths: [.github/workflows/pass-five-strength.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: pass-20k-*
+          run-id: 41487742023
+          github-token: ${{ github.token }}
+          path: incoming
+      - name: Verify five actual pass-trained checkpoints
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          rates={'lr001':.001,'lr0003':.0003,'lr0001':.0001,'lr00003':.00003,'lr00001':.00001}
+          Path('models').mkdir(exist_ok=True)
+          signatures=set()
+          for key,rate in rates.items():
+              source=Path('incoming')/('pass-20k-'+key)/('pass-20k-'+key+'.json')
+              model=json.loads(source.read_text())
+              meta=model['metadata']
+              assert model['architecture']=='hex-group-pv-16-v2'
+              assert meta['games']==20000 and meta['passInLegalActions'] is True
+              assert meta['optionalPassesSampled']>0
+              assert abs(meta['learningRate']-rate)<1e-10
+              assert abs(meta['initialPassMargin']-1.5)<1e-10
+              assert 'model-102400.json' in meta['initializedFrom']
+              assert len(model['layers']['pass']['weights'])==16
+              signature=tuple(model['layers']['embed']['weights'][:16])
+              assert signature not in signatures
+              signatures.add(signature)
+              (Path('models')/(key+'-pass20k.json')).write_text(json.dumps(model))
+              print('Verified original 102400 + pass-inclusive 20000 games:',key)
+          assert len(signatures)==5
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frozen-five-pass-models
+          path: models/
+          retention-days: 30
+  cpu:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        id: [lr001-pass20k, lr0003-pass20k, lr0001-pass20k, lr00003-pass20k, lr00001-pass20k]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: frozen-five-pass-models
+          path: models
+      - name: Independent conventional-CPU matchups, radius 3 and 4
+        env:
+          ID: ${{ matrix.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p "reports/cpu/$ID"
+          for radius in 3 4; do
+            if [[ "$radius" == 3 ]]; then seed=20471103; else seed=20471104; fi
+            for group in hard-balanced balanced-balanced tactical-guarded baseline-baseline; do
+              opponents=$(echo "$group" | tr '-' ',')
+              node scripts/benchmark-direct-matchups.mjs \
+                --model "models/$ID.json" --radius "$radius" \
+                --games 48 --seed "$seed" --opponents "$opponents" \
+                --out "reports/cpu/$ID/r$radius-$group.json" >/dev/null
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: passcpu-${{ matrix.id }}
+          path: reports/cpu/${{ matrix.id }}/
+          retention-days: 30
+  duel:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        include:
+          - {a: lr001-pass20k, b: lr0003-pass20k}
+          - {a: lr001-pass20k, b: lr0001-pass20k}
+          - {a: lr001-pass20k, b: lr00003-pass20k}
+          - {a: lr001-pass20k, b: lr00001-pass20k}
+          - {a: lr0003-pass20k, b: lr0001-pass20k}
+          - {a: lr0003-pass20k, b: lr00003-pass20k}
+          - {a: lr0003-pass20k, b: lr00001-pass20k}
+          - {a: lr0001-pass20k, b: lr00003-pass20k}
+          - {a: lr0001-pass20k, b: lr00001-pass20k}
+          - {a: lr00003-pass20k, b: lr00001-pass20k}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: frozen-five-pass-models
+          path: models
+      - name: All pairwise comparisons with third hard or balanced CPU
+        env:
+          A: ${{ matrix.a }}
+          B: ${{ matrix.b }}
+        run: |
+          set -euo pipefail
+          out="reports/duel/$A--$B"
+          mkdir -p "$out"
+          for radius in 3 4; do
+            if [[ "$radius" == 3 ]]; then seed=20471203; else seed=20471204; fi
+            for opponent in hard balanced; do
+              node scripts/benchmark-direct-headtohead.mjs \
+                --model-a "models/$A.json" --model-b "models/$B.json" \
+                --radius "$radius" --games 48 --seed "$seed" \
+                --opponent "$opponent" --out "$out/r$radius-$opponent.json" >/dev/null
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: passduel-${{ matrix.a }}--${{ matrix.b }}
+          path: reports/duel/${{ matrix.a }}--${{ matrix.b }}/
+          retention-days: 30
+  compare:
+    needs: [cpu, duel]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: passcpu-*
+          path: collected/cpu
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: passduel-*
+          path: collected/duels
+      - name: Summarize 3840 held-out matches with censored games
+        run: |
+          set -euo pipefail
+          for dir in collected/cpu/passcpu-*; do
+            id=$(basename "$dir")
+            mkdir -p "compiled/cpu/${id#passcpu-}"
+            cp "$dir/"*.json "compiled/cpu/${id#passcpu-}/"
+          done
+          for dir in collected/duels/passduel-*; do
+            id=$(basename "$dir")
+            mkdir -p "compiled/duels/${id#passduel-}"
+            cp "$dir/"*.json "compiled/duels/${id#passduel-}/"
+          done
+          mkdir -p comparison
+          node scripts/compare-direct-strength.mjs \
+            compiled/cpu compiled/duels comparison/pass-five-122400.json \
+            | tee comparison/pass-five-122400-summary.md
+          cat comparison/pass-five-122400-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pass-five-strength-results
+          path: comparison/
+          retention-days: 30
