@@ -14,7 +14,7 @@ import {validatePV2Model} from '../src/pv2-ai.js';
 const args={};
 for(let i=2;i<process.argv.length;i+=2){
   const k=process.argv[i],v=process.argv[i+1];
-  if(!['--model-a','--model-b','--radius','--games','--seed','--opponent','--out'].includes(k)||v===undefined)
+  if(!['--model-a','--model-b','--radius','--games','--seed','--opponent','--out','--horizon-multiplier'].includes(k)||v===undefined)
     throw Error('Invalid matchup argument '+k);
   args[k.slice(2)]=v;
 }
@@ -22,10 +22,11 @@ if(!args['model-a']||!args['model-b'])throw Error('Require both --model-a and --
 const modelA=validatePV2Model(JSON.parse(readFileSync(args['model-a'],'utf8')));
 const modelB=validatePV2Model(JSON.parse(readFileSync(args['model-b'],'utf8')));
 const radius=Number(args.radius??3),games=Number(args.games??48),seed=Number(args.seed??20321101);
-const opponent=args.opponent??'hard';
+const opponent=args.opponent??'hard',horizonMultiplier=Number(args['horizon-multiplier']??3);
 if(!Number.isInteger(radius)||radius<2||radius>5||
   !Number.isInteger(games)||games<6||games>600||games%6!==0||
   !Number.isSafeInteger(seed)||seed<0||seed>0xffffffff||
+  !Number.isInteger(horizonMultiplier)||horizonMultiplier<3||horizonMultiplier>100||
   !new Set(['hard','balanced','guarded','tactical','baseline']).has(opponent))
   throw Error('Invalid matchup config');
 const rotations=[
@@ -34,7 +35,7 @@ const rotations=[
   ['cpu','a','b'],['cpu','b','a']
 ];
 const winShares={a:0,b:0,cpu:0},results=[];
-const cap=pointsOnBoard(radius).length*3;
+const cap=pointsOnBoard(radius).length*horizonMultiplier;
 for(let i=0;i<games;i++){
   const order=rotations[i%6],block=Math.floor(i/6),
     gameSeed=(seed+block*100003)>>>0;
@@ -66,7 +67,10 @@ const avg=(fn)=>+(results.reduce((a,r)=>a+fn(r),0)/games).toFixed(6);
 const finished=results.filter(r=>r.ended),truncated=games-finished.length;
 const report={
   version:2,algorithm:'pv2-greedy-head-to-head',radius,opponent,games,seed,
-  finished:finished.length,truncated,horizon:cap+3,
+  finished:finished.length,truncated,horizon:cap+3,horizonMultiplier,
+  finishedByOriginalCap:finished.filter(x=>x.turns<=pointsOnBoard(radius).length*3+3).length,
+  finishedAfterOriginalCap:finished.filter(x=>x.turns>pointsOnBoard(radius).length*3+3).length,
+  maxFinishedTurns:finished.length?Math.max(...finished.map(x=>x.turns)):null,
   labels:{a:args['model-a'],b:args['model-b']},
   metadata:{a:modelA.metadata??null,b:modelB.metadata??null},
   // Observed stone counts, including censored games; not win counts.
@@ -82,7 +86,7 @@ const report={
   winShareRate:Object.fromEntries(Object.entries(winShares).map(([k,v])=>[
     k,finished.length?+(v/finished.length).toFixed(6):null])),
   rotationsPerBlock:6,results,
-  note:'All six seat rotations, no training/search/strategic veto. Games unfinished at 3x cells +3 moves are censored; observed stone shares are NOT terminal wins. H2H is conditional on third CPU.'
+  note:'Six seat rotations, no training/search/strategic veto. Nonfinished games are censored at the configurable safety horizon; observed stone shares are not terminal wins. H2H depends on the third CPU.'
 };
 const output=JSON.stringify(report,null,2)+'\n';
 if(args.out){mkdirSync(dirname(args.out),{recursive:true});writeFileSync(args.out,output)}
