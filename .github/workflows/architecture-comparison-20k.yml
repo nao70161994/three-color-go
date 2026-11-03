@@ -1,0 +1,152 @@
+name: 20k selfplay comparison with 2k intermediate evaluations
+on:
+  push:
+    branches: [experiment/architecture-comparison-20k]
+    paths: [.github/workflows/architecture-comparison-20k.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: architecture-comparison-20k
+  cancel-in-progress: false
+jobs:
+  milestone_01:
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 0
+      target_iterations: 250
+
+  milestone_02:
+    needs: milestone_01
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 250
+      target_iterations: 500
+
+  milestone_03:
+    needs: milestone_02
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 500
+      target_iterations: 750
+
+  milestone_04:
+    needs: milestone_03
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 750
+      target_iterations: 1000
+
+  milestone_05:
+    needs: milestone_04
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 1000
+      target_iterations: 1250
+
+  milestone_06:
+    needs: milestone_05
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 1250
+      target_iterations: 1500
+
+  milestone_07:
+    needs: milestone_06
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 1500
+      target_iterations: 1750
+
+  milestone_08:
+    needs: milestone_07
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 1750
+      target_iterations: 2000
+
+  milestone_09:
+    needs: milestone_08
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 2000
+      target_iterations: 2250
+
+  milestone_10:
+    needs: milestone_09
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 2250
+      target_iterations: 2500
+
+  compare_all_milestones:
+    needs: milestone_10
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: architecture-milestone-*
+          path: artifacts/
+      - name: Compile all 30 interim evaluations
+        run: |
+          python3 scripts/summarize-architecture-20k.py artifacts/ reports/architecture-20k-summary.md reports/architecture-20k-summary.csv
+          cat reports/architecture-20k-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: architecture-20k-comparison-final-summary
+          path: reports/architecture-20k-summary.*
+          retention-days: 90
