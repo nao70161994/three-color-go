@@ -1,0 +1,132 @@
+name: Reusable architecture self-play milestone
+on:
+  workflow_call:
+    inputs:
+      kind:
+        type: string
+        required: true
+      target_iterations:
+        type: number
+        required: true
+      previous_iterations:
+        type: number
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  training:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU-only PyTorch and NumPy
+        run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Restore previous complete optimizer/RNG/model checkpoint
+        if: inputs.previous_iterations > 0
+        uses: actions/download-artifact@v4
+        with:
+          name: architecture-milestone-${{ inputs.previous_iterations }}-${{ inputs.kind }}
+          path: reports/${{ inputs.kind }}
+      - name: Validate checkpoint and train next 2000 games
+        env:
+          KIND: ${{ inputs.kind }}
+          TARGET: ${{ inputs.target_iterations }}
+          PREVIOUS: ${{ inputs.previous_iterations }}
+        run: |
+          set -euo pipefail
+          mkdir -p "reports/$KIND"
+          RESUME=()
+          if (( PREVIOUS > 0 )); then
+            printf -v PREVSTAMP 'iter%04d' "$PREVIOUS"
+            RESUME=(--resume "reports/$KIND/model-$PREVSTAMP.pt")
+            test -f "reports/$KIND/model-$PREVSTAMP.pt"
+          fi
+          python scripts/train-architecture-comparison.py \
+            --kind "$KIND" --iterations "$TARGET" --games 8 \
+            --radii 2,3,4 --seed 20261103 \
+            --temperature 1.5 --learning-rate 0.001 --entropy 0.015 \
+            --batch-size 32 --horizon-multiplier 100 --timeout-penalty 0.3 \
+            --sample-stride 4 --checkpoint-every 250 \
+            --out "reports/$KIND/model.json" "${RESUME[@]}" \
+            | tee "reports/$KIND/training-last-2000.jsonl"
+      - name: Verify milestone and Python-JavaScript numerical parity
+        env:
+          KIND: ${{ inputs.kind }}
+          TARGET: ${{ inputs.target_iterations }}
+          PREVIOUS: ${{ inputs.previous_iterations }}
+        run: |
+          set -euo pipefail
+          python scripts/check-architecture-parity.py "reports/$KIND/model.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          kind=os.environ['KIND']
+          target=int(os.environ['TARGET'])
+          previous=int(os.environ['PREVIOUS'])
+          assert target-previous==250
+          m=json.loads((Path('reports')/kind/'model.json').read_text())
+          meta=m['metadata']
+          assert m['kind']==kind
+          assert meta['games']==target*8
+          assert meta['features']==10 and meta['phaseFeature'] is False
+          assert meta['horizonMultiplier']==100 and meta['timeoutPenalty']==0.3
+          assert meta['naturallyEndedGames']+meta['truncatedGames']==target*8
+          print('Checkpoint verified:',kind,target*8,'games')
+          PY
+      - name: Independent holdout at this training milestone (radius 3 and 4)
+        env:
+          KIND: ${{ inputs.kind }}
+          TARGET: ${{ inputs.target_iterations }}
+        run: |
+          set -euo pipefail
+          for RADIUS in 3 4; do
+            node scripts/architecture-benchmark.mjs \
+              --model "reports/$KIND/model.json" --radius "$RADIUS" \
+              --games 18 --seed "2047110$RADIUS" \
+              --opponents balanced,tactical --horizon-multiplier 20 \
+              --out "reports/$KIND/eval-r$RADIUS.json"
+          done
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          folder=Path('reports')/os.environ['KIND']
+          m=json.loads((folder/'model.json').read_text())
+          lines=['## '+m['kind']+' — '+str(m['metadata']['games'])+' games']
+          meta=m['metadata']
+          lines.append('Self-play natural endings: '+str(meta['naturallyEndedGames'])+
+                       '; truncated: '+str(meta['truncatedGames']))
+          for radius in (3,4):
+              r=json.loads((folder/f'eval-r{radius}.json').read_text())
+              lines.append('radius '+str(radius)+': '+str(r['finished'])+
+                           '/'+str(r['games'])+' naturally ended; win share among finished '+
+                           str(r['finishedWinShare'])+'; observed stone share '+
+                           str(r['meanObservedStoneShare'])+
+                           '; early pass '+str(r['earlyPassCount']))
+          msg='\n'.join(lines)+'\n'
+          print(msg)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(msg)
+          PY
+      - name: Retain only the latest resumable optimizer checkpoint
+        if: success()
+        env:
+          KIND: ${{ inputs.kind }}
+          TARGET: ${{ inputs.target_iterations }}
+        run: |
+          printf -v STAMP 'iter%04d' "$TARGET"
+          find "reports/$KIND" -name '*.pt' ! -name "model-$STAMP.pt" -delete
+          test -f "reports/$KIND/model-$STAMP.pt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: architecture-milestone-${{ inputs.target_iterations }}-${{ inputs.kind }}
+          path: reports/${{ inputs.kind }}/
+          retention-days: 90
