@@ -11,27 +11,39 @@ import {groupInfo,seededRandom} from './agent.js';
 
 export const PV2_ARCH='hex-group-pv-16-v2';
 export const PV2_FEATURES=11;
+export const PV3_ARCH='hex-group-pv-16-v3-no-phase';
+export const PV3_FEATURES=10;
 export const PV2_SHAPE={
   embed:[16,11],mix1:[16,32],mix2:[16,32],mix3:[16,32],
   policy:[1,16],pass:[1,16],valueHidden:[16,16],value:[3,16]
 };
+export const PV3_SHAPE={...PV2_SHAPE,embed:[16,10]};
 
-export function createInitialPV2Model(seed=20261031){
+function createInitialModel(seed,architecture,shape){
   const random=seededRandom(seed),layers={};
-  for(const [name,[rows,cols]] of Object.entries(PV2_SHAPE)){
+  for(const [name,[rows,cols]] of Object.entries(shape)){
     layers[name]={rows,cols,
       weights:Array.from({length:rows*cols},()=>+((random()-.5)*2/Math.sqrt(cols)).toFixed(7)),
       bias:Array.from({length:rows},()=>0)};
   }
-  return {architecture:PV2_ARCH,version:'pv2-random-'+seed,
+  return {architecture,version:(architecture===PV3_ARCH?'pv3':'pv2')+'-random-'+seed,
     training:'untrained',layers};
+}
+export function createInitialPV2Model(seed=20261031){
+  return createInitialModel(seed,PV2_ARCH,PV2_SHAPE);
+}
+export function createInitialPV3Model(seed=20261103){
+  return {...createInitialModel(seed,PV3_ARCH,PV3_SHAPE),
+    metadata:{valueOutput:'independent',features:PV3_FEATURES,phaseFeature:false}};
 }
 
 const checked=new WeakSet();
 export function validatePV2Model(model){
   if(checked.has(model))return model;
-  if(model?.architecture!==PV2_ARCH||!model.layers)throw Error('Unsupported PV2 model');
-  for(const [name,[rows,cols]] of Object.entries(PV2_SHAPE)){
+  const shape=model?.architecture===PV2_ARCH?PV2_SHAPE:
+    model?.architecture===PV3_ARCH?PV3_SHAPE:null;
+  if(!shape||!model.layers)throw Error('Unsupported PV2/PV3 model');
+  for(const [name,[rows,cols]] of Object.entries(shape)){
     const layer=model.layers[name];
     if(!layer||layer.rows!==rows||layer.cols!==cols||
        layer.weights?.length!==rows*cols||layer.bias?.length!==rows||
@@ -40,7 +52,11 @@ export function validatePV2Model(model){
   }
   checked.add(model);return model;
 }
-export function encodePV2State(state){
+/** Legacy PV2 uses 11 features. PV3 removes the move-count/phase feature.
+ * Passing an actual model is required to select the new 10-feature format.
+ */
+export function encodePV2State(state,model=null){
+  const includePhase=model?.architecture!==PV3_ARCH;
   const points=pointsOnBoard(state.radius);
   const index=new Map(points.map(({q,r},i)=>[pointKey(q,r),i]));
   const phase=Math.min(1,state.moveCount/(2*points.length));
@@ -63,7 +79,7 @@ export function encodePV2State(state){
       x[5+relative]=groups.get(key).liberties;
       x[8+relative]=groups.get(key).size;
     }
-    return x;
+    return includePhase?x:[...x.slice(0,4),...x.slice(5)];
   });
   const neighbors=points.map(({q,r})=>adjacentKeys(pointKey(q,r),state.radius)
     .map(k=>index.get(k)));
@@ -87,7 +103,7 @@ const softmax=x=>{
 };
 export function evaluatePV2(state,model){
   validatePV2Model(model);
-  const {features,neighbors}=encodePV2State(state);
+  const {features,neighbors}=encodePV2State(state,model);
   const count=features.length;
   let hidden=features.map(x=>relu(linear(model.layers.embed,x)));
   for(const name of ['mix1','mix2','mix3']){

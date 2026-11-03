@@ -7,7 +7,7 @@
 import {readFileSync} from 'node:fs';
 import {createGame,pointsOnBoard} from '../src/game.js';
 import {seededRandom} from '../src/agent.js';
-import {PV2_ARCH} from '../src/pv2-ai.js';
+import {PV3_ARCH} from '../src/pv2-ai.js';
 import {applyDirectPolicy,encodePV2State,selectDirectPolicyMove,
   stoneShareTimeoutReward} from '../src/direct-policy.js';
 
@@ -20,8 +20,8 @@ for(let i=2;i<process.argv.length;i+=2){
 }
 if(!args.model)throw Error('--model is required');
 const model=JSON.parse(readFileSync(args.model,'utf8'));
-if(model.architecture!==PV2_ARCH || model.metadata?.valueOutput!=='independent')
-  throw Error('Expected an independent-return PV2 model');
+if(model.architecture!==PV3_ARCH || model.metadata?.valueOutput!=='independent')
+  throw Error('Expected an independent-return, no-phase PV3 model');
 const games=Number(args.games??4),seed=Number(args.seed??1),
   radius=Number(args.radius??3),temperature=Number(args.temperature??1.5),
   horizonMultiplier=Number(args['horizon-multiplier']??100),
@@ -40,7 +40,7 @@ for(let game=0;game<games;game++){
   let state=createGame(radius),turns=0,passes=0,optionalPasses=0;
   const samples=[];
   while(!state.ended&&turns<horizon){
-    const snapshot=encodePV2State(state);
+    const snapshot=encodePV2State(state,model);
     const choice=selectDirectPolicyMove(state,model,{random,temperature});
     if(!choice.action)throw Error('Missing legal action');
     if(choice.action.type==='pass'){

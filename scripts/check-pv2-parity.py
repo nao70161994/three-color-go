@@ -17,14 +17,15 @@ def main():
         raise SystemExit("Usage: python scripts/check-pv2-parity.py model.json")
     path = Path(sys.argv[1])
     weights = json.loads(path.read_text(encoding="utf-8"))
-    if weights["architecture"] != "hex-group-pv-16-v2":
-        raise ValueError("Expected group-aware policy/value v2")
+    supported = ("hex-group-pv-16-v2", "hex-group-pv-16-v3-no-phase")
+    if weights["architecture"] not in supported:
+        raise ValueError("Expected group-aware PV2 or PV3 model")
     output = subprocess.run(
         ["node", str(ROOT / "scripts/predict-pv2.mjs"), str(path.resolve())],
         cwd=ROOT, capture_output=True, text=True, check=True
     )
     samples = json.loads(output.stdout)
-    model = HexPolicyValue()
+    model = HexPolicyValue(input_features=10 if weights["architecture"] == supported[1] else 11)
     for name, layer in (
         ("embed", model.embed), ("mix1", model.mix1),
         ("mix2", model.mix2), ("mix3", model.mix3),

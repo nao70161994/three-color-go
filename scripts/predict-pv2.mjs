@@ -17,7 +17,7 @@ for(const radius of [2,3,4]){
     else state=pass(state).state;
     if(state.ended)break;
   }
-  const features=encodePV2State(state);
+  const features=encodePV2State(state,model);
   const prediction=evaluatePV2(state,model);
   samples.push({...features,logits:prediction.logits,value:prediction.value});
 }

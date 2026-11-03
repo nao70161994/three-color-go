@@ -41,9 +41,11 @@ def neighbors(radius):
 
 class HexPolicyValue(nn.Module):
     """Group-aware message-passing network. JS exports all group features."""
-    def __init__(self):
+    def __init__(self, input_features=11):
         super().__init__()
-        self.embed = nn.Linear(11, 16)
+        if input_features not in (10, 11):
+            raise ValueError("Unsupported input feature size")
+        self.embed = nn.Linear(input_features, 16)
         self.mix1 = nn.Linear(32, 16)
         self.mix2 = nn.Linear(32, 16)
         self.mix3 = nn.Linear(32, 16)
@@ -54,7 +56,7 @@ class HexPolicyValue(nn.Module):
 
     def forward(self, features, radius):
         x = torch.tensor(features, dtype=torch.float32)
-        if x.ndim != 2 or x.shape[1] != 11 or x.shape[0] != len(points(radius)):
+        if x.ndim != 2 or x.shape[1] != self.embed.in_features or x.shape[0] != len(points(radius)):
             raise ValueError("Invalid PV2 board feature matrix")
         h = F.relu(self.embed(x))
         adjacent = neighbors(radius)
