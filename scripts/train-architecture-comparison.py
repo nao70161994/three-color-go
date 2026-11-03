@@ -175,7 +175,7 @@ def main():
     p.add_argument("--out",type=Path,default=ROOT/"reports"/"compare-candidate.json")
     args=p.parse_args()
     radii=[int(x) for x in args.radii.split(",")]
-    if not (1<=args.iterations<=5000 and 1<=args.games<=100 and
+    if not (1<=args.iterations<=10000 and 1<=args.games<=100 and
             0<=args.seed<=0xffffffff and radii and all(2<=r<=5 for r in radii) and
             0<args.temperature<=10 and 0<args.learning_rate<=0.1 and
             0<=args.entropy<=0.5 and 1<=args.batch_size<=512 and
