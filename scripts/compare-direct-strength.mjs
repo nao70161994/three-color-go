@@ -123,6 +123,9 @@ const h2hResults=pairs.map(([a,b],index)=>{
       aStoneShare:x.meanStoneShare.a,bStoneShare:x.meanStoneShare.b}))};
 });
 const present=v=>v===null||!Number.isFinite(v)?'-':(v*100).toFixed(2)+'%';
+const comparisonHorizon=cpuResults[0].matchups[0].horizonMultiplier;
+if(!cpuResults.every(m=>m.matchups.every(cell=>cell.horizonMultiplier===comparisonHorizon)))
+  throw Error('Mixed safety horizons across CPU experiments');
 const lines=[
   '# パス込み追加学習後の5モデル：独立3人対局ベンチマーク',
   '',
@@ -131,7 +134,7 @@ const lines=[
   'CPU比較：各モデル384局（4種のCPU組×2盤面×各48局）。全5モデルで1,920局。',
   'モデル同士：10組×2盤面×第三CPU hard/balanced×48局＝1,920局。6座席ローテーション。',
   '',
-  '**重要：旧検証は3×マス数＋3手で打ち切ったが、今回は20×マス数＋3手まで自然終局を観測。上限は安全用であり、ゲームルールではない。**',
+  '**重要：旧検証は3×マス数＋3手で打ち切ったが、今回は'+comparisonHorizon+'×マス数＋3手まで自然終局を観測。上限は安全用であり、ゲームルールではない。**',
   '以下の「観測石数割合」と「石数多」は、未終局の途中盤面も含み、最終勝率ではない。',
   '',
   '## 既存CPUとの比較（観測石数での暫定順位）',
@@ -153,7 +156,7 @@ const lines=[
   'bootstrapは4条件ごと8ブロック（各ブロックは6色順）を層化再標本化。区間が0を跨ぐ場合、観測石数の優劣は未確定。',
   '区間が0を跨がなくても、自然終局率が低い場合は「強い」とは断定できない。',
   '推論はgreedy、探索・自己眼の戦略的手フィルターなし。第三プレイヤーの相互作用と盤面サイズ依存に注意。',
-  '旧上限を超えて自然に終局する局の数が、旧打ち切り条件による評価の歪みを測る。20倍でも未終局の試合は勝敗不明のまま扱う。',
+  '旧上限を超えて自然に終局する局の数が、旧打ち切り条件による評価の歪みを測る。'+comparisonHorizon+'倍でも未終局の試合は勝敗不明のまま扱う。',
 ];
 
 const report={experiment:'pass-five-strength-122400',cpuGamesPerCandidate:384,
