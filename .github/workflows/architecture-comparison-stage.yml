@@ -11,6 +11,10 @@ on:
       previous_iterations:
         type: number
         required: true
+      bootstrap_run_id:
+        type: number
+        required: false
+        default: 0
 permissions:
   contents: read
   actions: read
@@ -30,8 +34,16 @@ jobs:
         run: |
           python -m pip install numpy
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-      - name: Restore previous complete optimizer/RNG/model checkpoint
-        if: inputs.previous_iterations > 0
+      - name: Restore checkpoint from a verified previous workflow run
+        if: inputs.previous_iterations > 0 && inputs.bootstrap_run_id > 0
+        uses: actions/download-artifact@v4
+        with:
+          name: architecture-milestone-${{ inputs.previous_iterations }}-${{ inputs.kind }}
+          path: reports/${{ inputs.kind }}
+          run-id: ${{ inputs.bootstrap_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Restore previous milestone from this workflow run
+        if: inputs.previous_iterations > 0 && inputs.bootstrap_run_id == 0
         uses: actions/download-artifact@v4
         with:
           name: architecture-milestone-${{ inputs.previous_iterations }}-${{ inputs.kind }}
