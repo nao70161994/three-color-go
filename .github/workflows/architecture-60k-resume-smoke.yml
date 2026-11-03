@@ -1,0 +1,70 @@
+name: Verify exact 20k checkpoint resumption
+on:
+  push:
+    branches: [experiment/architecture-comparison-60k]
+    paths: [.github/workflows/architecture-60k-resume-smoke.yml]
+  pull_request:
+    paths:
+      - scripts/train-architecture-comparison.py
+      - .github/workflows/architecture-comparison-stage.yml
+      - .github/workflows/architecture-60k-resume-smoke.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  resume:
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download exact 20k optimizer and RNG checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: architecture-milestone-2500-${{ matrix.kind }}
+          path: reports/${{ matrix.kind }}
+          run-id: 41610283160
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install CPU-only PyTorch
+        run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Resume for eight games, verify final checkpoint and cross-language parity
+        env:
+          KIND: ${{ matrix.kind }}
+        run: |
+          set -euo pipefail
+          test -s "reports/$KIND/model-iter2500.pt"
+          test -s "reports/$KIND/model.json"
+          python scripts/train-architecture-comparison.py \
+            --kind "$KIND" --iterations 2501 --games 8 \
+            --radii 2,3,4 --seed 20261103 \
+            --temperature 1.5 --learning-rate 0.001 --entropy 0.015 \
+            --batch-size 32 --horizon-multiplier 100 --timeout-penalty 0.3 \
+            --sample-stride 4 --checkpoint-every 250 \
+            --resume "reports/$KIND/model-iter2500.pt" \
+            --out "reports/$KIND/resumed-smoke.json" \
+            | tee "reports/$KIND/resumed-smoke.jsonl"
+          python scripts/check-architecture-parity.py "reports/$KIND/resumed-smoke.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path("reports")/os.environ["KIND"]
+          baseline=json.loads((p/"model.json").read_text())
+          extended=json.loads((p/"resumed-smoke.json").read_text())
+          assert baseline["metadata"]["games"]==20000
+          assert extended["metadata"]["games"]==20008
+          assert baseline["kind"]==extended["kind"]
+          assert extended["metadata"]["naturallyEndedGames"]+extended["metadata"]["truncatedGames"]==20008
+          assert (p/"resumed-smoke-iter2501.pt").is_file()
+          print("Verified continuation from 20000 to 20008:",extended["kind"])
+          PY
