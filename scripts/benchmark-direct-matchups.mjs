@@ -53,19 +53,19 @@ for(let i=0;i<games;i++){
     if(!result.ok)throw Error('Invalid match action: '+result.reason);
     state=result.state;turns++;
   }
-  if(!state.ended){
-    records.push({order,gameSeed,ended:false,turns});continue;
-  }
-  const count=scores(state),winners=winner(state);
+  const count=scores(state),winners=state.ended?winner(state):[];
   const points=Object.fromEntries(order.map((key,seat)=>[key,count[COLORS[seat]]]));
-  for(const key of order)
+  if(state.ended)for(const key of order)
     if(winners.includes(COLORS[order.indexOf(key)]))
       winShare[key]+=1/winners.length;
   const total=Object.values(points).reduce((a,b)=>a+b,0);
-  records.push({order,gameSeed,ended:true,turns,points,winners,
+  // An unfinished game is CENSORED: its stone count is an observation,
+  // not a final score or a win. No artificial pass is ever injected.
+  records.push({order,gameSeed,ended:state.ended,turns,points,winners,
     directStoneShare:total?points.direct/total:1/3});
 }
 const finished=records.filter(r=>r.ended);
+const observed=fn=>+(records.reduce((s,r)=>s+fn(r),0)/records.length).toFixed(5);
 const mean=fn=>finished.length?
   +(finished.reduce((s,r)=>s+fn(r),0)/finished.length).toFixed(5):null;
 const vs=key=>({
@@ -82,10 +82,13 @@ const report={
   seed,opponents,vsOp1:vs('op1'),vsOp2:vs('op2'),
   directWinShareRate:finished.length?+(winShare.direct/finished.length).toFixed(5):null,
   directMeanStoneShare:mean(r=>r.directStoneShare),
+  observedMeanStoneShare:observed(r=>r.directStoneShare),
+  observedMeanStones:observed(r=>r.points.direct),
   directMeanStones:mean(r=>r.points.direct),
   promotionReady:false,
   samples:records.slice(0,6),
-  caveat:'Exploratory seat-rotated seeded 3-player matchups, not proof of general strength.'
+  records:records.map(r=>({ended:r.ended,turns:r.turns,order:r.order,gameSeed:r.gameSeed})),
+  caveat:'Nonfinished games are censored at 3x board cells +3 moves. Observed stone shares include censored snapshots; only finished games have a win. No forced pass.'
 };
 const output=JSON.stringify(report,null,2)+'\n';
 if(args.out){mkdirSync(dirname(args.out),{recursive:true});writeFileSync(args.out,output);}

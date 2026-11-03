@@ -51,30 +51,38 @@ for(let i=0;i<games;i++){
     if(!r.ok)throw Error('Invalid game action: '+r.reason);
     state=r.state;turns++;
   }
-  if(!state.ended)throw Error('Truncated game at '+i+' after '+turns+' turns');
-  const count=scores(state),winnerColors=winner(state);
+  // If three players fail to pass consecutively, retain the capped position.
+  // This is not a terminal win; never force strategic passes in evaluation.
+  const count=scores(state),winnerColors=state.ended?winner(state):[];
   const stoneCounts=Object.fromEntries(order.map((key,seat)=>[key,count[COLORS[seat]]]));
   const total=Object.values(stoneCounts).reduce((a,b)=>a+b,0);
   for(const key of order)if(winnerColors.includes(COLORS[order.indexOf(key)]))
     winShares[key]+=1/winnerColors.length;
-  results.push({gameSeed,block,order,turns,stoneCounts,
+  results.push({gameSeed,block,order,turns,ended:state.ended,stoneCounts,
     stoneShares:Object.fromEntries(order.map(key=>[key,total?stoneCounts[key]/total:1/3])),
     winnerKeys:order.filter(key=>winnerColors.includes(COLORS[order.indexOf(key)]))});
 }
 const avg=(fn)=>+(results.reduce((a,r)=>a+fn(r),0)/games).toFixed(6);
+const finished=results.filter(r=>r.ended),truncated=games-finished.length;
 const report={
-  version:1,algorithm:'pv2-greedy-head-to-head',radius,opponent,games,seed,
+  version:2,algorithm:'pv2-greedy-head-to-head',radius,opponent,games,seed,
+  finished:finished.length,truncated,horizon:cap+3,
   labels:{a:args['model-a'],b:args['model-b']},
   metadata:{a:modelA.metadata??null,b:modelB.metadata??null},
+  // Observed stone counts, including censored games; not win counts.
   wins:{a:results.filter(r=>r.stoneCounts.a>r.stoneCounts.b).length,
     b:results.filter(r=>r.stoneCounts.a<r.stoneCounts.b).length,
     tied:results.filter(r=>r.stoneCounts.a===r.stoneCounts.b).length},
+  finishedWins:{a:finished.filter(r=>r.stoneCounts.a>r.stoneCounts.b).length,
+    b:finished.filter(r=>r.stoneCounts.a<r.stoneCounts.b).length,
+    tied:finished.filter(r=>r.stoneCounts.a===r.stoneCounts.b).length},
   meanStoneShare:{a:avg(r=>r.stoneShares.a),b:avg(r=>r.stoneShares.b),cpu:avg(r=>r.stoneShares.cpu)},
   meanStones:{a:avg(r=>r.stoneCounts.a),b:avg(r=>r.stoneCounts.b)},
   meanMarginAminusB:avg(r=>r.stoneCounts.a-r.stoneCounts.b),
-  winShareRate:Object.fromEntries(Object.entries(winShares).map(([k,v])=>[k,+(v/games).toFixed(6)])),
+  winShareRate:Object.fromEntries(Object.entries(winShares).map(([k,v])=>[
+    k,finished.length?+(v/finished.length).toFixed(6):null])),
   rotationsPerBlock:6,results,
-  note:'Fixed seed per block, all six color rotations, no training or search. H2H comparison is conditional on third CPU.'
+  note:'All six seat rotations, no training/search/strategic veto. Games unfinished at 3x cells +3 moves are censored; observed stone shares are NOT terminal wins. H2H is conditional on third CPU.'
 };
 const output=JSON.stringify(report,null,2)+'\n';
 if(args.out){mkdirSync(dirname(args.out),{recursive:true});writeFileSync(args.out,output)}
