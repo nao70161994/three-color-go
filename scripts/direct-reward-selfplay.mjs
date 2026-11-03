@@ -5,10 +5,11 @@
  * Reward = observed stone share - penalty ONLY when actually truncated.
  */
 import {readFileSync} from 'node:fs';
-import {COLORS,createGame,pointsOnBoard,scores} from '../src/game.js';
+import {createGame,pointsOnBoard} from '../src/game.js';
 import {seededRandom} from '../src/agent.js';
 import {PV2_ARCH} from '../src/pv2-ai.js';
-import {applyDirectPolicy,encodePV2State,selectDirectPolicyMove} from '../src/direct-policy.js';
+import {applyDirectPolicy,encodePV2State,selectDirectPolicyMove,
+  stoneShareTimeoutReward} from '../src/direct-policy.js';
 
 const args={};
 for(let i=2;i<process.argv.length;i+=2){
@@ -53,9 +54,10 @@ for(let game=0;game<games;game++){
   }
   const ended=state.ended,truncated=!ended;
   // The board is only a snapshot on timeout, NEVER a pretend final position.
-  const count=scores(state),total=Object.values(count).reduce((a,b)=>a+b,0);
-  const stoneShares=COLORS.map(c=>total?count[c]/total:1/3);
-  const rewards=stoneShares.map(s=>s-(truncated?timeoutPenalty:0));
+  const {stoneShares,rewards}=stoneShareTimeoutReward(state,timeoutPenalty);
+  const count=Object.fromEntries(['black','white','red'].map(color=>[
+    color,Object.entries(state.board).filter(([,c])=>c===color).length]));
+  // No finalStoneShares on a nonterminal timeout snapshot.
   const seatCounts=[0,0,0];
   for(const s of samples){
     seatCounts[s.seat]++;
