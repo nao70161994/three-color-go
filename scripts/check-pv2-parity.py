@@ -40,7 +40,8 @@ def main():
     with torch.no_grad():
         for sample in samples:
             policy, value = model(sample["features"], sample["radius"])
-            probability = torch.softmax(value, dim=0).numpy()
+            probability = (value if weights.get("metadata", {}).get("valueOutput") == "independent"
+                           else torch.softmax(value, dim=0)).numpy()
             absolute = np.zeros(3)
             for i in range(3):
                 absolute[(sample["turn"] + i) % 3] = probability[i]

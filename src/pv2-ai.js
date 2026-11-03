@@ -102,8 +102,13 @@ export function evaluatePV2(state,model){
   for(const x of hidden)for(let h=0;h<16;h++)pooled[h]+=x[h]/count;
   const logits=hidden.map(x=>linear(model.layers.policy,x)[0]);
   logits.push(linear(model.layers.pass,pooled)[0]);
-  const relative=softmax(linear(model.layers.value,
-    relu(linear(model.layers.valueHidden,pooled))));
+  const rawValue=linear(model.layers.value,
+    relu(linear(model.layers.valueHidden,pooled)));
+  // Legacy checkpoints predict three stone shares (softmax). New timeout-
+  // penalty checkpoints predict independent real-valued returns, including
+  // negative outcomes, without constraining their sum to one.
+  const relative=model.metadata?.valueOutput==='independent'
+    ? rawValue : softmax(rawValue);
   const value=new Array(3);
   for(let k=0;k<3;k++)value[(state.turn+k)%3]=relative[k];
   return {logits,value};
