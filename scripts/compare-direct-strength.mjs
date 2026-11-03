@@ -138,7 +138,7 @@ const lines=[
   '',
   '| モデル | 全評価 | 旧上限内で終局 | 旧上限後に終局 | なお未終局 | 観測石数割合 | 自然終局のみの勝利配分率 | hard+balanced相手の観測石数割合 |',
   '|---|---:|---:|---:|---:|---:|---:|',
-  ...cpuResults.map(x=>'| '+x.id+' | '+x.games+' | '+x.finished+' | '+x.truncated+' | '+
+  ...cpuResults.map(x=>'| '+x.id+' | '+x.games+' | '+
     x.finishedByOriginalCap+' | '+x.finishedAfterOriginalCap+' | '+x.truncated+' | '+
     percent(x.stoneShare)+' | '+present(x.winShare)+' | '+percent(x.hardBalancedShare)+' |'),
   '',
