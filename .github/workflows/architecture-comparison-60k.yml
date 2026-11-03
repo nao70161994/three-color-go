@@ -1,0 +1,283 @@
+name: Continue comparison 20k to 60k with 2k holdout evaluations
+on:
+  push:
+    branches: [experiment/architecture-comparison-60k]
+    paths: [.github/workflows/architecture-comparison-60k.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: architecture-comparison-60k
+  cancel-in-progress: true
+jobs:
+  milestone_01:
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 2500
+      target_iterations: 2750
+      bootstrap_run_id: 41610283160
+
+  milestone_02:
+    needs: milestone_01
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 2750
+      target_iterations: 3000
+
+  milestone_03:
+    needs: milestone_02
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 3000
+      target_iterations: 3250
+
+  milestone_04:
+    needs: milestone_03
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 3250
+      target_iterations: 3500
+
+  milestone_05:
+    needs: milestone_04
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 3500
+      target_iterations: 3750
+
+  milestone_06:
+    needs: milestone_05
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 3750
+      target_iterations: 4000
+
+  milestone_07:
+    needs: milestone_06
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 4000
+      target_iterations: 4250
+
+  milestone_08:
+    needs: milestone_07
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 4250
+      target_iterations: 4500
+
+  milestone_09:
+    needs: milestone_08
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 4500
+      target_iterations: 4750
+
+  milestone_10:
+    needs: milestone_09
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 4750
+      target_iterations: 5000
+
+  milestone_11:
+    needs: milestone_10
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 5000
+      target_iterations: 5250
+
+  milestone_12:
+    needs: milestone_11
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 5250
+      target_iterations: 5500
+
+  milestone_13:
+    needs: milestone_12
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 5500
+      target_iterations: 5750
+
+  milestone_14:
+    needs: milestone_13
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 5750
+      target_iterations: 6000
+
+  milestone_15:
+    needs: milestone_14
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 6000
+      target_iterations: 6250
+
+  milestone_16:
+    needs: milestone_15
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 6250
+      target_iterations: 6500
+
+  milestone_17:
+    needs: milestone_16
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 6500
+      target_iterations: 6750
+
+  milestone_18:
+    needs: milestone_17
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 6750
+      target_iterations: 7000
+
+  milestone_19:
+    needs: milestone_18
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 7000
+      target_iterations: 7250
+
+  milestone_20:
+    needs: milestone_19
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16, gnn64, attn64]
+    uses: ./.github/workflows/architecture-comparison-stage.yml
+    with:
+      kind: ${{ matrix.kind }}
+      previous_iterations: 7250
+      target_iterations: 7500
+
+  compare_all_milestones:
+    needs: milestone_20
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore 20k baseline's 30 milestones
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 41610283160
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: architecture-milestone-*
+          path: artifacts/
+      - name: Restore the 60 new continuation milestones
+        uses: actions/download-artifact@v4
+        with:
+          pattern: architecture-milestone-*
+          path: artifacts/
+      - name: Validate and compile all 90 milestone artifacts
+        run: |
+          set -euo pipefail
+          python3 scripts/summarize-architecture-60k.py artifacts/ \
+            reports/architecture-60k-summary.md reports/architecture-60k-summary.csv
+          cat reports/architecture-60k-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: architecture-60k-final-summary
+          path: reports/architecture-60k-summary.*
+          retention-days: 90
