@@ -1,4 +1,5 @@
 name: 20k selfplay comparison with 2k intermediate evaluations
+# Cache model validation per process to keep 64-channel inference tractable.
 on:
   push:
     branches: [experiment/architecture-comparison-20k]
