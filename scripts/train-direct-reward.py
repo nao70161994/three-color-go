@@ -23,7 +23,8 @@ ROOT = Path(__file__).resolve().parent.parent
 pv2 = runpy.run_path(str(ROOT / "scripts" / "train-pv2-selfplay.py"))
 HexPolicyValue = pv2["HexPolicyValue"]
 dump_model = pv2["dump_model"]
-RESUME_FORMAT = "direct-reward-actor-critic-resume-v1"
+RESUME_FORMAT = "direct-reward-actor-critic-resume-v2-no-phase"
+NEW_ARCH = "hex-group-pv-16-v3-no-phase"
 
 
 def exported(net, config, total_games, iteration, positions, ended, truncated, passes, optional):
@@ -31,11 +32,14 @@ def exported(net, config, total_games, iteration, positions, ended, truncated, p
         "seed": config["seed"], "games": total_games,
         "rewardProfile": "stone-share-minus-timeout",
     })
-    raw["version"] = f"direct-3p-reward-seed{config['seed']}-g{total_games}"
+    raw["architecture"] = NEW_ARCH
+    raw["version"] = f"direct-3p-no-phase-reward-seed{config['seed']}-g{total_games}"
     raw["training"] = "3-player on-policy actor-critic, stone share minus timeout; no search"
     raw["algorithm"] = "direct-reward-actor-critic-v2"
     raw["metadata"].update({
         "valueOutput": "independent",
+        "features": 10,
+        "phaseFeature": False,
         "rewardProfile": "stone-share-minus-timeout",
         "timeoutPenalty": config["timeoutPenalty"],
         "horizonMultiplier": config["horizonMultiplier"],
@@ -120,13 +124,14 @@ def main():
         "batchSize": args.batch_size,
         "horizonMultiplier": args.horizon_multiplier,
         "timeoutPenalty": args.timeout_penalty,
+        "features": 10, "phaseFeature": False,
     }
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.set_num_threads(1)
     shuffler = random.Random(args.seed)
-    net = HexPolicyValue()
+    net = HexPolicyValue(input_features=10)
     # No --init-model / --init-pass-margin. Initialize ALL heads with the
     # same PyTorch Linear-layer rules; training starts from a clean network.
     optimizer = torch.optim.Adam(net.parameters(), lr=args.learning_rate)

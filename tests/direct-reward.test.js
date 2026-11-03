@@ -5,7 +5,8 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {createGame} from '../src/game.js';
-import {createInitialPV2Model,evaluatePV2} from '../src/pv2-ai.js';
+import {createInitialPV2Model,createInitialPV3Model,
+  PV2_ARCH,PV3_ARCH,validatePV2Model,encodePV2State,evaluatePV2} from '../src/pv2-ai.js';
 import {stoneShareTimeoutReward} from '../src/direct-policy.js';
 
 test('natural stone shares and signed timeout rewards are distinct',()=>{
@@ -38,11 +39,34 @@ test('independent-return models retain negative values without softmax or sum=1'
   assert.deepEqual(evaluatePV2({...state,turn:1},m).value,[0.1,0.8,-0.4]);
 });
 
+test('PV3 input excludes phase across the full move-count range without changing legacy PV2',()=>{
+  const state=createGame(3),later={...state,moveCount:975};
+  const legacy=createInitialPV2Model(123),newModel=createInitialPV3Model(123);
+  assert.equal(legacy.architecture,PV2_ARCH);
+  assert.equal(newModel.architecture,PV3_ARCH);
+  assert.equal(legacy.layers.embed.cols,11);
+  assert.equal(newModel.layers.embed.cols,10);
+  assert.equal(newModel.metadata.phaseFeature,false);
+  assert.doesNotThrow(()=>validatePV2Model(newModel));
+  const oldEarly=encodePV2State(state,legacy).features;
+  const oldLate=encodePV2State(later,legacy).features;
+  const early=encodePV2State(state,newModel).features;
+  const late=encodePV2State(later,newModel).features;
+  assert.equal(early.length,37);
+  assert.ok(early.every(row=>row.length===10));
+  assert.ok(oldEarly.every(row=>row.length===11));
+  assert.notDeepEqual(oldEarly,oldLate,'legacy phase must remain available');
+  assert.deepEqual(early,late,'PV3 excludes move-count information entirely');
+  assert.equal(evaluatePV2(state,newModel).logits.length,38);
+  assert.deepEqual(evaluatePV2(state,newModel),evaluatePV2(later,newModel));
+  assert.throws(()=>validatePV2Model({...newModel,architecture:PV2_ARCH}),
+    /Invalid PV2 layer/);
+});
+
 test('reward self-play samples voluntary actions without ever forcing end passes',()=>{
   const directory=mkdtempSync(join(tmpdir(),'tgo-reward-'));
   try{
-    const model=createInitialPV2Model(20261104);
-    model.metadata={valueOutput:'independent',rewardProfile:'stone-share-minus-timeout'};
+    const model=createInitialPV3Model(20261104);
     const path=join(directory,'model.json');
     writeFileSync(path,JSON.stringify(model));
     const command=[
@@ -72,6 +96,7 @@ test('reward self-play samples voluntary actions without ever forcing end passes
         assert.ok(s.legal.includes(s.selected));
         assert.ok(s.legal.includes(19));
         assert.equal(s.features.length,19);
+        assert.ok(s.features.every(row=>row.length===10));
         for(let i=0;i<3;i++)
           assert.ok(Math.abs(s.value[i]-g.rewards[(s.seat+i)%3])<1e-8);
       }
