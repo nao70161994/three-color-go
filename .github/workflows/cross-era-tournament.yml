@@ -128,6 +128,7 @@ jobs:
           path: results/
       - name: Estimate ratings and select strongest cross-checkpoint finalists
         run: |
+          mkdir -p comparison
           python3 scripts/rate-mixed-tournament.py \
             --manifest restored/models/manifest.json \
             --root results --tag mixstage1 --chunks 15 \
@@ -206,8 +207,9 @@ jobs:
         with:
           pattern: mixplayoff-chunk-*
           path: results/
-      - name: Independent heldout final Bayesian-style regularized strength rating
+      - name: Independent heldout regularized Bradley-Terry strength rating
         run: |
+          mkdir -p comparison
           python3 scripts/rate-mixed-tournament.py \
             --manifest restored/models/manifest.json \
             --root results --tag mixplayoff --chunks 10 \
