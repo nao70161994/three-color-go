@@ -1,0 +1,155 @@
+name: Three-color Go 60k checkpoint head-to-head strength comparison
+on:
+  push:
+    branches: [experiment/head-to-head-60k]
+    paths: [.github/workflows/architecture-head-to-head.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: three-color-architecture-h2h
+  cancel-in-progress: false
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate matchup schedule and censored game reporting
+        run: |
+          node --check scripts/head-to-head-architectures.mjs
+          node --test tests/head-to-head-architectures.test.js
+          node --test tests/architecture-comparison.test.js
+  matchups:
+    needs: smoke
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        include:
+          - {games: 2000, iteration: 250, source_run: 41610283160}
+          - {games: 4000, iteration: 500, source_run: 41610283160}
+          - {games: 6000, iteration: 750, source_run: 41610283160}
+          - {games: 8000, iteration: 1000, source_run: 41610283160}
+          - {games: 10000, iteration: 1250, source_run: 41610283160}
+          - {games: 12000, iteration: 1500, source_run: 41610283160}
+          - {games: 14000, iteration: 1750, source_run: 41610283160}
+          - {games: 16000, iteration: 2000, source_run: 41610283160}
+          - {games: 18000, iteration: 2250, source_run: 41610283160}
+          - {games: 20000, iteration: 2500, source_run: 41610283160}
+          - {games: 22000, iteration: 2750, source_run: 41672945203}
+          - {games: 24000, iteration: 3000, source_run: 41672945203}
+          - {games: 26000, iteration: 3250, source_run: 41672945203}
+          - {games: 28000, iteration: 3500, source_run: 41672945203}
+          - {games: 30000, iteration: 3750, source_run: 41672945203}
+          - {games: 32000, iteration: 4000, source_run: 41672945203}
+          - {games: 34000, iteration: 4250, source_run: 41672945203}
+          - {games: 36000, iteration: 4500, source_run: 41672945203}
+          - {games: 38000, iteration: 4750, source_run: 41672945203}
+          - {games: 40000, iteration: 5000, source_run: 41672945203}
+          - {games: 42000, iteration: 5250, source_run: 41672945203}
+          - {games: 44000, iteration: 5500, source_run: 41672945203}
+          - {games: 46000, iteration: 5750, source_run: 41672945203}
+          - {games: 48000, iteration: 6000, source_run: 41672945203}
+          - {games: 50000, iteration: 6250, source_run: 41672945203}
+          - {games: 52000, iteration: 6500, source_run: 41672945203}
+          - {games: 54000, iteration: 6750, source_run: 41672945203}
+          - {games: 56000, iteration: 7000, source_run: 41672945203}
+          - {games: 58000, iteration: 7250, source_run: 41672945203}
+          - {games: 60000, iteration: 7500, source_run: 41672945203}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download all 3 frozen snapshot models from original training runs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: architecture-milestone-${{ matrix.iteration }}-*
+          path: snapshots/
+          run-id: ${{ matrix.source_run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate all 3 model snapshots are present and genuine
+        env:
+          ITER: ${{ matrix.iteration }}
+        run: |
+          set -euo pipefail
+          for KIND in gnn16 gnn64 attn64; do
+            test -f "snapshots/architecture-milestone-${ITER}-${KIND}/model.json"
+          done
+      - name: Head-to-head triple + two-model seat-balanced duels (radii 3,4)
+        env:
+          GAMES: ${{ matrix.games }}
+        run: |
+          set -euo pipefail
+          mkdir -p "reports/h2h-${GAMES}"
+          node scripts/head-to-head-architectures.mjs \
+            --models-dir snapshots \
+            --games-trained "${GAMES}" --radii 3,4 \
+            --rounds 2 --seed 20471104 --temperature 1.0 \
+            --horizon-multiplier 100 \
+            --out "reports/h2h-${GAMES}/report.json" \
+            | tee "reports/h2h-${GAMES}/progress.jsonl"
+      - name: Verify complete match counts and equal seat exposures
+        env:
+          GAMES: ${{ matrix.games }}
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          games=int(os.environ['GAMES'])
+          data=json.loads((Path('reports')/f'h2h-{games}'/'report.json').read_text())
+          assert data['gamesTrained']==games and data['rounds']==2
+          assert len(data['results'])==2
+          for r in data['results']:
+              assert r['triple']['games']==12
+              assert r['greedyTriple']['games']==6
+              assert len(r['pairwise'])==3
+              for kind in ('gnn16','gnn64','attn64'):
+                  assert r['triple']['byKind'][kind]['seatExposures']==12
+                  assert r['greedyTriple']['byKind'][kind]['seatExposures']==6
+              for duel in r['pairwise'].values():
+                  assert duel['games']==12
+                  counts=[x['seatExposures'] for x in duel['byKind'].values()]
+                  assert counts==[18,18],counts
+                  assert duel['finished']+duel['truncated']==duel['games']
+          print('Verified 3-model and 2-model matchups at',games)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: h2h-${{ matrix.games }}
+          path: reports/h2h-${{ matrix.games }}/
+          retention-days: 90
+  summary:
+    needs: matchups
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: h2h-*
+          path: artifacts/
+      - name: Aggregate every intermediate and final checkpoint comparison
+        run: |
+          mkdir -p reports/
+          python3 scripts/summarize-head-to-head.py \
+            artifacts/ reports/head-to-head-summary.md reports/head-to-head-summary.csv \
+            | tee reports/head-to-head-summary.log
+          cat reports/head-to-head-summary.md >> "${GITHUB_STEP_SUMMARY}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: h2h-full-strength-comparison
+          path: reports/head-to-head-summary*
+          retention-days: 90
