@@ -1,0 +1,222 @@
+name: Cross-era best checkpoint strength tournament
+on:
+  push:
+    branches: [experiment/cross-checkpoint-best-models]
+    paths: [.github/workflows/cross-era-tournament.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: cross-era-checkpoint-tournament
+  cancel-in-progress: false
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Mixed-era tournament tests
+        run: |
+          node --check scripts/compare-mixed-checkpoints.mjs
+          node --check scripts/prepare-mixed-roster.mjs
+          node --test tests/cross-era-tournament.test.js
+
+  prepare:
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore complete verified 2k-20k archive
+        uses: actions/download-artifact@v4
+        with:
+          pattern: architecture-milestone-*
+          run-id: 41610283160
+          github-token: ${{ github.token }}
+          path: incoming/early
+      - name: Restore complete 22k-60k archive
+        uses: actions/download-artifact@v4
+        with:
+          pattern: architecture-milestone-*
+          run-id: 41672945203
+          github-token: ${{ github.token }}
+          path: incoming/late
+      - name: Restore five historical pass-inclusive models
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pass-20k-*
+          run-id: 41487742023
+          github-token: ${{ github.token }}
+          path: incoming/oldpass
+      - name: Build curated 30-candidate pool, preserving original weights
+        run: |
+          node scripts/prepare-mixed-roster.mjs \
+            --early incoming/early --late incoming/late \
+            --pass-models incoming/oldpass --out models \
+            | tee roster-provenance.json
+          test "$(find models -name '*.json' | wc -l)" -eq 28
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-era-roster
+          path: |
+            models/
+            roster-provenance.json
+          retention-days: 90
+
+  round_robin:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      max-parallel: 15
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-era-roster
+          path: restored/
+      - name: First-stage pairwise matches with separate opponent strength
+        env:
+          CHUNK: ${{ matrix.chunk }}
+        run: |
+          set -euo pipefail
+          mkdir -p "results/mixstage1-chunk-$CHUNK"
+          node scripts/compare-mixed-checkpoints.mjs \
+            --manifest restored/models/manifest.json \
+            --models-dir restored/models \
+            --chunk "$CHUNK" --chunks 15 --rounds 1 \
+            --radii 3,4 --seed 20661105 \
+            --horizon-multiplier 20 --mode greedy \
+            --out "results/mixstage1-chunk-$CHUNK/report.json" \
+            | tee "results/mixstage1-chunk-$CHUNK/progress.jsonl"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mixstage1-chunk-${{ matrix.chunk }}
+          path: results/mixstage1-chunk-${{ matrix.chunk }}/
+          retention-days: 90
+
+  stage1_summary:
+    needs: round_robin
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-era-roster
+          path: restored/
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: mixstage1-chunk-*
+          path: results/
+      - name: Estimate ratings and select strongest cross-checkpoint finalists
+        run: |
+          python3 scripts/rate-mixed-tournament.py \
+            --manifest restored/models/manifest.json \
+            --root results --tag mixstage1 --chunks 15 \
+            --prefix comparison/stage1 \
+            --select-out comparison/finalists.json \
+            | tee comparison/stage1.log
+          cat comparison/stage1.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-era-stage1-rating-and-finalists
+          path: comparison/
+          retention-days: 90
+
+  playoff:
+    needs: stage1_summary
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-era-roster
+          path: restored/
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-era-stage1-rating-and-finalists
+          path: comparison/
+      - name: Independent new-seed playoff, all differing checkpoints
+        env:
+          CHUNK: ${{ matrix.chunk }}
+        run: |
+          set -euo pipefail
+          mkdir -p "results/mixplayoff-chunk-$CHUNK"
+          node scripts/compare-mixed-checkpoints.mjs \
+            --manifest restored/models/manifest.json \
+            --models-dir restored/models \
+            --pairs-file comparison/finalists.json \
+            --chunk "$CHUNK" --chunks 10 --rounds 4 \
+            --radii 3,4 --seed 20761105 \
+            --horizon-multiplier 20 --mode greedy \
+            --out "results/mixplayoff-chunk-$CHUNK/report.json" \
+            | tee "results/mixplayoff-chunk-$CHUNK/progress.jsonl"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mixplayoff-chunk-${{ matrix.chunk }}
+          path: results/mixplayoff-chunk-${{ matrix.chunk }}/
+          retention-days: 90
+
+  final_rating:
+    needs: playoff
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-era-roster
+          path: restored/
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-era-stage1-rating-and-finalists
+          path: comparison/
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: mixplayoff-chunk-*
+          path: results/
+      - name: Independent heldout final Bayesian-style regularized strength rating
+        run: |
+          python3 scripts/rate-mixed-tournament.py \
+            --manifest restored/models/manifest.json \
+            --root results --tag mixplayoff --chunks 10 \
+            --selection-input comparison/finalists.json \
+            --prefix comparison/heldout-playoff \
+            | tee comparison/heldout-playoff.log
+          cat comparison/heldout-playoff.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-era-strength-final
+          path: comparison/
+          retention-days: 90
