@@ -62,8 +62,14 @@ function linear(layer,x){
   return y;
 }
 function softmax(values){
-  const peak=Math.max(...values),exps=values.map(x=>Math.exp(x-peak));
+  const peak=Math.max(...values);
+  // Fail visibly rather than silently choosing the first legal move when a
+  // broken numerical path produces NaN (as out-of-range distance bias did).
+  if(!Number.isFinite(peak))throw Error('Non-finite comparison policy logits');
+  const exps=values.map(x=>Math.exp(x-peak));
   const total=exps.reduce((a,b)=>a+b,0);
+  if(!Number.isFinite(total)||total<=0)
+    throw Error('Invalid comparison attention probability normalization');
   return exps.map(x=>x/total);
 }
 function attention(h,points,layers,layerName,d){
