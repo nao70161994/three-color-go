@@ -1303,7 +1303,7 @@ const COMPARISON_ARCHS=Object.freeze({
   attn64:{width:64,attentionLayers:2}
 });
 const HEADS=4;
-const DISTANCES=11; // all board radii <= 5 have hex distance <= 10
+const DISTANCES=11; // trained relative-distance biases cover only hex distances 0..10
 
 function comparisonShape(kind){
   const spec=COMPARISON_ARCHS[kind];
@@ -1351,8 +1351,14 @@ function linear(layer,x){
   return y;
 }
 function softmax(values){
-  const peak=Math.max(...values),exps=values.map(x=>Math.exp(x-peak));
+  const peak=Math.max(...values);
+  // Fail visibly rather than silently choosing the first legal move when a
+  // broken numerical path produces NaN (as out-of-range distance bias did).
+  if(!Number.isFinite(peak))throw Error('Non-finite comparison policy logits');
+  const exps=values.map(x=>Math.exp(x-peak));
   const total=exps.reduce((a,b)=>a+b,0);
+  if(!Number.isFinite(total)||total<=0)
+    throw Error('Invalid comparison attention probability normalization');
   return exps.map(x=>x/total);
 }
 function attention(h,points,layers,layerName,d){
@@ -1371,7 +1377,12 @@ function attention(h,points,layers,layerName,d){
         for(let dim=0;dim<headDim;dim++)dot+=q[i][off+dim]*k[j][off+dim];
         const dq=points[i].q-points[j].q,dr=points[i].r-points[j].r;
         const distance=Math.max(Math.abs(dq),Math.abs(dr),Math.abs(dq+dr));
-        logits.push(dot/Math.sqrt(headDim)+bias[head*DISTANCES+distance]);
+        // The learned table ends at distance 10 (boards through radius 5).
+        // On larger boards, reading out of bounds yields undefined and poisons
+        // every attention probability with NaN. Clamp only the *bias bucket*:
+        // all positions still participate in full-board attention.
+        const distanceBucket=Math.min(distance,DISTANCES-1);
+        logits.push(dot/Math.sqrt(headDim)+bias[head*DISTANCES+distanceBucket]);
       }
       const probabilities=softmax(logits),off=head*headDim;
       for(let j=0;j<n;j++)for(let dim=0;dim<headDim;dim++)
