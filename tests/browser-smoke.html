@@ -101,6 +101,27 @@ async function run(){
       id+'モデルがブラウザ上で合法着手できる');
   }
   check(game.getTrainedModelsInfo().length===3,'学習モデル3本の学習履歴を取得可能');
+  const eliteIds=['elite-attn64-50000','elite-gnn64-50000','elite-pv2-122400'];
+  check(game.getEliteModelsInfo().length===3,'新旧有力候補3モデルを取得');
+  for(const id of eliteIds){
+    check(!!doc.querySelector('#cpuLevel option[value="'+id+'"]'),id+' がCPU選択肢にある');
+    for(const selectId of ['seatBlack','seatWhite','seatRed'])
+      check(!!doc.querySelector('#'+selectId+' option[value="'+id+'"]'),
+        id+' を '+selectId+' に個別に指定できる');
+    check(game.reset({mode:'bots',radius:2,cpuLevel:id}).ok && game.pauseBots().ok &&
+      game.stepBot().ok && game.getCpuDecision()?.level===id,
+      id+' が実際に盤上で合法着手する');
+  }
+  check(game.reset({mode:'custom',radius:2,seatLevels:eliteIds}).ok &&
+    game.pauseBots().ok,'3種類を黒・白・赤に同時割当できる');
+  for(const id of eliteIds)
+    check(game.stepBot().ok && game.getCpuDecision()?.level===id,
+      id+' の独立した重みでCPU3人対戦を1手進める');
+  const eliteRecord=game.exportRecord();
+  check(game.reset({mode:'local',radius:2}).ok && game.importRecord(eliteRecord).ok &&
+    game.getPresentation().seatLevels.join(',')===eliteIds.join(','),
+    '有力AIの色別設定を棋譜に保存・復元できる');
+
   // Reproduce a real selection via the native picker, followed immediately by game start.
   check(game.reset({mode:'cpu',radius:2,cpuLevel:'hard'}).ok,'学習済みAI選択テストの初期化');
   const levelSelect=doc.getElementById('cpuLevel');
@@ -385,6 +406,13 @@ async function run(){
   check(standalone.reset({mode:'bots',radius:2,cpuLevel:'neural'}).ok
     && standalone.pauseBots().ok && standalone.stepBot().ok,
     '単一HTMLオフライン版でも学習済みCPUが着手');
+  for(const id of ['elite-attn64-50000','elite-gnn64-50000','elite-pv2-122400']){
+    check(standalone.setCpuLevel(id).ok,id+' を単一HTML版でも選択できる');
+    check(standalone.reset({mode:'bots',radius:2,cpuLevel:id}).ok &&
+      standalone.pauseBots().ok && standalone.stepBot().ok &&
+      standalone.getCpuDecision()?.level===id,
+      id+' の本物の重みをオフライン版でも使用');
+  }
   check(standalone.setCpuLevel('easy').ok,'オフライン版でも難易度を変更できる');
   check(standalone.setHints({legal:true}).ok,'オフライン版でも合法手ガイドを切り替えられる');
   check(standalone.openReplay().ok && standalone.seekReplay(0).ok,
