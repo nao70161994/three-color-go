@@ -1,4 +1,5 @@
 name: Materialize three elite trained CPU checkpoints
+# Re-run after scoping the standalone comparison implementation to avoid duplicate symbols.
 on:
   push:
     branches: [feature/elite-three-cpu]
