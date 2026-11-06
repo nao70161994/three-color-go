@@ -13,7 +13,11 @@ const direct=stripImports(read('src/direct-policy.js'));
 const checkpointData=stripImports(read('src/trained-model-data.js'));
 const passCheckpointData=stripImports(read('src/pass-trained-model-data.js'));
 const trained=stripImports(read('src/trained-direct-ai.js'));
-const comparison=stripImports(read('src/architecture-comparison.js'));
+// Standalone concatenation would redeclare pv2-ai.js's top-level relu/linear.
+// Isolate the comparison implementation while exposing only its public API.
+const comparison='const {COMPARISON_ARCHS,comparisonShape,validateComparisonModel,evaluateComparison,selectComparisonMove}=(()=>{\n'+
+  stripImports(read('src/architecture-comparison.js'))+
+  '\nreturn {COMPARISON_ARCHS,comparisonShape,validateComparisonModel,evaluateComparison,selectComparisonMove};\n})();';
 const eliteWeights=stripImports(read('src/elite-model-data.js'));
 const elite=stripImports(read('src/elite-models.js'));
 const insights=stripImports(read('src/insights.js'));
