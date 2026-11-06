@@ -1,0 +1,20 @@
+{
+  "generatedFrom": "Original GitHub Actions artifacts, without training/weight modifications",
+  "models": {
+    "elite-attn64-50000": {
+      "run": 41672945203,
+      "artifact": "architecture-milestone-6250-attn64",
+      "sha256": "367cb984e8d7c9aaeef718c05cc69cd53766b887e71f082a4813fd653516e281"
+    },
+    "elite-gnn64-50000": {
+      "run": 41672945203,
+      "artifact": "architecture-milestone-6250-gnn64",
+      "sha256": "de9df9e45bc376e31f700bf3d7f9a74e31eb17b7dba5fc26e8e1a0bc3e1095e6"
+    },
+    "elite-pv2-122400": {
+      "run": 41487742023,
+      "artifact": "pass-20k-lr001",
+      "sha256": "7cebf80733af9c38c5b73dbddd338073f51d22591fe5a96ef397fdf2a8fa0288"
+    }
+  }
+}
