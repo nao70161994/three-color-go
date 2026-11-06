@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {createGame,play,pass} from '../src/game.js';
+import {createGame,play,pass,pointsOnBoard} from '../src/game.js';
+import {evaluateComparison,selectComparisonMove} from '../src/architecture-comparison.js';
 import {ELITE_LEVELS,ELITE_LABELS,getEliteModel,eliteModelsInfo,chooseEliteMove} from '../src/elite-models.js';
 
 test('three original frozen finalists are present and have correct training identity',()=>{
@@ -55,4 +56,25 @@ test('mixed elite autonomous match completes legal turns without model substitut
   }
   assert.ok(count>0);
   assert.equal(state.ended,true,'3-policy game should end via genuine passes');
+});
+
+test('Attention stays numerically finite and chooses legal moves beyond radius 5',()=>{
+  const model=getEliteModel('elite-attn64-50000');
+  // On radius >=6, some pairs of cells are >10 apart. Before the fix,
+  // bias[head*11+distance] became undefined, poisoning attention with NaNs.
+  for(const radius of [5,6,8,12]){
+    const state=createGame(radius),length=pointsOnBoard(radius).length+1;
+    const evaluated=evaluateComparison(state,model);
+    assert.equal(evaluated.logits.length,length);
+    assert.ok(evaluated.logits.every(Number.isFinite),
+      'non-finite attention logits on board radius '+radius);
+    assert.ok(evaluated.value.every(Number.isFinite));
+    const chosen=selectComparisonMove(state,model,{greedy:true});
+    assert.equal(chosen.probabilities.length,chosen.actions.length);
+    assert.ok(chosen.probabilities.every(p=>Number.isFinite(p)&&p>=0&&p<=1));
+    assert.ok(Math.abs(chosen.probabilities.reduce((a,b)=>a+b,0)-1)<1e-8);
+    assert.ok(chosen.action);
+    const result=chosen.move?play(state,chosen.move.q,chosen.move.r):pass(state);
+    assert.ok(result.ok,'invalid attention move at radius '+radius);
+  }
 });
