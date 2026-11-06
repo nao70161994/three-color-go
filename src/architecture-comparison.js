@@ -14,7 +14,7 @@ export const COMPARISON_ARCHS=Object.freeze({
   attn64:{width:64,attentionLayers:2}
 });
 const HEADS=4;
-const DISTANCES=11; // all board radii <= 5 have hex distance <= 10
+const DISTANCES=11; // trained relative-distance biases cover only hex distances 0..10
 
 export function comparisonShape(kind){
   const spec=COMPARISON_ARCHS[kind];
@@ -82,7 +82,12 @@ function attention(h,points,layers,layerName,d){
         for(let dim=0;dim<headDim;dim++)dot+=q[i][off+dim]*k[j][off+dim];
         const dq=points[i].q-points[j].q,dr=points[i].r-points[j].r;
         const distance=Math.max(Math.abs(dq),Math.abs(dr),Math.abs(dq+dr));
-        logits.push(dot/Math.sqrt(headDim)+bias[head*DISTANCES+distance]);
+        // The learned table ends at distance 10 (boards through radius 5).
+        // On larger boards, reading out of bounds yields undefined and poisons
+        // every attention probability with NaN. Clamp only the *bias bucket*:
+        // all positions still participate in full-board attention.
+        const distanceBucket=Math.min(distance,DISTANCES-1);
+        logits.push(dot/Math.sqrt(headDim)+bias[head*DISTANCES+distanceBucket]);
       }
       const probabilities=softmax(logits),off=head*headDim;
       for(let j=0;j<n;j++)for(let dim=0;dim<headDim;dim++)
