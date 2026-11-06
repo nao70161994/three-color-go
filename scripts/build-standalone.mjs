@@ -13,6 +13,13 @@ const direct=stripImports(read('src/direct-policy.js'));
 const checkpointData=stripImports(read('src/trained-model-data.js'));
 const passCheckpointData=stripImports(read('src/pass-trained-model-data.js'));
 const trained=stripImports(read('src/trained-direct-ai.js'));
+// Standalone concatenation would redeclare pv2-ai.js's top-level relu/linear.
+// Isolate the comparison implementation while exposing only its public API.
+const comparison='const {COMPARISON_ARCHS,comparisonShape,validateComparisonModel,evaluateComparison,selectComparisonMove}=(()=>{\n'+
+  stripImports(read('src/architecture-comparison.js'))+
+  '\nreturn {COMPARISON_ARCHS,comparisonShape,validateComparisonModel,evaluateComparison,selectComparisonMove};\n})();';
+const eliteWeights=stripImports(read('src/elite-model-data.js'));
+const elite=stripImports(read('src/elite-models.js'));
 const insights=stripImports(read('src/insights.js'));
 const online=stripImports(read('src/online.js'));
 const matchmaking=stripImports(read('src/matchmaking.js'));
@@ -21,7 +28,7 @@ const cssTag='<link rel="stylesheet" href="./src/style.css" />';
 const jsTag='<script type="module" src="./src/main.js"></script>';
 if(!index.includes(cssTag)||!index.includes(jsTag)) throw Error('index.html template changed');
 const bundled=index.replace(cssTag,'<style>\n'+style+'\n</style>')
- .replace(jsTag,'<script>\n'+game+'\n'+agent+'\n'+strong+'\n'+neuralWeights+'\n'+neural+'\n'+pv2+'\n'+direct+ '\n'+checkpointData+'\n'+passCheckpointData+'\n'+trained+'\n'+insights+'\n'+online+'\n'+matchmaking+'\n'+ui+'\n</script>')
+ .replace(jsTag,'<script>\n'+game+'\n'+agent+'\n'+strong+'\n'+neuralWeights+'\n'+neural+'\n'+pv2+'\n'+direct+ '\n'+checkpointData+'\n'+passCheckpointData+'\n'+trained+'\n'+comparison+'\n'+eliteWeights+'\n'+elite+'\n'+insights+'\n'+online+'\n'+matchmaking+'\n'+ui+'\n</script>')
  .replace('</title>',' · オフライン版</title>')
  .replace('<script src="./match-config.js"></script>','<script>window.THREE_COLOR_MATCH_URL="";</script>');
 const output=new URL('../play.html',import.meta.url);

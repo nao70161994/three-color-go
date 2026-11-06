@@ -1,0 +1,74 @@
+name: Materialize three elite trained CPU checkpoints
+# Re-run after scoping the standalone comparison implementation to avoid duplicate symbols.
+on:
+  push:
+    branches: [feature/elite-three-cpu]
+    paths:
+      - .github/workflows/materialize-elite-models.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download authentic 50k attention checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 41672945203
+          github-token: ${{ github.token }}
+          name: architecture-milestone-6250-attn64
+          path: /tmp/elite/attn
+      - name: Download authentic 50k GNN checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 41672945203
+          github-token: ${{ github.token }}
+          name: architecture-milestone-6250-gnn64
+          path: /tmp/elite/gnn
+      - name: Download original 122400-game legacy PV2 candidate
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 41487742023
+          github-token: ${{ github.token }}
+          name: pass-20k-lr001
+          path: /tmp/elite/legacy
+      - name: Validate and materialize original frozen weights
+        run: |
+          set -euo pipefail
+          node scripts/generate-elite-assets.mjs \
+            --attention /tmp/elite/attn/model.json \
+            --gnn /tmp/elite/gnn/model.json \
+            --legacy /tmp/elite/legacy/pass-20k-lr001.json \
+            | tee /tmp/elite/provenance-report.txt
+          node --check src/elite-model-data.js
+      - name: Regenerate offline single-file game with real AI weights
+        run: npm run build:standalone
+      - name: Unit and full standalone integrity tests
+        run: |
+          npm test
+          npm run check:standalone
+      - name: Commit and publish frozen weights with offline build
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/elite-model-data.js src/elite-model-provenance.json play.html
+          git diff --cached --stat
+          git commit -m "build: publish verified 50k attention/GNN and 122400 PV2 model weights"
+          git push origin "HEAD:feature/elite-three-cpu"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: elite-three-model-verification
+          path: |
+            src/elite-model-provenance.json
+            /tmp/elite/provenance-report.txt
+          retention-days: 30
