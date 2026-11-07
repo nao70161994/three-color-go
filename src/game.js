@@ -6,12 +6,23 @@
 
 export const COLORS = ['black', 'white', 'red'];
 export const LABELS = { black: '黒', white: '白', red: '赤' };
-const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+const HEX_DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+const SQUARE_DIRECTIONS = [[1,0],[-1,0],[0,1],[0,-1]];
+// Negative radius encodes a square grid: -9 means 9×9, etc.
+// Positive radii retain historical hex geometry and save formats.
+export const SQUARE_SIZES = Object.freeze([9,13,19]);
+export function insideBoard(q,r,radius){
+  if(!Number.isInteger(q)||!Number.isInteger(r))return false;
+  return radius<0 ? q>=0&&r>=0&&q< -radius&&r< -radius
+    : Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))<=radius;
+}
+export function boardPointsCount(radius){return radius<0?radius*radius:3*radius*(radius+1)+1;}
 
 export function pointKey(q, r) { return `${q},${r}`; }
 
 export function pointsOnBoard(radius = 4) {
   const points = [];
+  if(radius<0){for(let r=0;r< -radius;r++)for(let q=0;q< -radius;q++)points.push({q,r});return points;}
   for (let r = -radius; r <= radius; r++) {
     for (let q = -radius; q <= radius; q++) {
       if (Math.abs(q + r) <= radius) points.push({q, r});
@@ -22,8 +33,8 @@ export function pointsOnBoard(radius = 4) {
 
 export function adjacentKeys(key, radius) {
   const [q, r] = key.split(',').map(Number);
-  return DIRECTIONS.map(([dq, dr]) => [q+dq, r+dr])
-    .filter(([x, y]) => Math.max(Math.abs(x), Math.abs(y), Math.abs(x+y)) <= radius)
+  return (radius<0?SQUARE_DIRECTIONS:HEX_DIRECTIONS).map(([dq, dr]) => [q+dq, r+dr])
+    .filter(([x, y]) => insideBoard(x,y,radius))
     .map(([x,y]) => pointKey(x,y));
 }
 
@@ -32,7 +43,8 @@ export function boardHash(board) {
 }
 
 export function createGame(radius = 4) {
-  if (!Number.isInteger(radius) || radius < 2 || radius > 12) throw new Error('盤面半径は2～12にしてください');
+  if (!Number.isInteger(radius) || !(radius>=2&&radius<=12) && !SQUARE_SIZES.includes(-radius))
+    throw new Error('六角盤は半径2～12、四角盤は9・13・19路にしてください');
   return {
     radius,
     board: {},
@@ -66,8 +78,7 @@ function groupWithLiberties(board, start, radius) {
 /** Pure legal move. Returns {ok, state, captured} or {ok:false, reason}. */
 export function play(state, q, r) {
   if (state.ended) return {ok:false, reason:'すでに終局しています'};
-  if (!Number.isInteger(q) || !Number.isInteger(r) ||
-      Math.max(Math.abs(q), Math.abs(r), Math.abs(q+r)) > state.radius) {
+  if (!insideBoard(q,r,state.radius)) {
     return {ok:false, reason:'盤外には置けません'};
   }
   const target = pointKey(q, r);
