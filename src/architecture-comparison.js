@@ -72,7 +72,7 @@ function softmax(values){
     throw Error('Invalid comparison attention probability normalization');
   return exps.map(x=>x/total);
 }
-function attention(h,points,layers,layerName,d){
+function attention(h,points,layers,layerName,d,stateRadius){
   const n=h.length,headDim=d/HEADS;
   const q=h.map(x=>linear(layers[layerName+'Q'],x));
   const k=h.map(x=>linear(layers[layerName+'K'],x));
@@ -87,7 +87,8 @@ function attention(h,points,layers,layerName,d){
         let dot=0,off=head*headDim;
         for(let dim=0;dim<headDim;dim++)dot+=q[i][off+dim]*k[j][off+dim];
         const dq=points[i].q-points[j].q,dr=points[i].r-points[j].r;
-        const distance=Math.max(Math.abs(dq),Math.abs(dr),Math.abs(dq+dr));
+        const distance=stateRadius<0 ? Math.abs(dq)+Math.abs(dr)
+          : Math.max(Math.abs(dq),Math.abs(dr),Math.abs(dq+dr));
         // The learned table ends at distance 10 (boards through radius 5).
         // On larger boards, reading out of bounds yields undefined and poisons
         // every attention probability with NaN. Clamp only the *bias bucket*:
@@ -108,6 +109,10 @@ function attention(h,points,layers,layerName,d){
 }
 export function evaluateComparison(state,model){
   validateComparisonModel(model);
+  if(model.metadata?.boardShape==='square'&&state.radius>=0)
+    throw Error('Square deep model requires an orthogonal square board');
+  if(model.metadata?.boardShape==='hex'&&state.radius<0)
+    throw Error('Hex deep model is not trained for square boards');
   const {features,neighbors}=encodePV2State(state,{architecture:PV3_ARCH});
   const points=pointsOnBoard(state.radius),d=COMPARISON_ARCHS[model.kind].width;
   let h=features.map(f=>relu(linear(model.layers.embed,f)));
@@ -120,7 +125,7 @@ export function evaluateComparison(state,model){
     });
   }
   for(let a=1;a<=COMPARISON_ARCHS[model.kind].attentionLayers;a++)
-    h=attention(h,points,model.layers,'attn'+a,d);
+    h=attention(h,points,model.layers,'attn'+a,d,state.radius);
   const pooled=new Array(d).fill(0);
   for(const vector of h)for(let t=0;t<d;t++)pooled[t]+=vector[t]/h.length;
   const logits=h.map(v=>linear(model.layers.policy,v)[0]);
