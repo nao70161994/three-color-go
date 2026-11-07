@@ -1,10 +1,11 @@
-const CACHE='three-color-go-v1.9-square';
+const CACHE='three-color-go-v1.9-square-deep';
 const CORE=['./','./index.html','./manifest.webmanifest','./icons/app-icon.svg',
 './icons/icon-192.png','./icons/icon-512.png','./src/style.css',
 './src/game.js','./src/agent.js','./src/strong-ai.js','./src/neural-weights.js','./src/neural-ai.js','./src/pv2-ai.js','./src/direct-policy.js',
  './src/trained-model-data.js','./src/pass-trained-model-data.js','./src/trained-direct-ai.js',
  './src/architecture-comparison.js','./src/elite-model-data.js','./src/elite-models.js',
- './src/square-policy.js','./src/square-policy-weights.js','./src/insights.js',
+ './src/square-policy.js','./src/square-policy-weights.js',
+ './src/square-deep-model-data.js','./src/square-deep-ai.js','./src/insights.js',
 './src/online.js','./src/matchmaking.js','./src/ai-worker.js','./src/main.js',
 './play.html','./match-config.js'];
 self.addEventListener('install',event=>event.waitUntil(
