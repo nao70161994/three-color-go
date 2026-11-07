@@ -15,6 +15,7 @@
     "balance:matchup": "node scripts/balance.mjs --matchup",
     "test:strength": "node scripts/strength-report.mjs",
     "study:sizes": "node scripts/size-study.mjs",
+    "train:square": "node scripts/train-square-policy.mjs",
     "verify:trained-models": "node --test tests/trained-direct-ai.test.js"
   }
 }
