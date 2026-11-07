@@ -1,4 +1,4 @@
-import { COLORS, adjacentKeys, createGame, pass, play, pointKey, pointsOnBoard, scores, winner } from './game.js';
+import { COLORS, adjacentKeys, createGame, insideBoard, pass, play, pointKey, pointsOnBoard, scores, winner } from './game.js';
 
 /** Stable JSON view shared by browser automation and CLI agents. */
 export function snapshot(state) {
@@ -50,8 +50,7 @@ export function groupInfo(board, start, radius) {
  * Once reduced to 8 cells, the bot protects the remaining enclosed space.
  */
 export function isOwnEye(state,q,r,color=COLORS[state.turn]) {
-  if(!COLORS.includes(color) || !Number.isInteger(q) || !Number.isInteger(r) ||
-     Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))>state.radius)return false;
+  if(!COLORS.includes(color) || !insideBoard(q,r,state.radius))return false;
   const start=pointKey(q,r);
   if(state.board[start])return false;
   const seen=new Set([start]), queue=[start], boundary=new Set();
@@ -188,7 +187,7 @@ function tacticalValue(state,result,q,r,random,atRisk) {
   }
   const open=neighbors.filter(k=>!next.board[k]).length;
   const friends=neighbors.filter(k=>state.board[k]===own).length;
-  const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/state.radius;
+  const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/Math.abs(state.radius);
   return 1 + result.captured.length*25 + rescued*14 + pressured*3.5
     + friends*.55 + open*.6 - selfAtari*22 - edge*.22 + random()*.4;
 }
