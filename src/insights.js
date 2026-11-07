@@ -1,4 +1,4 @@
-import {COLORS,adjacentKeys,createGame,pass,play,pointKey,scores,winner} from './game.js';
+import {COLORS,adjacentKeys,boardPointsCount,createGame,pass,play,pointKey,scores,winner} from './game.js';
 import {dangerGroups,isOwnEye,isUnsafeCpuMove,groupInfo} from './agent.js';
 
 export function explainPosition(state) {
@@ -75,7 +75,7 @@ export function formatAnalysis(analysis) {
   const a=analysis,s=a.stats;
   return [
     '三色六角碁 対局分析',
-    '盤面: '+(3*a.radius*(a.radius+1)+1)+'マス / '+s.turns+'手 / '+(a.ended?'終局':'対局中'),
+    '盤面: '+boardPointsCount(a.radius)+'マス / '+s.turns+'手 / '+(a.ended?'終局':'対局中'),
     '黒 '+a.scores.black+' / 白 '+a.scores.white+' / 赤 '+a.scores.red,
     '勝者: '+(a.winners.length?a.winners.join('・'):'未確定'),
     '捕獲石数: '+s.capturedStones+' / 共同包囲による捕獲: '+s.jointCaptures+' / パス: '+s.passes,

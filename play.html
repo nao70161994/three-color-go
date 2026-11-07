@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#131f27" />
-  <meta name="description" content="黒・白・赤の3人で遊ぶ六角碁。CPU・ローカル・オンラインランダム対戦に対応。" />
-  <title>三色六角碁 | Three Color Go · オフライン版</title>
+  <meta name="description" content="黒・白・赤の3人で遊ぶ六角盤・四角盤の囲碁。CPU・ローカル・オンラインランダム対戦に対応。" />
+  <title>三色囲碁：六角盤・四角盤 | Three Color Go · オフライン版</title>
   <style>
 :root { font-family: system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; color-scheme:dark; background:#111a22; color:#eaf1f4; }
 * {box-sizing:border-box}
@@ -188,19 +188,19 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
   <main class="app">
     <header class="header">
       <div class="eyebrow">THREE COLOR HEX GO · PROTOTYPE</div>
-      <h1>三色六角碁 <span>◈</span></h1>
+      <h1>三色囲碁 <span>◈</span></h1>
       <p>3色で囲み、最後に残った石の数を競おう。</p>
     </header>
     <div class="settings">
       <div class="setting"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">1人で遊ぶ（CPU 2人）</option><option value="bots">CPU 3人の対局を観戦</option><option value="custom">自由編成（色ごとに人間／CPU）</option><option value="local">3人で交代</option><option value="online">オンライン3人対戦（試験版）</option></select></div>
-      <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option><option value="neural">ディープラーニング（旧実験版）</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option></select></div>
+      <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option><option value="neural">ディープラーニング（旧実験版）</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option></select></div>
     </div>
     <section class="seatSettings" id="seatSettings" aria-label="色ごとのプレイヤー設定" hidden>
       <strong>各色の担当（対局中も変更できます）</strong>
       <div class="seatSettingsGrid">
-        <label for="seatBlack"><span class="stone tiny black"></span> 黒（先手）</label><select id="seatBlack"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option></select>
-        <label for="seatWhite"><span class="stone tiny white"></span> 白（2手目）</label><select id="seatWhite"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option></select>
-        <label for="seatRed"><span class="stone tiny red"></span> 赤（3手目）</label><select id="seatRed"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final" selected>深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option></select>
+        <label for="seatBlack"><span class="stone tiny black"></span> 黒（先手）</label><select id="seatBlack"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option></select>
+        <label for="seatWhite"><span class="stone tiny white"></span> 白（2手目）</label><select id="seatWhite"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option></select>
+        <label for="seatRed"><span class="stone tiny red"></span> 赤（3手目）</label><select id="seatRed"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final" selected>深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option></select>
       </div>
       <p>初期設定は人間2人＋学習済みCPU1人。人間の手番は同じ盤面を交代で操作します。全員CPUなら観戦・一時停止もできます。</p>
     </section>
@@ -224,7 +224,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
       <p>ホストが黒、参加者が白・赤を担当。ホストのブラウザを開いたままにしてください。オンラインには通信が必要です。</p>
     </section>
     <div class="boardSizeSetting"><label for="boardSize">盤面サイズ</label>
-      <select id="boardSize"><option value="2" disabled>旧・極小（19マス）</option><option value="3">小（37マス）</option><option value="4" selected>標準（61マス）</option><option value="5">大（91マス）</option><option value="6">特大（127マス）</option><option value="8">広い（217マス）</option><option value="10">超広い（331マス）</option><option value="11">19路盤超え（397マス）</option><option value="12">最大（469マス）</option></select>
+      <select id="boardSize"><option value="2" disabled>旧・極小（19マス）</option><option value="3">小（37マス）</option><option value="4" selected>標準（61マス）</option><option value="5">大（91マス）</option><option value="6">特大（127マス）</option><option value="8">広い（217マス）</option><option value="10">超広い（331マス）</option><option value="11">19路盤超え（397マス）</option><option value="12">最大（469マス）</option><optgroup label="四角盤（上下左右4方向）"><option value="-9">四角 9×9（81マス）</option><option value="-13">四角 13×13（169マス）</option><option value="-19">四角 19×19（361マス）</option></optgroup></select>
       <span>変更すると新しい対局になります</span>
     </div>
     <section class="spectatorControls" id="spectatorControls" hidden aria-label="CPU3人の観戦設定">
@@ -309,12 +309,23 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
 
 const COLORS = ['black', 'white', 'red'];
 const LABELS = { black: '黒', white: '白', red: '赤' };
-const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+const HEX_DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+const SQUARE_DIRECTIONS = [[1,0],[-1,0],[0,1],[0,-1]];
+// Negative radius encodes a square grid: -9 means 9×9, etc.
+// Positive radii retain historical hex geometry and save formats.
+const SQUARE_SIZES = Object.freeze([9,13,19]);
+function insideBoard(q,r,radius){
+  if(!Number.isInteger(q)||!Number.isInteger(r))return false;
+  return radius<0 ? q>=0&&r>=0&&q< -radius&&r< -radius
+    : Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))<=radius;
+}
+function boardPointsCount(radius){return radius<0?radius*radius:3*radius*(radius+1)+1;}
 
 function pointKey(q, r) { return `${q},${r}`; }
 
 function pointsOnBoard(radius = 4) {
   const points = [];
+  if(radius<0){for(let r=0;r< -radius;r++)for(let q=0;q< -radius;q++)points.push({q,r});return points;}
   for (let r = -radius; r <= radius; r++) {
     for (let q = -radius; q <= radius; q++) {
       if (Math.abs(q + r) <= radius) points.push({q, r});
@@ -325,8 +336,8 @@ function pointsOnBoard(radius = 4) {
 
 function adjacentKeys(key, radius) {
   const [q, r] = key.split(',').map(Number);
-  return DIRECTIONS.map(([dq, dr]) => [q+dq, r+dr])
-    .filter(([x, y]) => Math.max(Math.abs(x), Math.abs(y), Math.abs(x+y)) <= radius)
+  return (radius<0?SQUARE_DIRECTIONS:HEX_DIRECTIONS).map(([dq, dr]) => [q+dq, r+dr])
+    .filter(([x, y]) => insideBoard(x,y,radius))
     .map(([x,y]) => pointKey(x,y));
 }
 
@@ -335,7 +346,8 @@ function boardHash(board) {
 }
 
 function createGame(radius = 4) {
-  if (!Number.isInteger(radius) || radius < 2 || radius > 12) throw new Error('盤面半径は2～12にしてください');
+  if (!Number.isInteger(radius) || !(radius>=2&&radius<=12) && !SQUARE_SIZES.includes(-radius))
+    throw new Error('六角盤は半径2～12、四角盤は9・13・19路にしてください');
   return {
     radius,
     board: {},
@@ -369,8 +381,7 @@ function groupWithLiberties(board, start, radius) {
 /** Pure legal move. Returns {ok, state, captured} or {ok:false, reason}. */
 function play(state, q, r) {
   if (state.ended) return {ok:false, reason:'すでに終局しています'};
-  if (!Number.isInteger(q) || !Number.isInteger(r) ||
-      Math.max(Math.abs(q), Math.abs(r), Math.abs(q+r)) > state.radius) {
+  if (!insideBoard(q,r,state.radius)) {
     return {ok:false, reason:'盤外には置けません'};
   }
   const target = pointKey(q, r);
@@ -478,8 +489,7 @@ function groupInfo(board, start, radius) {
  * Once reduced to 8 cells, the bot protects the remaining enclosed space.
  */
 function isOwnEye(state,q,r,color=COLORS[state.turn]) {
-  if(!COLORS.includes(color) || !Number.isInteger(q) || !Number.isInteger(r) ||
-     Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))>state.radius)return false;
+  if(!COLORS.includes(color) || !insideBoard(q,r,state.radius))return false;
   const start=pointKey(q,r);
   if(state.board[start])return false;
   const seen=new Set([start]), queue=[start], boundary=new Set();
@@ -616,7 +626,7 @@ function tacticalValue(state,result,q,r,random,atRisk) {
   }
   const open=neighbors.filter(k=>!next.board[k]).length;
   const friends=neighbors.filter(k=>state.board[k]===own).length;
-  const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/state.radius;
+  const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/Math.abs(state.radius);
   return 1 + result.captured.length*25 + rescued*14 + pressured*3.5
     + friends*.55 + open*.6 - selfAtari*22 - edge*.22 + random()*.4;
 }
@@ -817,7 +827,7 @@ function candidates(state, player, width, random) {
       if(state.board[pointKey(q,r)] || isOwnEye(state,q,r,player))continue;
       const next=play(state,q,r);
       if(!next.ok || isUnsafeCpuMove(state,q,r,next))continue;
-      const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/state.radius;
+      const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/Math.abs(state.radius);
       const rank=positionValue(next.state,player)+next.captured.length*5
         + (1-edge)*.38 + random()*.04;
       options.push({q,r,state:next.state,rank});
@@ -1505,6 +1515,145 @@ function chooseEliteMove(state,id='elite-attn64-50000',inspection=null){
   return result.move;
 }
 
+// Deterministically fitted from real three-player square-board teacher games.
+const SQUARE_POLICY_WEIGHTS={
+  "architecture": "square-linear-policy-v1",
+  "weights": [
+    2.1820008,
+    2.7868346,
+    -2.6546514,
+    -2.0918911,
+    7.2461964,
+    2.9790285,
+    3.6632617,
+    2.7041353,
+    0.7820283,
+    6.6718674,
+    3.5239635,
+    0.0911191,
+    0.0324765,
+    -0.0105265,
+    1.7988035,
+    0.0483706
+  ],
+  "passWeights": [
+    -0.9806089,
+    8.8169583,
+    2.2844458
+  ],
+  "training": {
+    "kind": "square-3-player-teacher-imitation",
+    "games": 16,
+    "boardSizes": [
+      9,
+      13,
+      19
+    ],
+    "seed": 7112026,
+    "positions": 1981,
+    "learningRate": 0.11,
+    "details": "balanced+tactical teacher actions, online softmax cross-entropy, true square rules",
+    "checkpoint": "frozen-supervised-square-20261107"
+  }
+};
+
+/**
+ * Square-board learned policy: shared weights across all three colors, no search.
+ * Features are geometry/topology facts; policy weights are fitted from real
+ * three-player teacher games (see scripts/train-square-policy.mjs).
+ * The pass action is always compared with every legal placement.
+ */
+const SQUARE_TRAINED_LEVEL='square-trained-v1';
+const SQUARE_FEATURES=16;
+const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0);
+function squarePolicyActions(state){
+  if(state.radius>=0)throw Error('四角盤専用の学習CPUです');
+  const board=state.board,n=-state.radius,own=COLORS[state.turn];
+  const opponent1=COLORS[(state.turn+1)%3],opponent2=COLORS[(state.turn+2)%3];
+  const occupied=Object.keys(board).length/(n*n);
+  const ownCount=Object.values(board).filter(c=>c===own).length;
+  const enemyCount=Object.values(board).filter(c=>c!==own).length;
+  const scoreGap=(enemyCount/2-ownCount)/(n*n);
+  const groupCache=new Map();
+  const getGroup=k=>{
+    if(!groupCache.has(k)){
+      const g=groupInfo(board,k,state.radius);
+      for(const x of g.stones)groupCache.set(x,g);
+    }
+    return groupCache.get(k);
+  };
+  const actions=legalMoves(state).map(({q,r})=>{
+    const neighbors=adjacentKeys(pointKey(q,r),state.radius);
+    let friends=0,opp1=0,opp2=0,empty=0;
+    let capturePotential=0,weakEnemy=0,strongOwn=0,ownLiberties=0;
+    const scanned=new Set();
+    for(const key of neighbors){
+      const color=board[key];
+      if(!color){empty++;continue;}
+      if(color===own)friends++;
+      else if(color===opponent1)opp1++;
+      else if(color===opponent2)opp2++;
+      if(scanned.has(key))continue;
+      const g=getGroup(key);
+      for(const stone of g.stones)scanned.add(stone);
+      if(color===own){
+        ownLiberties+=Math.min(g.liberties.length,6);
+        strongOwn+=Math.min(g.stones.length,12);
+      }else{
+        if(g.liberties.length===1)capturePotential+=g.stones.length;
+        if(g.liberties.length===2)weakEnemy+=g.stones.length;
+      }
+    }
+    let nearOwn=0,nearEnemy=0;
+    for(let y=Math.max(0,r-2);y<=Math.min(n-1,r+2);y++)
+      for(let x=Math.max(0,q-2);x<=Math.min(n-1,q+2);x++){
+        if(Math.abs(x-q)+Math.abs(y-r)>2)continue;
+        const c=board[pointKey(x,y)];
+        if(c===own)nearOwn++;else if(c)nearEnemy++;
+      }
+    const dist=Math.min(q,r,n-1-q,n-1-r);
+    const central=1-(Math.abs(q-(n-1)/2)+Math.abs(r-(n-1)/2))/(n-1);
+    const features=[
+      1,friends/4,opp1/4,opp2/4,empty/4,
+      nearOwn/12,nearEnemy/12,Math.min(1,ownLiberties/12),
+      Math.min(1,strongOwn/24),Math.min(1,capturePotential/5),
+      Math.min(1,weakEnemy/5),Math.min(1,(friends>0&&empty===0)?1:0),
+      central,dist/(n/2),occupied,scoreGap
+    ];
+    return {move:{q,r},features,type:'play'};
+  });
+  actions.push({move:null,type:'pass',passFeatures:[1,occupied,state.passes/2]});
+  return actions;
+}
+function squarePolicyDistribution(state,model=SQUARE_POLICY_WEIGHTS){
+  if(!model||model.architecture!=='square-linear-policy-v1'||model.weights?.length!==SQUARE_FEATURES||
+     model.passWeights?.length!==3||[...model.weights,...model.passWeights].some(w=>!Number.isFinite(w)))
+    throw Error('Invalid square learned model');
+  const actions=squarePolicyActions(state);
+  const logits=actions.map(a=>a.type==='pass'?dot(a.passFeatures,model.passWeights):dot(a.features,model.weights));
+  const high=Math.max(...logits),exps=logits.map(x=>Math.exp(x-high)),total=exps.reduce((a,b)=>a+b,0);
+  const probabilities=exps.map(x=>x/total);
+  return {actions,logits,probabilities};
+}
+function chooseSquareTrainedMove(state,inspection=null,model=SQUARE_POLICY_WEIGHTS){
+  if(state.ended)return null;
+  // The square-specific policy does not claim to be trained for hex grids.
+  if(state.radius>=0)return chooseDifficultyMove(state,Math.random,'normal');
+  const {actions,probabilities}=squarePolicyDistribution(state,model);
+  let best=0;
+  for(let i=1;i<actions.length;i++)if(probabilities[i]>probabilities[best])best=i;
+  if(Array.isArray(inspection)){
+    inspection.push(...actions.map((a,i)=>({...a.move,score:probabilities[i]}))
+      .sort((a,b)=>b.score-a.score).slice(0,5));
+  }
+  return actions[best].move;
+}
+function squareTrainedModelInfo(){
+  const m=SQUARE_POLICY_WEIGHTS;
+  return {architecture:m.architecture,training:m.training,games:m.training?.games??0,
+    trainedOn:m.training?.boardSizes??[],featureCount:SQUARE_FEATURES,policy:'greedy'};
+}
+
 
 function explainPosition(state) {
   const threats=dangerGroups(state);
@@ -1580,7 +1729,7 @@ function formatAnalysis(analysis) {
   const a=analysis,s=a.stats;
   return [
     '三色六角碁 対局分析',
-    '盤面: '+(3*a.radius*(a.radius+1)+1)+'マス / '+s.turns+'手 / '+(a.ended?'終局':'対局中'),
+    '盤面: '+boardPointsCount(a.radius)+'マス / '+s.turns+'手 / '+(a.ended?'終局':'対局中'),
     '黒 '+a.scores.black+' / 白 '+a.scores.white+' / 赤 '+a.scores.red,
     '勝者: '+(a.winners.length?a.winners.join('・'):'未確定'),
     '捕獲石数: '+s.capturedStones+' / 共同包囲による捕獲: '+s.jointCaptures+' / パス: '+s.passes,
@@ -1803,7 +1952,7 @@ const SIZE = 29, ROOT3 = Math.sqrt(3);
 let state = createGame(4);
 let mode = 'cpu', past = [], actions = [], botTimer = null;
 let cpuLevel = 'hard', showLegal = false, showDanger = true;
-const CPU_LEVELS=['easy','normal','hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS];
+const CPU_LEVELS=['easy','normal','hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL];
 const SEAT_LEVELS=['human',...CPU_LEVELS];
 const DEFAULT_SEATS=['human','human','trained-lr001-final'];
 let seatLevels=DEFAULT_SEATS.slice();
@@ -1834,7 +1983,15 @@ const MATCH_ENDPOINT_KEY='three-color-go.matchmaker-url';
 const MATCH_TIMEOUT=150000;
 let randomMatching=false, saveWarning=false;
 
-function center(q,r) { return [SIZE*ROOT3*(q+r/2), SIZE*1.5*r]; }
+const SQUARE_STEP=SIZE*1.6;
+function center(q,r,radius=state.radius) {
+  return radius<0 ? [SQUARE_STEP*(q+(radius+1)/2),SQUARE_STEP*(r+(radius+1)/2)]
+    : [SIZE*ROOT3*(q+r/2), SIZE*1.5*r];
+}
+function boardExtent(radius){
+  if(radius<0){const half=SQUARE_STEP*(-radius)/2+SIZE;return {x:half,y:half};}
+  return {x:SIZE*ROOT3*radius+SIZE+4,y:SIZE*1.5*radius+SIZE+4};
+}
 function vertices(x,y) {
   return Array.from({length:6},(_,i)=>{
     const a = (Math.PI/180)*(60*i-90);
@@ -1982,16 +2139,20 @@ function permittedForHuman() {
   return false;
 }
 function botMove(random=Math.random,level=turnCpuLevel()) {
-  if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS].includes(level))
+  if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL].includes(level))
     return chooseDifficultyMove(state,random,level);
   const candidates=[];
-  const chosen=ELITE_LEVELS.includes(level)
+  const chosen=level===SQUARE_TRAINED_LEVEL
+    ? chooseSquareTrainedMove(state,candidates)
+    : ELITE_LEVELS.includes(level)
     ? chooseEliteMove(state,level,candidates)
     : TRAINED_LEVELS.includes(level) ? chooseTrainedMove(state,level,candidates)
     : level==='neural' ? chooseNeuralMove(state,random,candidates)
       : chooseStrongMove(state,random,candidates);
   lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],level,
-    chosen,candidates,notes:ELITE_LEVELS.includes(level)
+    chosen,candidates,notes:level===SQUARE_TRAINED_LEVEL
+      ? '四角盤専用の教師模倣学習方策（探索なし）'
+      : ELITE_LEVELS.includes(level)
       ? '上位学習済みAI：合法着手＋パスを純粋な方策で選択（探索なし）'
       : TRAINED_LEVELS.includes(level)
       ? '合法手＋パスを直接比較した方策確率（眼の戦略的フィルターなし）'
@@ -2038,7 +2199,7 @@ function scheduleBots(){
   const generation=aiGeneration,level=turnCpuLevel();
   botTimer=setTimeout(()=>{
     botTimer=null;
-    if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS].includes(level)||typeof Worker==='undefined'||location.protocol==='file:'){
+    if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL].includes(level)||typeof Worker==='undefined'||location.protocol==='file:'){
       const move=botMove(Math.random,level);if(move)place(move.q,move.r);else doPass();return;
     }
     try{
@@ -2119,8 +2280,7 @@ let renderedRadius=null;
 const cellCache=new Map();
 function drawBoard(){
   const view=visibleState();
-  const xExtent=SIZE*ROOT3*view.radius+SIZE+4;
-  const yExtent=SIZE*1.5*view.radius+SIZE+4;
+  const {x:xExtent,y:yExtent}=boardExtent(view.radius);
   boardSvg.setAttribute('viewBox',[-xExtent,-yExtent,2*xExtent,2*yExtent].join(' '));
   boardSvg.style.width=zoomBoard?Math.round(Math.max(700,xExtent*1.7)*zoomScale)+'px':'100%';
   boardSvg.style.maxHeight=zoomBoard?'none':'65vh';
@@ -2166,13 +2326,23 @@ function drawBoard(){
     }
     if(item.signature===signature)continue;
     item.signature=signature;
-    const g=item.g,[x,y]=center(q,r);
+    const g=item.g,[x,y]=center(q,r,view.radius);
     g.setAttribute('class','cell '+(color?'occupied':''));
     g.setAttribute('tabindex',view.ended||key!==keyboardFocusKey?'-1':'0');
     g.setAttribute('aria-label',q+','+r+' '+(color?LABELS[color]+'石':'空点')
       +(danger.has(key)?' 危険・呼吸点1':'')+(last===key?' 直前の着手':'')
       +(legal.has(key)?' 合法手':''));
-    const children=[el('polygon',{points:vertices(x,y),class:'hex'})];
+    const children=view.radius<0
+      ? [
+          el('rect',{x:x-SQUARE_STEP/2,y:y-SQUARE_STEP/2,width:SQUARE_STEP,height:SQUARE_STEP,fill:'#d7ae73'}),
+          el('line',{x1:x-(q>0?SQUARE_STEP/2:0),y1:y,
+            x2:x+(q< -view.radius-1?SQUARE_STEP/2:0),y2:y,
+            stroke:'#715334','stroke-width':1.3}),
+          el('line',{x1:x,y1:y-(r>0?SQUARE_STEP/2:0),
+            x2:x,y2:y+(r< -view.radius-1?SQUARE_STEP/2:0),
+            stroke:'#715334','stroke-width':1.3})
+        ]
+      : [el('polygon',{points:vertices(x,y),class:'hex'})];
     if(color)children.push(el('circle',{cx:x,cy:y,r:SIZE*.72,class:'piece '+color}));
     if(legal.has(key))children.push(el('circle',{cx:x,cy:y,r:SIZE*.17,class:'hintLegal'}));
     if(danger.has(key))children.push(el('circle',{cx:x,cy:y,r:SIZE*.79,class:'hintDanger'}));
@@ -2188,6 +2358,7 @@ function render() {
   turnLabelEl.textContent=replay?'棋譜再生 · '+replay.index+' / '+actions.length+'手':view.ended?'勝敗が決まりました':view.passes+'人連続パス · '+view.moveCount+'手';
   modeEl.value=mode;
   boardSizeEl.value=String(state.radius);
+  boardSvg.setAttribute('aria-label',view.radius<0?'四角形の囲碁盤':'六角形の囲碁盤');
   // Avoid overriding the native Android picker while the selection is in progress.
   if(document.activeElement!==cpuLevelEl)cpuLevelEl.value=cpuLevel;
   modeEl.disabled=!!replay;
@@ -2230,7 +2401,7 @@ function render() {
   spectatorStepEl.disabled=!!replay||!spectatorPaused||view.ended;
   spectatorSpeedEl.value=String(spectatorSpeed);
   spectatorSpeedEl.disabled=!!replay;
-  boardViewToolsEl.hidden=view.radius<8 && !zoomBoard;
+  boardViewToolsEl.hidden=(view.radius<0 ? -view.radius<13 : view.radius<8) && !zoomBoard;
   boardZoomEl.textContent=zoomBoard?'全体表示へ戻す':'拡大して打つ';
   boardZoomEl.setAttribute('aria-pressed',String(zoomBoard));
   legalToggleEl.textContent='合法手を表示: '+(showLegal?'ON':'OFF');
@@ -2269,7 +2440,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=selectedCpuLevel(),n
     matchCancellation?.();releaseMatchTicket();
     if(mode==='online'){network?.close();network=null;}
   }
-  replay=null;state=next;keyboardFocusKey='0,0';
+  replay=null;state=next;keyboardFocusKey=radius<0?Math.floor(-radius/2)+','+Math.floor(-radius/2):'0,0';
   mode=nextMode;cpuLevel=nextLevel;cpuLevelEl.value=cpuLevel;seatLevels=nextSeats.slice();
   seatLevelEls.forEach((el,i)=>{el.value=seatLevels[i];});spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
   past=[];actions=[];lastCpuDecision=null;currentMatchId=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
@@ -2336,7 +2507,7 @@ function updateMatchList(){
       const raw=localStorage.getItem(MATCH_PREFIX+id);if(!raw)continue;
       let item;try{item=JSON.parse(raw);}catch{continue;}
       const option=document.createElement('option');
-      option.value=id;option.textContent=(item.actions?.length||0)+'手 · '+(3*item.radius*(item.radius+1)+1)+'マス · '+id.slice(2,10);
+      option.value=id;option.textContent=(item.actions?.length||0)+'手 · '+boardPointsCount(item.radius)+'マス · '+id.slice(2,10);
       matchListEl.append(option);
     }
     if([...matchListEl.options].some(o=>o.value===selected))matchListEl.value=selected;
@@ -2537,7 +2708,7 @@ boardSvg.addEventListener('touchmove',e=>{
   const factor=length/pinchStart;pinchStart=length;
   zoomBoard=true;zoomBoardExplicit=true;
   zoomScale=Math.min(3.5,Math.max(1,zoomScale*factor));
-  const xExtent=SIZE*ROOT3*state.radius+SIZE+4;
+  const {x:xExtent}=boardExtent(state.radius);
   boardSvg.style.width=Math.round(Math.max(700,xExtent*1.7)*zoomScale)+'px';
   boardSvg.style.maxHeight='none';
   boardViewToolsEl.hidden=false;
@@ -2562,7 +2733,7 @@ boardSizeEl.addEventListener('change',()=>{
   if(state.moveCount>0 && !confirm('盤面サイズを変えると対局が最初からになります。よろしいですか？')) {
     boardSizeEl.value=String(state.radius);return;
   }
-  const result=reset({radius});
+  const result=reset({radius,nextLevel:radius<0?SQUARE_TRAINED_LEVEL:cpuLevel===SQUARE_TRAINED_LEVEL?'hard':selectedCpuLevel()});
   if(!result.ok){boardSizeEl.value=String(state.radius);msgEl.textContent=result.reason;}
 });
 undoBtn.addEventListener('click',undo);
@@ -2592,6 +2763,7 @@ window.threeColorGo = Object.freeze({
   getNeuralModelInfo: neuralModelInfo,
   getTrainedModelsInfo: trainedModelsInfo,
   getEliteModelsInfo: eliteModelsInfo,
+  getSquareTrainedModelInfo: squareTrainedModelInfo,
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),
   explainPosition: ()=>explainPosition(state),

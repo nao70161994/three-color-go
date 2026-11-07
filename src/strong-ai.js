@@ -75,7 +75,7 @@ function candidates(state, player, width, random) {
       if(state.board[pointKey(q,r)] || isOwnEye(state,q,r,player))continue;
       const next=play(state,q,r);
       if(!next.ok || isUnsafeCpuMove(state,q,r,next))continue;
-      const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/state.radius;
+      const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/Math.abs(state.radius);
       const rank=positionValue(next.state,player)+next.captured.length*5
         + (1-edge)*.38 + random()*.04;
       options.push({q,r,state:next.state,rank});

@@ -20,6 +20,8 @@ const comparison='const {COMPARISON_ARCHS,comparisonShape,validateComparisonMode
   '\nreturn {COMPARISON_ARCHS,comparisonShape,validateComparisonModel,evaluateComparison,selectComparisonMove};\n})();';
 const eliteWeights=stripImports(read('src/elite-model-data.js'));
 const elite=stripImports(read('src/elite-models.js'));
+const squareWeights=stripImports(read('src/square-policy-weights.js'));
+const square=stripImports(read('src/square-policy.js'));
 const insights=stripImports(read('src/insights.js'));
 const online=stripImports(read('src/online.js'));
 const matchmaking=stripImports(read('src/matchmaking.js'));
@@ -28,7 +30,7 @@ const cssTag='<link rel="stylesheet" href="./src/style.css" />';
 const jsTag='<script type="module" src="./src/main.js"></script>';
 if(!index.includes(cssTag)||!index.includes(jsTag)) throw Error('index.html template changed');
 const bundled=index.replace(cssTag,'<style>\n'+style+'\n</style>')
- .replace(jsTag,'<script>\n'+game+'\n'+agent+'\n'+strong+'\n'+neuralWeights+'\n'+neural+'\n'+pv2+'\n'+direct+ '\n'+checkpointData+'\n'+passCheckpointData+'\n'+trained+'\n'+comparison+'\n'+eliteWeights+'\n'+elite+'\n'+insights+'\n'+online+'\n'+matchmaking+'\n'+ui+'\n</script>')
+ .replace(jsTag,'<script>\n'+game+'\n'+agent+'\n'+strong+'\n'+neuralWeights+'\n'+neural+'\n'+pv2+'\n'+direct+ '\n'+checkpointData+'\n'+passCheckpointData+'\n'+trained+'\n'+comparison+'\n'+eliteWeights+'\n'+elite+'\n'+squareWeights+'\n'+square+'\n'+insights+'\n'+online+'\n'+matchmaking+'\n'+ui+'\n</script>')
  .replace('</title>',' · オフライン版</title>')
  .replace('<script src="./match-config.js"></script>','<script>window.THREE_COLOR_MATCH_URL="";</script>');
 const output=new URL('../play.html',import.meta.url);
