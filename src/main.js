@@ -447,8 +447,15 @@ function drawBoard(){
       +(danger.has(key)?' 危険・呼吸点1':'')+(last===key?' 直前の着手':'')
       +(legal.has(key)?' 合法手':''));
     const children=view.radius<0
-      ? [el('rect',{x:x-SQUARE_STEP/2,y:y-SQUARE_STEP/2,width:SQUARE_STEP,height:SQUARE_STEP,
-          fill:'#d7ae73',stroke:'#735936','stroke-width':1.15,class:'squareCell'})]
+      ? [
+          el('rect',{x:x-SQUARE_STEP/2,y:y-SQUARE_STEP/2,width:SQUARE_STEP,height:SQUARE_STEP,fill:'#d7ae73'}),
+          el('line',{x1:x-(q>0?SQUARE_STEP/2:0),y1:y,
+            x2:x+(q< -view.radius-1?SQUARE_STEP/2:0),y2:y,
+            stroke:'#715334','stroke-width':1.3}),
+          el('line',{x1:x,y1:y-(r>0?SQUARE_STEP/2:0),
+            x2:x,y2:y+(r< -view.radius-1?SQUARE_STEP/2:0),
+            stroke:'#715334','stroke-width':1.3})
+        ]
       : [el('polygon',{points:vertices(x,y),class:'hex'})];
     if(color)children.push(el('circle',{cx:x,cy:y,r:SIZE*.72,class:'piece '+color}));
     if(legal.has(key))children.push(el('circle',{cx:x,cy:y,r:SIZE*.17,class:'hintLegal'}));
@@ -840,7 +847,7 @@ boardSizeEl.addEventListener('change',()=>{
   if(state.moveCount>0 && !confirm('盤面サイズを変えると対局が最初からになります。よろしいですか？')) {
     boardSizeEl.value=String(state.radius);return;
   }
-  const result=reset({radius});
+  const result=reset({radius,nextLevel:radius<0?SQUARE_TRAINED_LEVEL:cpuLevel===SQUARE_TRAINED_LEVEL?'hard':selectedCpuLevel()});
   if(!result.ok){boardSizeEl.value=String(state.radius);msgEl.textContent=result.reason;}
 });
 undoBtn.addEventListener('click',undo);
