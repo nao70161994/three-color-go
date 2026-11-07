@@ -1,9 +1,10 @@
-import { COLORS, LABELS, pointsOnBoard, pointKey, createGame, play, pass, scores, winner } from './game.js';
+import { COLORS, LABELS, boardPointsCount, pointsOnBoard, pointKey, createGame, play, pass, scores, winner } from './game.js';
 import { chooseMove, chooseDifficultyMove, dangerGroups, legalMoves, seededRandom, snapshot } from './agent.js';
 import { chooseStrongMove } from './strong-ai.js';
 import { chooseNeuralMove, neuralModelInfo } from './neural-ai.js';
 import { chooseTrainedMove, TRAINED_LEVELS, trainedModelsInfo } from './trained-direct-ai.js';
 import { chooseEliteMove, ELITE_LEVELS, eliteModelsInfo } from './elite-models.js';
+import {chooseSquareTrainedMove,SQUARE_TRAINED_LEVEL,squareTrainedModelInfo} from './square-policy.js';
 import { analyzeRecord, formatAnalysis, explainPosition } from './insights.js';
 import { createOnlineSession, loadPeerJS, roomLink, validRoom, secureToken } from './online.js';
 import { makeMatchmaker } from './matchmaking.js';
@@ -65,7 +66,7 @@ const SIZE = 29, ROOT3 = Math.sqrt(3);
 let state = createGame(4);
 let mode = 'cpu', past = [], actions = [], botTimer = null;
 let cpuLevel = 'hard', showLegal = false, showDanger = true;
-const CPU_LEVELS=['easy','normal','hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS];
+const CPU_LEVELS=['easy','normal','hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL];
 const SEAT_LEVELS=['human',...CPU_LEVELS];
 const DEFAULT_SEATS=['human','human','trained-lr001-final'];
 let seatLevels=DEFAULT_SEATS.slice();
@@ -96,7 +97,15 @@ const MATCH_ENDPOINT_KEY='three-color-go.matchmaker-url';
 const MATCH_TIMEOUT=150000;
 let randomMatching=false, saveWarning=false;
 
-function center(q,r) { return [SIZE*ROOT3*(q+r/2), SIZE*1.5*r]; }
+const SQUARE_STEP=SIZE*1.6;
+function center(q,r,radius=state.radius) {
+  return radius<0 ? [SQUARE_STEP*(q+(radius+1)/2),SQUARE_STEP*(r+(radius+1)/2)]
+    : [SIZE*ROOT3*(q+r/2), SIZE*1.5*r];
+}
+function boardExtent(radius){
+  if(radius<0){const half=SQUARE_STEP*(-radius)/2+SIZE;return {x:half,y:half};}
+  return {x:SIZE*ROOT3*radius+SIZE+4,y:SIZE*1.5*radius+SIZE+4};
+}
 function vertices(x,y) {
   return Array.from({length:6},(_,i)=>{
     const a = (Math.PI/180)*(60*i-90);
@@ -244,16 +253,20 @@ function permittedForHuman() {
   return false;
 }
 function botMove(random=Math.random,level=turnCpuLevel()) {
-  if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS].includes(level))
+  if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL].includes(level))
     return chooseDifficultyMove(state,random,level);
   const candidates=[];
-  const chosen=ELITE_LEVELS.includes(level)
+  const chosen=level===SQUARE_TRAINED_LEVEL
+    ? chooseSquareTrainedMove(state,candidates)
+    : ELITE_LEVELS.includes(level)
     ? chooseEliteMove(state,level,candidates)
     : TRAINED_LEVELS.includes(level) ? chooseTrainedMove(state,level,candidates)
     : level==='neural' ? chooseNeuralMove(state,random,candidates)
       : chooseStrongMove(state,random,candidates);
   lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],level,
-    chosen,candidates,notes:ELITE_LEVELS.includes(level)
+    chosen,candidates,notes:level===SQUARE_TRAINED_LEVEL
+      ? '四角盤専用の教師模倣学習方策（探索なし）'
+      : ELITE_LEVELS.includes(level)
       ? '上位学習済みAI：合法着手＋パスを純粋な方策で選択（探索なし）'
       : TRAINED_LEVELS.includes(level)
       ? '合法手＋パスを直接比較した方策確率（眼の戦略的フィルターなし）'
@@ -300,7 +313,7 @@ function scheduleBots(){
   const generation=aiGeneration,level=turnCpuLevel();
   botTimer=setTimeout(()=>{
     botTimer=null;
-    if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS].includes(level)||typeof Worker==='undefined'||location.protocol==='file:'){
+    if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL].includes(level)||typeof Worker==='undefined'||location.protocol==='file:'){
       const move=botMove(Math.random,level);if(move)place(move.q,move.r);else doPass();return;
     }
     try{
@@ -381,8 +394,7 @@ let renderedRadius=null;
 const cellCache=new Map();
 function drawBoard(){
   const view=visibleState();
-  const xExtent=SIZE*ROOT3*view.radius+SIZE+4;
-  const yExtent=SIZE*1.5*view.radius+SIZE+4;
+  const {x:xExtent,y:yExtent}=boardExtent(view.radius);
   boardSvg.setAttribute('viewBox',[-xExtent,-yExtent,2*xExtent,2*yExtent].join(' '));
   boardSvg.style.width=zoomBoard?Math.round(Math.max(700,xExtent*1.7)*zoomScale)+'px':'100%';
   boardSvg.style.maxHeight=zoomBoard?'none':'65vh';
@@ -428,13 +440,16 @@ function drawBoard(){
     }
     if(item.signature===signature)continue;
     item.signature=signature;
-    const g=item.g,[x,y]=center(q,r);
+    const g=item.g,[x,y]=center(q,r,view.radius);
     g.setAttribute('class','cell '+(color?'occupied':''));
     g.setAttribute('tabindex',view.ended||key!==keyboardFocusKey?'-1':'0');
     g.setAttribute('aria-label',q+','+r+' '+(color?LABELS[color]+'石':'空点')
       +(danger.has(key)?' 危険・呼吸点1':'')+(last===key?' 直前の着手':'')
       +(legal.has(key)?' 合法手':''));
-    const children=[el('polygon',{points:vertices(x,y),class:'hex'})];
+    const children=view.radius<0
+      ? [el('rect',{x:x-SQUARE_STEP/2,y:y-SQUARE_STEP/2,width:SQUARE_STEP,height:SQUARE_STEP,
+          fill:'#d7ae73',stroke:'#735936','stroke-width':1.15,class:'squareCell'})]
+      : [el('polygon',{points:vertices(x,y),class:'hex'})];
     if(color)children.push(el('circle',{cx:x,cy:y,r:SIZE*.72,class:'piece '+color}));
     if(legal.has(key))children.push(el('circle',{cx:x,cy:y,r:SIZE*.17,class:'hintLegal'}));
     if(danger.has(key))children.push(el('circle',{cx:x,cy:y,r:SIZE*.79,class:'hintDanger'}));
@@ -450,6 +465,7 @@ function render() {
   turnLabelEl.textContent=replay?'棋譜再生 · '+replay.index+' / '+actions.length+'手':view.ended?'勝敗が決まりました':view.passes+'人連続パス · '+view.moveCount+'手';
   modeEl.value=mode;
   boardSizeEl.value=String(state.radius);
+  boardSvg.setAttribute('aria-label',view.radius<0?'四角形の囲碁盤':'六角形の囲碁盤');
   // Avoid overriding the native Android picker while the selection is in progress.
   if(document.activeElement!==cpuLevelEl)cpuLevelEl.value=cpuLevel;
   modeEl.disabled=!!replay;
@@ -492,7 +508,7 @@ function render() {
   spectatorStepEl.disabled=!!replay||!spectatorPaused||view.ended;
   spectatorSpeedEl.value=String(spectatorSpeed);
   spectatorSpeedEl.disabled=!!replay;
-  boardViewToolsEl.hidden=view.radius<8 && !zoomBoard;
+  boardViewToolsEl.hidden=(view.radius<0 ? -view.radius<13 : view.radius<8) && !zoomBoard;
   boardZoomEl.textContent=zoomBoard?'全体表示へ戻す':'拡大して打つ';
   boardZoomEl.setAttribute('aria-pressed',String(zoomBoard));
   legalToggleEl.textContent='合法手を表示: '+(showLegal?'ON':'OFF');
@@ -531,7 +547,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=selectedCpuLevel(),n
     matchCancellation?.();releaseMatchTicket();
     if(mode==='online'){network?.close();network=null;}
   }
-  replay=null;state=next;keyboardFocusKey='0,0';
+  replay=null;state=next;keyboardFocusKey=radius<0?Math.floor(-radius/2)+','+Math.floor(-radius/2):'0,0';
   mode=nextMode;cpuLevel=nextLevel;cpuLevelEl.value=cpuLevel;seatLevels=nextSeats.slice();
   seatLevelEls.forEach((el,i)=>{el.value=seatLevels[i];});spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
   past=[];actions=[];lastCpuDecision=null;currentMatchId=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
@@ -598,7 +614,7 @@ function updateMatchList(){
       const raw=localStorage.getItem(MATCH_PREFIX+id);if(!raw)continue;
       let item;try{item=JSON.parse(raw);}catch{continue;}
       const option=document.createElement('option');
-      option.value=id;option.textContent=(item.actions?.length||0)+'手 · '+(3*item.radius*(item.radius+1)+1)+'マス · '+id.slice(2,10);
+      option.value=id;option.textContent=(item.actions?.length||0)+'手 · '+boardPointsCount(item.radius)+'マス · '+id.slice(2,10);
       matchListEl.append(option);
     }
     if([...matchListEl.options].some(o=>o.value===selected))matchListEl.value=selected;
@@ -799,7 +815,7 @@ boardSvg.addEventListener('touchmove',e=>{
   const factor=length/pinchStart;pinchStart=length;
   zoomBoard=true;zoomBoardExplicit=true;
   zoomScale=Math.min(3.5,Math.max(1,zoomScale*factor));
-  const xExtent=SIZE*ROOT3*state.radius+SIZE+4;
+  const {x:xExtent}=boardExtent(state.radius);
   boardSvg.style.width=Math.round(Math.max(700,xExtent*1.7)*zoomScale)+'px';
   boardSvg.style.maxHeight='none';
   boardViewToolsEl.hidden=false;
@@ -854,6 +870,7 @@ window.threeColorGo = Object.freeze({
   getNeuralModelInfo: neuralModelInfo,
   getTrainedModelsInfo: trainedModelsInfo,
   getEliteModelsInfo: eliteModelsInfo,
+  getSquareTrainedModelInfo: squareTrainedModelInfo,
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),
   explainPosition: ()=>explainPosition(state),
