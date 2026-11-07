@@ -1,8 +1,5 @@
 name: Publish verified square deep 32-game checkpoints and evaluate sampled policy
 on:
-  pull_request:
-    branches: [main]
-    paths: [.github/workflows/square-deep-publish.yml]
   workflow_dispatch:
 permissions:
   contents: write
