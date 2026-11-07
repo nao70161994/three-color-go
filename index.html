@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#131f27" />
-  <meta name="description" content="黒・白・赤の3人で遊ぶ六角碁。CPU・ローカル・オンラインランダム対戦に対応。" />
-  <title>三色六角碁 | Three Color Go</title>
+  <meta name="description" content="黒・白・赤の3人で遊ぶ六角盤・四角盤の囲碁。CPU・ローカル・オンラインランダム対戦に対応。" />
+  <title>三色囲碁：六角盤・四角盤 | Three Color Go</title>
   <link rel="stylesheet" href="./src/style.css" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icons/app-icon.svg" type="image/svg+xml" />
@@ -14,19 +14,19 @@
   <main class="app">
     <header class="header">
       <div class="eyebrow">THREE COLOR HEX GO · PROTOTYPE</div>
-      <h1>三色六角碁 <span>◈</span></h1>
+      <h1>三色囲碁 <span>◈</span></h1>
       <p>3色で囲み、最後に残った石の数を競おう。</p>
     </header>
     <div class="settings">
       <div class="setting"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">1人で遊ぶ（CPU 2人）</option><option value="bots">CPU 3人の対局を観戦</option><option value="custom">自由編成（色ごとに人間／CPU）</option><option value="local">3人で交代</option><option value="online">オンライン3人対戦（試験版）</option></select></div>
-      <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option><option value="neural">ディープラーニング（旧実験版）</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option></select></div>
+      <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option><option value="neural">ディープラーニング（旧実験版）</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option></select></div>
     </div>
     <section class="seatSettings" id="seatSettings" aria-label="色ごとのプレイヤー設定" hidden>
       <strong>各色の担当（対局中も変更できます）</strong>
       <div class="seatSettingsGrid">
-        <label for="seatBlack"><span class="stone tiny black"></span> 黒（先手）</label><select id="seatBlack"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option></select>
-        <label for="seatWhite"><span class="stone tiny white"></span> 白（2手目）</label><select id="seatWhite"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option></select>
-        <label for="seatRed"><span class="stone tiny red"></span> 赤（3手目）</label><select id="seatRed"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final" selected>深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option></select>
+        <label for="seatBlack"><span class="stone tiny black"></span> 黒（先手）</label><select id="seatBlack"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option></select>
+        <label for="seatWhite"><span class="stone tiny white"></span> 白（2手目）</label><select id="seatWhite"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option></select>
+        <label for="seatRed"><span class="stone tiny red"></span> 赤（3手目）</label><select id="seatRed"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final" selected>深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option></select>
       </div>
       <p>初期設定は人間2人＋学習済みCPU1人。人間の手番は同じ盤面を交代で操作します。全員CPUなら観戦・一時停止もできます。</p>
     </section>
@@ -50,7 +50,7 @@
       <p>ホストが黒、参加者が白・赤を担当。ホストのブラウザを開いたままにしてください。オンラインには通信が必要です。</p>
     </section>
     <div class="boardSizeSetting"><label for="boardSize">盤面サイズ</label>
-      <select id="boardSize"><option value="2" disabled>旧・極小（19マス）</option><option value="3">小（37マス）</option><option value="4" selected>標準（61マス）</option><option value="5">大（91マス）</option><option value="6">特大（127マス）</option><option value="8">広い（217マス）</option><option value="10">超広い（331マス）</option><option value="11">19路盤超え（397マス）</option><option value="12">最大（469マス）</option></select>
+      <select id="boardSize"><option value="2" disabled>旧・極小（19マス）</option><option value="3">小（37マス）</option><option value="4" selected>標準（61マス）</option><option value="5">大（91マス）</option><option value="6">特大（127マス）</option><option value="8">広い（217マス）</option><option value="10">超広い（331マス）</option><option value="11">19路盤超え（397マス）</option><option value="12">最大（469マス）</option><optgroup label="四角盤（上下左右4方向）"><option value="-9">四角 9×9（81マス）</option><option value="-13">四角 13×13（169マス）</option><option value="-19">四角 19×19（361マス）</option></optgroup></select>
       <span>変更すると新しい対局になります</span>
     </div>
     <section class="spectatorControls" id="spectatorControls" hidden aria-label="CPU3人の観戦設定">
