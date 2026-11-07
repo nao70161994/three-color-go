@@ -1,7 +1,7 @@
 name: Real square-board GNN and Attention self-play training (32 games each)
 on:
-  push:
-    branches: [experiment/square-deep-gnn-attention-20261107]
+  pull_request:
+    branches: [main]
     paths:
       - .github/workflows/square-deep-training.yml
   workflow_dispatch:
@@ -22,6 +22,8 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: experiment/square-deep-gnn-attention-20261107
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -89,6 +91,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: experiment/square-deep-gnn-attention-20261107
           persist-credentials: true
       - uses: actions/setup-node@v4
         with:
