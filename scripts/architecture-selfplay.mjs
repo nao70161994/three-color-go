@@ -28,7 +28,7 @@ const games=Number(args.games??8),seed=Number(args.seed??20261103),
   sampleStride=Number(args['sample-stride']??1);
 if(!Number.isInteger(games)||games<1||games>100||
    !Number.isInteger(seed)||seed<0||seed>0xffffffff||
-   !Number.isInteger(radius)||radius<2||radius>5||
+   !Number.isInteger(radius)||!((radius>=2&&radius<=5)||[-9,-13,-19].includes(radius))||
    !Number.isFinite(temperature)||temperature<=0||temperature>10||
    !Number.isInteger(horizonMultiplier)||horizonMultiplier<1||horizonMultiplier>100||
    !Number.isFinite(timeoutPenalty)||timeoutPenalty<0||timeoutPenalty>2||
