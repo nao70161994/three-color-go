@@ -1,0 +1,98 @@
+name: Attention elite AI large-board strength evaluation
+on:
+  push:
+    branches: [experiment/attention-large-board-strength-20261107]
+    paths:
+      - .github/workflows/attention-large-board-strength.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: attention-large-strength
+  cancel-in-progress: false
+jobs:
+  benchmark:
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include:
+          - {radius: 4, max_seconds_per_game: 180}
+          - {radius: 6, max_seconds_per_game: 420}
+          - {radius: 8, max_seconds_per_game: 900}
+          - {radius: 11, max_seconds_per_game: 1000}
+          - {radius: 12, max_seconds_per_game: 1200}
+    runs-on: ubuntu-latest
+    timeout-minutes: 155
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate runner code and elite model identities
+        run: |
+          node --check scripts/benchmark-attention-large-board.mjs
+          node --test tests/elite-models.test.js
+      - name: Frozen three-elite six-seat round robin
+        env:
+          RADIUS: ${{ matrix.radius }}
+          MAX_SECONDS: ${{ matrix.max_seconds_per_game }}
+        run: |
+          set -euo pipefail
+          mkdir -p "reports/radius-${RADIUS}"
+          node scripts/benchmark-attention-large-board.mjs \
+            "${RADIUS}" "reports/radius-${RADIUS}/report.json" "${MAX_SECONDS}" \
+            | tee "reports/radius-${RADIUS}/progress.jsonl"
+      - name: Report exact finished/censored counts
+        if: always()
+        env:
+          RADIUS: ${{ matrix.radius }}
+        run: |
+          if test -f "reports/radius-${RADIUS}/report.json"; then
+            node -e 'const x=require(process.argv[1]);console.log({radius:x.radius,cells:x.cells,finished:x.finished,censored:x.censored,byModel:x.byModel})' "./reports/radius-${RADIUS}/report.json"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: attention-large-radius-${{ matrix.radius }}
+          path: reports/radius-${{ matrix.radius }}/
+          retention-days: 90
+  summary:
+    if: always()
+    needs: [benchmark]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: attention-large-radius-*
+          path: all-results/
+      - name: Combine outcomes (finished matches only count as wins)
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          reports=sorted(Path('all-results').glob('attention-large-radius-*/report.json'),key=lambda p:int(p.parent.name.split('-')[-1]))
+          print('found',len(reports),'radius reports')
+          lines=['# Attention large-board independent strength evaluation','',
+            'Frozen production elite checkpoints, greedy, all six seat permutations.','',
+            '| Radius | Cells | Finished / 6 | Attention win share | GNN64 win share | PV2 win share | Attention avg inference (ms) |',
+            '|---:|---:|---:|---:|---:|---:|---:|']
+          ids=['elite-attn64-50000','elite-gnn64-50000','elite-pv2-122400']
+          for path in reports:
+            data=json.loads(path.read_text())
+            def fmt(v):return 'n/a' if v is None else f'{100*v:.1f}%'
+            kinds=[data['byModel'][i] for i in ids]
+            lines.append(f"| {data['radius']} | {data['cells']} | {data['finished']} / {data['gamesPlayed']} | {fmt(kinds[0]['finishedWinShare'])} | {fmt(kinds[1]['finishedWinShare'])} | {fmt(kinds[2]['finishedWinShare'])} | {kinds[0]['meanInferenceMs']:.0f} |")
+          lines += ['','**Methodology:** Unfinished games are censored; observed stone shares are not terminal winning rates. Six deterministic seat orders give low statistical power. Models were trained mainly on radius 2-4.']
+          result='\n'.join(lines)+'\n'
+          print(result)
+          Path('large-board-strength-summary.md').write_text(result)
+          with open(__import__('os').environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(result)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: attention-large-summary
+          path: large-board-strength-summary.md
+          retention-days: 90
