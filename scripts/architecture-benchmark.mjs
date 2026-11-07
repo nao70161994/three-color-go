@@ -18,7 +18,7 @@ const model=validateComparisonModel(JSON.parse(readFileSync(args.model,'utf8')))
 const radius=Number(args.radius??3),games=Number(args.games??24),
   seed=Number(args.seed??20471103),horizonMultiplier=Number(args['horizon-multiplier']??20),
   opponents=(args.opponents??'balanced,tactical').split(',');
-if(!Number.isInteger(radius)||radius<2||radius>5||
+if(!Number.isInteger(radius)||!((radius>=2&&radius<=5)||[-9,-13,-19].includes(radius))||
    !Number.isInteger(games)||games<3||games>300||games%3!==0||
    !Number.isInteger(seed)||seed<0||seed>0xffffffff||
    !Number.isInteger(horizonMultiplier)||horizonMultiplier<3||horizonMultiplier>100||
