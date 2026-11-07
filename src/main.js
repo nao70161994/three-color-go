@@ -5,6 +5,7 @@ import { chooseNeuralMove, neuralModelInfo } from './neural-ai.js';
 import { chooseTrainedMove, TRAINED_LEVELS, trainedModelsInfo } from './trained-direct-ai.js';
 import { chooseEliteMove, ELITE_LEVELS, eliteModelsInfo } from './elite-models.js';
 import {chooseSquareTrainedMove,SQUARE_TRAINED_LEVEL,squareTrainedModelInfo} from './square-policy.js';
+import {chooseSquareDeepMove,SQUARE_DEEP_LEVELS,squareDeepModelsInfo} from './square-deep-ai.js';
 import { analyzeRecord, formatAnalysis, explainPosition } from './insights.js';
 import { createOnlineSession, loadPeerJS, roomLink, validRoom, secureToken } from './online.js';
 import { makeMatchmaker } from './matchmaking.js';
@@ -66,7 +67,7 @@ const SIZE = 29, ROOT3 = Math.sqrt(3);
 let state = createGame(4);
 let mode = 'cpu', past = [], actions = [], botTimer = null;
 let cpuLevel = 'hard', showLegal = false, showDanger = true;
-const CPU_LEVELS=['easy','normal','hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL];
+const CPU_LEVELS=['easy','normal','hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL,...SQUARE_DEEP_LEVELS];
 const SEAT_LEVELS=['human',...CPU_LEVELS];
 const DEFAULT_SEATS=['human','human','trained-lr001-final'];
 let seatLevels=DEFAULT_SEATS.slice();
@@ -253,10 +254,12 @@ function permittedForHuman() {
   return false;
 }
 function botMove(random=Math.random,level=turnCpuLevel()) {
-  if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL].includes(level))
+  if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL,...SQUARE_DEEP_LEVELS].includes(level))
     return chooseDifficultyMove(state,random,level);
   const candidates=[];
-  const chosen=level===SQUARE_TRAINED_LEVEL
+  const chosen=SQUARE_DEEP_LEVELS.includes(level)
+    ? chooseSquareDeepMove(state,level,candidates)
+    : level===SQUARE_TRAINED_LEVEL
     ? chooseSquareTrainedMove(state,candidates)
     : ELITE_LEVELS.includes(level)
     ? chooseEliteMove(state,level,candidates)
@@ -264,7 +267,9 @@ function botMove(random=Math.random,level=turnCpuLevel()) {
     : level==='neural' ? chooseNeuralMove(state,random,candidates)
       : chooseStrongMove(state,random,candidates);
   lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],level,
-    chosen,candidates,notes:level===SQUARE_TRAINED_LEVEL
+    chosen,candidates,notes:SQUARE_DEEP_LEVELS.includes(level)
+      ? '四角盤用の実自己対戦で学習したGNN/Attention方策（探索なし）'
+      : level===SQUARE_TRAINED_LEVEL
       ? '四角盤専用の教師模倣学習方策（探索なし）'
       : ELITE_LEVELS.includes(level)
       ? '上位学習済みAI：合法着手＋パスを純粋な方策で選択（探索なし）'
@@ -313,7 +318,7 @@ function scheduleBots(){
   const generation=aiGeneration,level=turnCpuLevel();
   botTimer=setTimeout(()=>{
     botTimer=null;
-    if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL].includes(level)||typeof Worker==='undefined'||location.protocol==='file:'){
+    if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL,...SQUARE_DEEP_LEVELS].includes(level)||typeof Worker==='undefined'||location.protocol==='file:'){
       const move=botMove(Math.random,level);if(move)place(move.q,move.r);else doPass();return;
     }
     try{
@@ -878,6 +883,7 @@ window.threeColorGo = Object.freeze({
   getTrainedModelsInfo: trainedModelsInfo,
   getEliteModelsInfo: eliteModelsInfo,
   getSquareTrainedModelInfo: squareTrainedModelInfo,
+  getSquareDeepModelsInfo: squareDeepModelsInfo,
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),
   explainPosition: ()=>explainPosition(state),

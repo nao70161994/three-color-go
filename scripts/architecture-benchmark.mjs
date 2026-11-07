@@ -9,7 +9,7 @@ import {selectComparisonMove,validateComparisonModel} from '../src/architecture-
 const args={};
 for(let i=2;i<process.argv.length;i+=2){
   const k=process.argv[i],v=process.argv[i+1];
-  if(!['--model','--radius','--games','--seed','--opponents','--out','--horizon-multiplier'].includes(k)||v===undefined)
+  if(!['--model','--radius','--games','--seed','--opponents','--out','--horizon-multiplier','--policy-mode'].includes(k)||v===undefined)
     throw Error('Bad benchmark argument '+k);
   args[k.slice(2)]=v;
 }
@@ -17,12 +17,13 @@ if(!args.model)throw Error('--model required');
 const model=validateComparisonModel(JSON.parse(readFileSync(args.model,'utf8')));
 const radius=Number(args.radius??3),games=Number(args.games??24),
   seed=Number(args.seed??20471103),horizonMultiplier=Number(args['horizon-multiplier']??20),
-  opponents=(args.opponents??'balanced,tactical').split(',');
-if(!Number.isInteger(radius)||radius<2||radius>5||
+  opponents=(args.opponents??'balanced,tactical').split(','),
+  policyMode=args['policy-mode']??'greedy';
+if(!Number.isInteger(radius)||!((radius>=2&&radius<=5)||[-9,-13,-19].includes(radius))||
    !Number.isInteger(games)||games<3||games>300||games%3!==0||
    !Number.isInteger(seed)||seed<0||seed>0xffffffff||
    !Number.isInteger(horizonMultiplier)||horizonMultiplier<3||horizonMultiplier>100||
-   opponents.length!==2||opponents.some(x=>!['balanced','guarded','tactical','baseline'].includes(x)))
+   !['greedy','sample'].includes(policyMode)||opponents.length!==2||opponents.some(x=>!['balanced','guarded','tactical','baseline'].includes(x)))
   throw Error('Invalid benchmark setup');
 const records=[],horizon=pointsOnBoard(radius).length*horizonMultiplier+3;
 for(let game=0;game<games;game++){
@@ -34,7 +35,7 @@ for(let game=0;game<games;game++){
     const player=state.turn;
     let move;
     if(player===ourSeat){
-      move=selectComparisonMove(state,model,{greedy:true}).move;
+      move=selectComparisonMove(state,model,{greedy:policyMode==='greedy',temperature:1.0,random:rng[player]}).move;
       if(move===null&&turns<6)earlyPass=true;
     }else{
       move=chooseMove(state,rng[player],opponents[opponentSeats.indexOf(player)]);
@@ -53,7 +54,7 @@ for(let game=0;game<games;game++){
 const finished=records.filter(x=>x.ended),sum=(arr,key)=>arr.reduce((s,x)=>s+x[key],0);
 const report={
   kind:model.kind,model:model.version,trainingGames:model.metadata.games,
-  radius,games,finished:finished.length,truncated:games-finished.length,
+  radius,games,policyMode,finished:finished.length,truncated:games-finished.length,
   horizon,seed,opponents,
   naturalEndRate:finished.length/games,
   meanObservedStoneShare:sum(records,'stoneShare')/games,
