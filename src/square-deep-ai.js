@@ -27,11 +27,14 @@ export function squareDeepModelsInfo(){
       trainingBoards:m?.metadata?.radii?.filter(r=>r<0).map(r=>-r)??[]};
   });
 }
-export function chooseSquareDeepMove(state,id,inspection=null){
+export function chooseSquareDeepMove(state,id,inspection=null,random=Math.random){
   if(state.ended)return null;
   if(state.radius>=0)throw Error('Square deep model requires a square board');
   const model=getSquareDeepModel(id);
-  const selected=selectComparisonMove(state,model,{greedy:true});
+  // Training used sampling from legal policy probabilities; avoid argmax
+  // collapsing to an almost-tied pass logit on untrained openings.
+  // Pass remains a fully legal action with no hand-written veto or threshold.
+  const selected=selectComparisonMove(state,model,{greedy:false,temperature:1.0,random});
   if(Array.isArray(inspection)){
     inspection.push(...selected.actions.map((a,i)=>({
       q:a.q??null,r:a.r??null,score:selected.probabilities[i]
