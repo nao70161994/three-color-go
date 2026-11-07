@@ -25,6 +25,9 @@ FORMAT = "three-color-architecture-compare-resume-v1"
 
 
 def points(radius):
+    if radius<0:
+        n=-radius
+        return [(q, r) for r in range(n) for q in range(n)]
     return [(q, r) for r in range(-radius, radius + 1)
             for q in range(-radius, radius + 1) if abs(q + r) <= radius]
 
@@ -32,7 +35,7 @@ def points(radius):
 def topology(radius):
     pts=points(radius)
     lookup={point: index for index,point in enumerate(pts)}
-    directions=((1,0),(1,-1),(0,-1),(-1,0),(-1,1),(0,1))
+    directions=((1,0),(-1,0),(0,1),(0,-1)) if radius<0 else ((1,0),(1,-1),(0,-1),(-1,0),(-1,1),(0,1))
     n=len(pts)
     matrix=torch.zeros((n,n),dtype=torch.float32)
     distance=torch.zeros((n,n),dtype=torch.long)
@@ -43,7 +46,7 @@ def topology(radius):
             matrix[i,j]=1/len(neighbors)
         for j,(x,y) in enumerate(pts):
             dq,dr=q-x,r-y
-            distance[i,j]=max(abs(dq),abs(dr),abs(dq+dr))
+            distance[i,j]=min(10,(abs(dq)+abs(dr)) if radius<0 else max(abs(dq),abs(dr),abs(dq+dr)))
     return matrix,distance
 
 
@@ -126,7 +129,7 @@ def exported(model,config,total_games,iteration,positions,finished,truncated):
             "sampleStride":config["sampleStride"],
             "learningRate":config["learningRate"],"temperature":config["temperature"],
             "naturallyEndedGames":finished,"truncatedGames":truncated,
-            "radii":config["radii"],"seed":config["seed"],
+            "radii":config["radii"],"boardShape":("square" if all(r<0 for r in config["radii"]) else "hex"),"seed":config["seed"],
         },"layers":layers,
     }
 
@@ -176,7 +179,7 @@ def main():
     args=p.parse_args()
     radii=[int(x) for x in args.radii.split(",")]
     if not (1<=args.iterations<=10000 and 1<=args.games<=100 and
-            0<=args.seed<=0xffffffff and radii and all(2<=r<=5 for r in radii) and
+            0<=args.seed<=0xffffffff and radii and all((2<=r<=5) or r in (-9,-13,-19) for r in radii) and not (any(r<0 for r in radii) and any(r>0 for r in radii)) and
             0<args.temperature<=10 and 0<args.learning_rate<=0.1 and
             0<=args.entropy<=0.5 and 1<=args.batch_size<=512 and
             1<=args.horizon_multiplier<=100 and 0<=args.timeout_penalty<=2 and
