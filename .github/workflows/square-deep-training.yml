@@ -1,0 +1,147 @@
+name: Real square-board GNN and Attention self-play training (32 games each)
+on:
+  push:
+    branches: [experiment/square-deep-gnn-attention-20261107]
+    paths:
+      - .github/workflows/square-deep-training.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: square-deep-training-20261107
+  cancel-in-progress: false
+jobs:
+  train:
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        kind: [gnn16,gnn64,attn64]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU-only PyTorch and NumPy
+        run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Test four-neighbor square topology before training
+        run: |
+          node --test tests/square-board.test.js tests/square-deep-ai.test.js
+          python -m py_compile scripts/train-architecture-comparison.py
+      - name: Train 3-player actor-critic with pass on real square grids
+        env:
+          KIND: ${{ matrix.kind }}
+        run: |
+          set -euo pipefail
+          mkdir -p "reports/$KIND"
+          python scripts/train-architecture-comparison.py \
+            --kind "$KIND" --iterations 4 --games 8 \
+            --radii=-9,-9,-9,-13 --seed 20261107 \
+            --temperature 1.3 --learning-rate 0.0005 --entropy 0.015 \
+            --batch-size 32 --horizon-multiplier 3 --timeout-penalty 0.3 \
+            --sample-stride 8 --checkpoint-every 4 \
+            --out "reports/$KIND/model.json" \
+            | tee "reports/$KIND/training.jsonl"
+      - name: Verify PyTorch and JavaScript parity on 9x9 and 13x13
+        env:
+          KIND: ${{ matrix.kind }}
+        run: |
+          set -euo pipefail
+          python scripts/check-architecture-parity.py "reports/$KIND/model.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=json.loads((Path('reports')/os.environ['KIND']/'model.json').read_text())
+          meta=m['metadata']
+          assert meta['boardShape']=='square' and meta['games']==32
+          assert meta['radii']==[-9,-9,-9,-13]
+          assert meta['naturallyEndedGames']+meta['truncatedGames']==32
+          assert meta['features']==10 and meta['phaseFeature'] is False
+          print('Real square training verified:',m['kind'],meta['games'], 'ended',meta['naturallyEndedGames'],'truncated',meta['truncatedGames'])
+          PY
+      - name: Independent 9x9 evaluation against fixed teacher CPU
+        env:
+          KIND: ${{ matrix.kind }}
+        run: |
+          set -euo pipefail
+          node scripts/architecture-benchmark.mjs \
+            --model "reports/$KIND/model.json" --radius -9 \
+            --games 3 --seed 20471107 --opponents balanced,tactical \
+            --horizon-multiplier 3 --out "reports/$KIND/eval-9.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: square-deep-${{ matrix.kind }}
+          path: reports/${{ matrix.kind }}/
+          retention-days: 90
+  integrate:
+    needs: [train]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: square-deep-*
+          path: artifacts
+      - name: Verify model fingerprints and write frozen JS weights
+        run: |
+          node scripts/materialize-square-deep.mjs artifacts src/square-deep-model-data.js
+      - name: Build offline edition and test the complete game
+        env:
+          REQUIRE_SQUARE_DEEP_MODELS: '1'
+        run: |
+          npm run build:standalone
+          npm test
+          npm run check:standalone
+      - name: Record independent win rates without treating timeouts as losses
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          lines=['# Square-board deep AI initial self-play (9x9 and 13x13)','',
+           '| Model | Trained games | Natural self-play ends | Evaluation naturally finished | Win share only among finished |',
+           '|---|---:|---:|---:|---:|']
+          for kind in ('gnn16','gnn64','attn64'):
+              folder=Path('artifacts')/('square-deep-'+kind)
+              m=json.loads((folder/'model.json').read_text())
+              e=json.loads((folder/'eval-9.json').read_text())
+              value='n/a' if e['finishedWinShare'] is None else f"{100*e['finishedWinShare']:.1f}%"
+              lines.append(f"| {kind} | {m['metadata']['games']} | {m['metadata']['naturallyEndedGames']}/32 | {e['finished']}/{e['games']} | {value} |")
+          lines.extend(['','Training: same 3-player rules, no teacher moves, no search, 10 state features, legal pass, final stone-share minus timeout penalty.',
+          'Models trained 24 games on 9x9 and 8 games on 13x13. 19x19 is inference-only generalization, not trained.',
+          'Initial checkpoint is experimental; 3 evaluation games per model cannot establish superiority.'])
+          text='\n'.join(lines)+'\n'
+          Path('reports').mkdir(exist_ok=True)
+          Path('reports/square-deep-32-summary.md').write_text(text)
+          print(text)
+          import os
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(text)
+          PY
+      - name: Commit only verified actual weights and generated offline edition
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/square-deep-model-data.js play.html reports/square-deep-32-summary.md
+          git commit -m "Freeze 32-game square self-play GNN16 GNN64 Attention checkpoints"
+          git push origin HEAD:experiment/square-deep-gnn-attention-20261107
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: square-deep-publish-summary
+          path: reports/square-deep-32-summary.md
+          retention-days: 90
