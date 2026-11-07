@@ -16,7 +16,7 @@ export function getSquareDeepModel(id){
   validateComparisonModel(model);
   if(model.kind!==KINDS[id]||model.metadata.boardShape!=='square'||
      !model.metadata.radii.includes(-9)||!model.metadata.radii.includes(-13)||
-     model.metadata.games!==32||!model.metadata.phaseFeature===false)
+     model.metadata.games!==32||model.metadata.phaseFeature!==false)
     throw Error('Incorrect square deep checkpoint '+id);
   return model;
 }
