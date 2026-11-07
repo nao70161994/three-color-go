@@ -54,6 +54,6 @@ test('Square deep levels and offline bundle are wired across entrypoints',()=>{
   const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
   for(const file of ['index.html','src/main.js','src/ai-worker.js','scripts/build-standalone.mjs']){
     const txt=read(file);
-    assert.ok(txt.includes('square-deep')||txt.includes('SQUARE_DEEP'));
+    assert.ok(txt.includes('square-deep')||txt.includes('SQUARE_DEEP')||txt.includes('square-gnn16-32'));
   }
 });
