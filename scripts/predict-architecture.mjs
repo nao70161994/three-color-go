@@ -7,7 +7,7 @@ import {validateComparisonModel,evaluateComparison} from '../src/architecture-co
 if(process.argv.length!==3)throw Error('Usage: node scripts/predict-architecture.mjs model.json');
 const model=validateComparisonModel(JSON.parse(readFileSync(process.argv[2],'utf8')));
 const samples=[];
-for(const radius of [2,3,4]){
+for(const radius of (model.metadata?.boardShape==='square'?[-9,-13]:[2,3,4])){
   let state=createGame(radius);
   const points=pointsOnBoard(radius);
   for(let i=0;i<Math.min(points.length,12);i++){
