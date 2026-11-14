@@ -15,7 +15,7 @@ import {seededRandom,chooseMove} from '../src/agent.js';
 import {squarePolicyDistribution,SQUARE_FEATURES} from '../src/square-policy.js';
 
 const nums=process.argv.slice(2,5);
-const games=nums.map((a,i)=>a===undefined?[12,3,1][i]:Number(a));
+const games=[0,1,2].map(i=>nums[i]===undefined?[12,3,1][i]:Number(nums[i]));
 if(games.some(n=>!Number.isInteger(n)||n<0||n>300)||games.every(n=>n===0))
   throw Error('Expected game counts for 9/13/19 between 0 and 300');
 const out=process.argv[5]??'src/square-policy-weights.js';
