@@ -1,0 +1,97 @@
+name: Archive and gate 512-game square neural checkpoints
+on:
+  push:
+    branches: [fix/full-repo-audit-20261114]
+    paths: [.github/workflows/archive-square-512.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/full-repo-audit-20261114
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore actual 512-game self-play artifacts
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 42364679877
+          pattern: square-deep-512-*
+          path: artifacts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate and archive unchanged JSON model weights with hashes
+        run: |
+          mkdir -p experiments/square-512
+          node --input-type=module <<'JS'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {validateComparisonModel,selectComparisonMove} from './src/architecture-comparison.js';
+          import {createGame} from './src/game.js';
+          const out={sourceRun:42364679877,architectures:{}};
+          for(const kind of ['gnn16','gnn64','attn64']){
+            const dir='artifacts/square-deep-512-'+kind+'/';
+            const raw=readFileSync(dir+'model.json','utf8');
+            const m=validateComparisonModel(JSON.parse(raw));
+            const d=m.metadata;
+            if(m.kind!==kind||d.boardShape!=='square'||d.games!==512||
+              d.iterations!==64||d.phaseFeature!==false||
+              JSON.stringify(d.radii)!==JSON.stringify([-9,-9,-9,-13])||
+              d.naturallyEndedGames+d.truncatedGames!==512)
+              throw Error('Wrong or incomplete 512-game self-play '+kind);
+            for(const size of [9,13]){
+              const decision=selectComparisonMove(createGame(-size),m,{greedy:true});
+              if(!decision.probabilities.every(Number.isFinite))
+                throw Error('Nonfinite '+kind+' '+size);
+            }
+            const evalData=JSON.parse(readFileSync(dir+'eval-512-sample.json','utf8'));
+            if(evalData.games!==12||evalData.trainingGames!==512||evalData.kind!==kind||
+              evalData.finished+evalData.truncated!==12)
+              throw Error('Incomplete independent evaluation '+kind);
+            writeFileSync('experiments/square-512/'+kind+'.json',raw);
+            out.architectures[kind]={
+              sha256:createHash('sha256').update(raw).digest('hex'),
+              trainingGames:d.games,naturallyEndedGames:d.naturallyEndedGames,
+              evaluationGames:evalData.games,evaluationFinished:evalData.finished,
+              evaluationWinShare:evalData.finishedWinShare,
+              meanObservedStoneShare:evalData.meanObservedStoneShare,
+              seed:evalData.seed
+            };
+          }
+          writeFileSync('experiments/square-512/manifest.json',JSON.stringify(out,null,2)+'\n');
+          console.log(JSON.stringify(out,null,2));
+          JS
+      - name: Decide whether promotion is justified
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('experiments/square-512/manifest.json').read_text())
+          rows=['# Square deep 512-game model adoption review','','| Model | Training games | Natural training finishes | Evaluated games | Win share | Observed stone share | Decision |','|---|---:|---:|---:|---:|---:|---|']
+          for name,m in data['architectures'].items():
+            win=m['evaluationWinShare']
+            accepted=(win is not None and win>=0.20 and m['evaluationFinished']>=10)
+            label='eligible for additional same-seed review' if accepted else 'do not promote (insufficient winning evidence)'
+            rows.append(f"| {name} | {m['trainingGames']} | {m['naturallyEndedGames']} | {m['evaluationFinished']}/{m['evaluationGames']} | {win if win is not None else 'n/a'} | {m['meanObservedStoneShare']:.3f} | {label} |")
+          rows+=['','All checkpoint JSON files and original SHA-256 hashes are retained under experiments/square-512/ rather than replacing the shipped 32-game weights.','No model is promoted solely because it trained for more games or because its observed stone share increased. The 32-game vs 512-game tests used different seeds; a controlled equal-seed comparison is required before promotion.','','Original PyTorch optimizer checkpoint and RNG state remain in Actions artifacts.']
+          report='\n'.join(rows)+'\n'
+          Path('docs/square-deep-512-review.md').write_text(report)
+          print(report)
+          import os
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
+          PY
+      - name: Commit verified 512-game candidate archive, not active weights
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/square-512 docs/square-deep-512-review.md
+          git commit -m "Archive verified 512-game square GNN Attention candidates without unproven promotion"
+          git pull --rebase origin fix/full-repo-audit-20261114
+          git push origin HEAD:fix/full-repo-audit-20261114
