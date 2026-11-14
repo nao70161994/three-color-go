@@ -1,8 +1,8 @@
 {
   "id": "/three-color-go/",
-  "name": "三色六角碁 — Three Color Hex Go",
-  "short_name": "三色六角碁",
-  "description": "3人で楽しむ六角囲碁。CPU・ローカル・オンラインランダム対戦に対応。",
+  "name": "三色囲碁 — Three Color Go",
+  "short_name": "三色囲碁",
+  "description": "3人で楽しむ六角盤と四角盤の囲碁。CPU・ローカル・オンライン対戦に対応。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
