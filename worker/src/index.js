@@ -13,6 +13,24 @@ const json = (data,status=200) => new Response(JSON.stringify(data),{status,head
   'access-control-allow-headers':'content-type'
 }});
 const empty = () => ({queue:[],players:{},rates:{}});
+async function parseSmallJson(request,maxBytes=512){
+  if(!request.body)return {invalid:true};
+  const reader=request.body.getReader(),chunks=[];
+  let size=0;
+  try{
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      size+=value.byteLength;
+      if(size>maxBytes){await reader.cancel();return {oversized:true};}
+      chunks.push(value);
+    }
+    const bytes=new Uint8Array(size);let offset=0;
+    for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+    return {value:JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes))};
+  }catch{return {invalid:true};}
+}
+
 export default {
   async fetch(request,env) {
     const url=new URL(request.url);
@@ -67,7 +85,10 @@ export class Matchmaker {
       if(p.status==='waiting'&&!data.queue.includes(id))data.queue.push(id);
     let body={};
     if(request.method==='POST'){
-      try {body=await request.json();}catch{return json({error:'Invalid JSON'},400);}
+      const parsed=await parseSmallJson(request);
+      if(parsed.oversized)return json({error:'Too large'},413);
+      if(parsed.invalid)return json({error:'Invalid JSON'},400);
+      body=parsed.value;
     }
     const ticket=request.method==='GET'?url.searchParams.get('ticket'):body.ticket;
     if(!validTicket(ticket))return json({error:'Invalid ticket'},400);
