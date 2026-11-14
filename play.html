@@ -180,6 +180,10 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
 .seatSettings p{color:#bbd0d9;font-size:12px;line-height:1.55;margin:10px 0 0}
 @media(max-width:500px){.seatSettingsGrid{grid-template-columns:80px minmax(0,1fr);gap:8px}.seatSettingsGrid select{padding:10px 7px;font-size:12px}}
 
+/* v1.9.2: square-grid hover/focus affordances mirror hexagonal cells. */
+.cell:hover rect{fill:#e8c48c}
+.cell:focus-visible rect{stroke:#ffffff;stroke-width:3}
+
 </style>
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icons/app-icon.svg" type="image/svg+xml" />
@@ -296,8 +300,9 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
         <li>棋譜を再生すると手番や点数も過去の状態で確認でき、対局へ戻ると続きから遊べます。</li>
       </ul>
       <p>「自由編成」を選ぶと黒・白・赤を個別に人間または異なるCPUに設定できます（人間2人＋CPU1人も可能）。「むずかしい」は相手2人の応手を先読みします。「ディープラーニング」は模擬対局の評価データから学習した小型ニューラルネットワークで着手候補を採点します（既存CPUより強い保証はありません）。新しい3つの「深層学習」CPUは、探索なしで自己対戦学習したPV2モデルの保存済み重みを使用します。合法手がある局面でもパスを方策候補に含め、それぞれ440局追加学習しています。序盤パスの過大評価を避ける初期値調整も行っていますが、最善の終局判断を保証するものではありません。深層学習AIには眼埋め防止などの戦略ルールを加えていません。最有力は過去の独立CPU評価で選ばれたもので、すべての盤面や人間相手で最強と保証されたものではありません。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
+      <p>四角盤9×9／13×13／19×19は上下左右でつながります。四角盤GNN・Attentionは32局の自己対戦学習による実験版で、従来CPUより弱い結果です。19×19のAttentionと大型六角盤のAttentionは処理負荷のため選択できません。盤面変更時には非対応のCPU設定を安全なCPUに切り替えます。</p>
     </details>
-    <footer>v1.8.1 · 深層学習AIは合法手＋パスを直接評価</footer>
+    <footer>v1.9.2 · 六角盤／四角盤、CPU負荷対策・同期改善</footer>
   </main>
   <script>window.THREE_COLOR_MATCH_URL="";</script>
   <script>
@@ -436,6 +441,76 @@ function winner(state) {
   if (!state.ended) return [];
   const s = scores(state), max = Math.max(...Object.values(s));
   return COLORS.filter(c => s[c] === max);
+}
+
+/** Display geometry and geometry-aware heuristic helpers.
+ * Game legality/topology stays in game.js; never add legality rules here.
+ */
+const SIZE=29;
+const ROOT3=Math.sqrt(3);
+const SQUARE_STEP=SIZE*1.6;
+function center(q,r,radius){
+  return radius<0
+    ? [SQUARE_STEP*(q+(radius+1)/2),SQUARE_STEP*(r+(radius+1)/2)]
+    : [SIZE*ROOT3*(q+r/2),SIZE*1.5*r];
+}
+function boardExtent(radius){
+  if(radius<0){
+    const half=SQUARE_STEP*(-radius)/2+SIZE;
+    return {x:half,y:half};
+  }
+  return {x:SIZE*ROOT3*radius+SIZE+4,y:SIZE*1.5*radius+SIZE+4};
+}
+function boardCenterDistance(q,r,radius){
+  if(radius<0){
+    const mid=(-radius-1)/2;
+    return Math.abs(q-mid)+Math.abs(r-mid);
+  }
+  return Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r));
+}
+function boardEdgeFactor(q,r,radius){
+  if(radius<0){
+    const n=-radius,mid=(n-1)/2;
+    return Math.max(Math.abs(q-mid),Math.abs(r-mid))/Math.max(1,mid);
+  }
+  return Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/Math.max(1,radius);
+}
+
+/** Single source of truth for CPU IDs, geometry capabilities and safe fallbacks.
+ * Neither the UI nor the worker should infer model compatibility from names.
+ */
+const UNIVERSAL=['easy','normal','hard'];
+const HEX_ONLY=['neural','trained-lr001-final','trained-lr001-peak',
+  'trained-lr0003-peak','elite-attn64-50000','elite-gnn64-50000','elite-pv2-122400'];
+const SQUARE_ONLY=['square-trained-v1','square-gnn16-32',
+  'square-gnn64-32','square-attn64-32'];
+const CPU_LEVELS=Object.freeze([...UNIVERSAL,...HEX_ONLY,...SQUARE_ONLY]);
+const SEAT_LEVELS=Object.freeze(['human',...CPU_LEVELS]);
+function isCpuLevelSupported(level,radius){
+  if(!CPU_LEVELS.includes(level)||!Number.isInteger(radius))return false;
+  if(UNIVERSAL.includes(level))return true;
+  if(HEX_ONLY.includes(level))
+    return radius>0 && !(level==='elite-attn64-50000' && radius>=8);
+  if(SQUARE_ONLY.includes(level))
+    return radius<0 && !(level==='square-attn64-32' && radius<=-19);
+  return false;
+}
+function defaultCpuLevelForBoard(radius){
+  return radius<0?'square-trained-v1':'hard';
+}
+function compatibleCpuLevel(level,radius){
+  return isCpuLevelSupported(level,radius)?level:defaultCpuLevelForBoard(radius);
+}
+function compatibleSeats(levels,radius){
+  return levels.map(level=>level==='human'?'human':compatibleCpuLevel(level,radius));
+}
+function cpuCompatibilityReason(level,radius){
+  if(!CPU_LEVELS.includes(level))return '不明なCPU難易度です';
+  if(level==='square-attn64-32'&&radius<=-19)
+    return '19×19のAttentionは計算負荷が高いため現在利用できません';
+  if(level==='elite-attn64-50000'&&radius>=8)
+    return '大型六角盤のAttentionは計算負荷が高いため現在利用できません';
+  return radius<0?'このCPUは六角盤専用です':'このCPUは四角盤専用です';
 }
 
 
@@ -601,7 +676,7 @@ function baselineValue(state,result,q,r,random) {
   const enemies=neighbors.filter(k=>state.board[k]&&state.board[k]!==own).length;
   const empties=neighbors.filter(k=>!result.state.board[k]).length;
   return result.captured.length*22 + friends*1.4 + enemies*.2 + empties*.5
-    - (Math.abs(q)+Math.abs(r)+Math.abs(q+r))*.08 + random()*1.4;
+    - boardCenterDistance(q,r,state.radius)*(state.radius<0?0.08:0.16) + random()*1.4;
 }
 
 function tacticalValue(state,result,q,r,random,atRisk) {
@@ -626,7 +701,7 @@ function tacticalValue(state,result,q,r,random,atRisk) {
   }
   const open=neighbors.filter(k=>!next.board[k]).length;
   const friends=neighbors.filter(k=>state.board[k]===own).length;
-  const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/Math.abs(state.radius);
+  const edge=boardEdgeFactor(q,r,state.radius);
   return 1 + result.captured.length*25 + rescued*14 + pressured*3.5
     + friends*.55 + open*.6 - selfAtari*22 - edge*.22 + random()*.4;
 }
@@ -795,7 +870,7 @@ function candidates(state, player, width, random) {
   // All shortlisted moves still pass through the exact rules engine.
   const points=pointsOnBoard(state.radius);
   let shortlist=points;
-  if(state.radius>=8) {
+  if(points.length>=120) {
     const board=state.board;
     // Always consider critical liberties before the proximity shortlist.
     // Otherwise a large-board CPU can overlook an endangered group far away.
@@ -815,7 +890,7 @@ function candidates(state, player, width, random) {
       const neighbors=adjacentKeys(key,state.radius);
       const friends=neighbors.filter(n=>board[n]===player).length;
       const enemies=neighbors.filter(n=>board[n]&&board[n]!==player).length;
-      const distance=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r));
+      const distance=boardCenterDistance(q,r,state.radius);
       return {q,r,priority:friends*1.7+enemies*2.2-distance*.07+random()*.15};
     }).sort((a,b)=>b.priority-a.priority).slice(0,24);
     const selected=new Map();
@@ -827,7 +902,7 @@ function candidates(state, player, width, random) {
       if(state.board[pointKey(q,r)] || isOwnEye(state,q,r,player))continue;
       const next=play(state,q,r);
       if(!next.ok || isUnsafeCpuMove(state,q,r,next))continue;
-      const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/Math.abs(state.radius);
+      const edge=boardEdgeFactor(q,r,state.radius);
       const rank=positionValue(next.state,player)+next.captured.length*5
         + (1-edge)*.38 + random()*.04;
       options.push({q,r,state:next.state,rank});
@@ -858,10 +933,12 @@ function chooseStrongMove(state,random=Math.random,inspection=null) {
   if(state.ended)return null;
   const cells=pointsOnBoard(state.radius).length;
   if(state.moveCount>=cells*2)return null;
-  const width=state.radius<=3?6:state.radius===4?5:state.radius===5?3:2;
+  const width=state.radius<0
+    ?(cells>=169?2:4)
+    :state.radius<=3?6:state.radius===4?5:state.radius===5?3:2;
   // Compare at least two plausible replies from each rival on standard boards.
   // Huge boards retain a single reply per rival to keep mobile turns responsive.
-  const opponentWidth=state.radius<=5?2:1;
+  const opponentWidth=state.radius<0?(cells<169?2:1):(state.radius<=5?2:1);
   const me=COLORS[state.turn];
   const roots=candidates(state,me,width,random);
   if(!roots.length)return null;
@@ -1019,6 +1096,7 @@ function shortlist(state,random){
 }
 function chooseNeuralMove(state,random=Math.random,inspection=null){
   if(state.ended)return null;
+  if(state.radius<0)throw Error('旧ニューラルCPUは六角盤専用です');
   const cells=3*state.radius*(state.radius+1)+1;
   if(state.moveCount>=cells*2)return null;
   const own=COLORS[state.turn];
@@ -1288,6 +1366,7 @@ function getTrainedModel(id){
  * Rule legality is checked in direct-policy.js, not strategic 'eye' filters.
  */
 function chooseTrainedMove(state,id='trained-lr001-final',inspection=null){
+  if(state.radius<0)throw Error('旧PV2学習CPUは六角盤専用です');
   const model=getTrainedModel(id);
   if(state.ended)return null;
   const result=selectDirectPolicyMove(state,model,{greedy:true});
@@ -1508,6 +1587,7 @@ function getEliteModel(id){
 }
 function chooseEliteMove(state,id='elite-attn64-50000',inspection=null){
   if(state.ended)return null;
+  if(state.radius<0)throw Error('六角盤用の学習CPUです');
   const model=getEliteModel(id);
   const result=id==='elite-pv2-122400'
     ?selectDirectPolicyMove(state,model,{greedy:true})
@@ -1706,6 +1786,44 @@ function chooseSquareDeepMove(state,id,inspection=null,random=Math.random){
   return selected.move;
 }
 
+/** Shared CPU dispatch used by both the browser and Web Worker.
+ * Unavailable geometries fail explicitly; there are no silent model swaps.
+ */
+
+function selectCpuMove(state,level,random=Math.random){
+  if(!isCpuLevelSupported(level,state.radius))
+    throw Error(cpuCompatibilityReason(level,state.radius));
+  if(state.ended)return {move:null,decision:null};
+  if(level==='easy'||level==='normal')
+    return {move:chooseDifficultyMove(state,random,level),decision:null};
+  const candidates=[];
+  const move=SQUARE_DEEP_LEVELS.includes(level)
+    ? chooseSquareDeepMove(state,level,candidates,random)
+    : level===SQUARE_TRAINED_LEVEL
+    ? chooseSquareTrainedMove(state,candidates)
+    : ELITE_LEVELS.includes(level)
+    ? chooseEliteMove(state,level,candidates)
+    : TRAINED_LEVELS.includes(level)
+    ? chooseTrainedMove(state,level,candidates)
+    : level==='neural'
+    ? chooseNeuralMove(state,random,candidates)
+    : chooseStrongMove(state,random,candidates);
+  const descriptions={
+    deep:'四角盤用の自己対戦学習GNN/Attention方策（探索なし、実験版）',
+    square:'四角盤専用の教師模倣学習方策（探索なし）',
+    elite:'六角盤の自己対戦学習済み方策（探索なし）',
+    trained:'六角盤の合法手＋パス学習済み方策（探索なし）',
+    neural:'六角盤の教師模倣ニューラルCPU',
+    hard:'3手読みの相対評価値（勝率ではありません）'
+  };
+  const type=SQUARE_DEEP_LEVELS.includes(level)?'deep':
+    level===SQUARE_TRAINED_LEVEL?'square':
+    ELITE_LEVELS.includes(level)?'elite':
+    TRAINED_LEVELS.includes(level)?'trained':level==='neural'?'neural':'hard';
+  return {move,decision:{turn:state.moveCount+1,color:COLORS[state.turn],
+    level,chosen:move,candidates,notes:descriptions[type]}};
+}
+
 
 function explainPosition(state) {
   const threats=dangerGroups(state);
@@ -1813,11 +1931,14 @@ function secureToken(){
 }
 function createOnlineSession({Peer,getRecord,applyMove,receiveRecord,receiveDelta=()=>false,onStatus=()=>{},token=secureToken}){
   let peer=null,connection=null,host=false,hostId=null,seat=null,connected=false,peerCount=0;
-  let message='未接続';
+  let message='未接続',syncFailures=0;
   const players=new Map(),tokens=new Map();
   const status=()=>({host,seat,room:hostId,connected,players:host?players.size:peerCount,
     ready:connected&&(host?players.size===2:peerCount===2),message});
   const notify=()=>onStatus(status());
+  const acceptRecord=record=>{
+    try{return receiveRecord(record)!==false;}catch{return false;}
+  };
   const send=(conn,payload)=>{if(conn?.open)conn.send({...payload,v:ONLINE_PROTOCOL});};
   const sync=(conn)=>send(conn,{type:'sync',record:getRecord(),players:players.size});
   const broadcast=()=>{
@@ -1833,7 +1954,7 @@ function createOnlineSession({Peer,getRecord,applyMove,receiveRecord,receiveDelt
   const close=()=>{
     connection?.close?.();for(const conn of players.values())conn.close?.();
     players.clear();tokens.clear();connection=null;peer?.destroy?.();
-    peer=null;host=false;hostId=null;seat=null;connected=false;peerCount=0;message='未接続';notify();
+    peer=null;host=false;hostId=null;seat=null;connected=false;peerCount=0;syncFailures=0;message='未接続';notify();
   };
   function hostConn(conn){
     let joined=null;
@@ -1895,14 +2016,29 @@ function createOnlineSession({Peer,getRecord,applyMove,receiveRecord,receiveDelt
           if(!msg || msg.v!==ONLINE_PROTOCOL)return;
           if(msg.type==='full'){message='満席です';notify();if(!done){done=true;clearTimeout(timeout);reject(Error(message));}}
           if(msg.type==='welcome'){
-            seat=msg.seat;connected=true;peerCount=msg.players||0;
-            receiveRecord(msg.record);message='接続しました';notify();
+            if(![1,2].includes(msg.seat)||!Number.isInteger(msg.players)||msg.players<1||msg.players>2||!acceptRecord(msg.record)){
+              const failure='ホストの棋譜を検証できません';
+              message=failure;notify();
+              if(!done){done=true;clearTimeout(timeout);reject(Error(failure));conn.close?.();p.destroy?.();}
+              return;
+            }
+            seat=msg.seat;connected=true;peerCount=msg.players;syncFailures=0;
+            message='接続しました';notify();
             if(!done){done=true;clearTimeout(timeout);resolve({status:status(),token:providedToken});}
           }else if(msg.type==='sync' && connected){
-            peerCount=msg.players;receiveRecord(msg.record);notify();
+            if(!acceptRecord(msg.record)){
+              if(++syncFailures<=2)send(conn,{type:'resync'});
+              else{message='棋譜の同期に失敗しました';connected=false;conn.close?.();}
+            }else{
+              syncFailures=0;peerCount=msg.players;
+              message='同期しました';
+            }
+            notify();
           }else if(msg.type==='delta' && connected){
             peerCount=msg.players;
-            if(!receiveDelta(msg.action,msg.expected))send(conn,{type:'resync'});
+            let applied=false;
+            try{applied=receiveDelta(msg.action,msg.expected)===true;}catch{}
+            if(!applied)send(conn,{type:'resync'});
             notify();
           }else if(msg.type==='error'){message=String(msg.message).slice(0,120);notify();}
         });
@@ -2000,13 +2136,10 @@ const passBtn = document.getElementById('passBtn');
 const undoBtn = document.getElementById('undoBtn');
 const resetBtn = document.getElementById('resetBtn');
 
-const SIZE = 29, ROOT3 = Math.sqrt(3);
 let state = createGame(4);
 let mode = 'cpu', past = [], actions = [], botTimer = null;
 let cpuLevel = 'hard', showLegal = false, showDanger = true;
-const CPU_LEVELS=['easy','normal','hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL,...SQUARE_DEEP_LEVELS];
-const SEAT_LEVELS=['human',...CPU_LEVELS];
-const DEFAULT_SEATS=['human','human','trained-lr001-final'];
+ const DEFAULT_SEATS=['human','human','trained-lr001-final'];
 let seatLevels=DEFAULT_SEATS.slice();
 function selectedSeatLevels(){
   return seatLevelEls.map((el,i)=>SEAT_LEVELS.includes(el.value)?el.value:seatLevels[i]);
@@ -2024,7 +2157,7 @@ let replay = null, network = null, netMessage = '部屋を作るか招待URLで�
 let pinchStart = null, zoomScale = 1;
 let matchCancellation=null, matchTicket=null, currentMatchId=null;
 let randomAttempt=null, keyboardFocusKey='0,0', suppressBoardClickUntil=0;
-let aiWorker=null, aiGeneration=0;
+let aiWorker=null, aiGeneration=0, aiWatchdog=null;
 let lastCpuDecision = null;
 const MAX_ONLINE_ACTIONS=1800;
 const STORAGE = 'three-color-go.v2';
@@ -2035,15 +2168,6 @@ const MATCH_ENDPOINT_KEY='three-color-go.matchmaker-url';
 const MATCH_TIMEOUT=150000;
 let randomMatching=false, saveWarning=false;
 
-const SQUARE_STEP=SIZE*1.6;
-function center(q,r,radius=state.radius) {
-  return radius<0 ? [SQUARE_STEP*(q+(radius+1)/2),SQUARE_STEP*(r+(radius+1)/2)]
-    : [SIZE*ROOT3*(q+r/2), SIZE*1.5*r];
-}
-function boardExtent(radius){
-  if(radius<0){const half=SQUARE_STEP*(-radius)/2+SIZE;return {x:half,y:half};}
-  return {x:SIZE*ROOT3*radius+SIZE+4,y:SIZE*1.5*radius+SIZE+4};
-}
 function vertices(x,y) {
   return Array.from({length:6},(_,i)=>{
     const a = (Math.PI/180)*(60*i-90);
@@ -2058,6 +2182,8 @@ function el(name,attrs={}) {
 function stopBots(){
   aiGeneration++;
   if(botTimer!==null)clearTimeout(botTimer);
+  if(aiWatchdog!==null)clearTimeout(aiWatchdog);
+  aiWatchdog=null;
   botTimer=null;
 }
 function visibleState() { return replay ? replay.frames[replay.index] : state; }
@@ -2114,9 +2240,13 @@ function syncOnlineDelta(action,expected){
   save();render();return true;
 }
 function syncOnlineRecord(remote) {
-  if(!remote||!Array.isArray(remote.actions)||remote.actions.length>MAX_ONLINE_ACTIONS)return;
+  if(!remote||!Array.isArray(remote.actions)||remote.actions.length>MAX_ONLINE_ACTIONS)return false;
   const result=loadRecord({...remote,mode:'online'},{networkSync:true});
-  if(!result.ok)netMessage='同期に失敗しました: '+result.reason;
+  if(!result.ok){
+    netMessage='同期に失敗しました: '+result.reason;
+    return false;
+  }
+  return true;
 }
 function networkChanged(status) {
   netMessage=status.message;
@@ -2191,31 +2321,30 @@ function permittedForHuman() {
   return false;
 }
 function botMove(random=Math.random,level=turnCpuLevel()) {
-  if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL,...SQUARE_DEEP_LEVELS].includes(level))
-    return chooseDifficultyMove(state,random,level);
-  const candidates=[];
-  const chosen=SQUARE_DEEP_LEVELS.includes(level)
-    ? chooseSquareDeepMove(state,level,candidates)
-    : level===SQUARE_TRAINED_LEVEL
-    ? chooseSquareTrainedMove(state,candidates)
-    : ELITE_LEVELS.includes(level)
-    ? chooseEliteMove(state,level,candidates)
-    : TRAINED_LEVELS.includes(level) ? chooseTrainedMove(state,level,candidates)
-    : level==='neural' ? chooseNeuralMove(state,random,candidates)
-      : chooseStrongMove(state,random,candidates);
-  lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],level,
-    chosen,candidates,notes:SQUARE_DEEP_LEVELS.includes(level)
-      ? '四角盤用の実自己対戦で学習したGNN/Attention方策（探索なし）'
-      : level===SQUARE_TRAINED_LEVEL
-      ? '四角盤専用の教師模倣学習方策（探索なし）'
-      : ELITE_LEVELS.includes(level)
-      ? '上位学習済みAI：合法着手＋パスを純粋な方策で選択（探索なし）'
-      : TRAINED_LEVELS.includes(level)
-      ? '合法手＋パスを直接比較した方策確率（眼の戦略的フィルターなし）'
-      : level==='neural'
-        ? '学習モデルの相対スコア（棋力・勝率を保証しません）'
-        : '3手読みの相対評価値（勝率ではありません）'};
-  return chosen;
+  const result=selectCpuMove(state,level,random);
+  if(result.decision)lastCpuDecision=result.decision;
+  return result.move;
+}
+function recoverCpu(error,failedLevel){
+  // Worker/CPU failures must not strand a human-vs-CPU or spectator match.
+  const fallback=failedLevel==='hard'?'easy':'hard';
+  const reason=String(error?.message||error).slice(0,160);
+  if(mode==='custom'){
+    seatLevels[state.turn]=fallback;
+    seatLevelEls[state.turn].value=fallback;
+  }else{
+    cpuLevel=fallback;cpuLevelEl.value=fallback;
+  }
+  lastCpuDecision=null;
+  save();render();
+  msgEl.textContent='CPU処理エラー: '+reason+'。'+fallback+'へ切り替えて続行します。';
+  scheduleBots();
+}
+function runSynchronousCpu(level){
+  try{
+    const move=botMove(Math.random,level);
+    if(move)place(move.q,move.r);else doPass();
+  }catch(error){recoverCpu(error,level);}
 }
 function pauseBots() {
   if(!watchOnly())return {ok:false,reason:'全員CPUの対局ではありません'};
@@ -2230,8 +2359,13 @@ function resumeBots() {
 function stepBot() {
   if(!watchOnly()||!spectatorPaused||replay||state.ended)
     return {ok:false,reason:'一時停止中のCPU3人対局だけ1手進められます'};
-  const move=botMove();
-  return move?place(move.q,move.r):doPass();
+  try{
+    const move=botMove();
+    return move?place(move.q,move.r):doPass();
+  }catch(error){
+    recoverCpu(error,turnCpuLevel());
+    return {ok:false,reason:'CPUを切り替えました: '+error.message};
+  }
 }
 function setSpectatorSpeed(value) {
   const n=Number(value);
@@ -2255,29 +2389,41 @@ function scheduleBots(){
   const generation=aiGeneration,level=turnCpuLevel();
   botTimer=setTimeout(()=>{
     botTimer=null;
-    if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL,...SQUARE_DEEP_LEVELS].includes(level)||typeof Worker==='undefined'||location.protocol==='file:'){
-      const move=botMove(Math.random,level);if(move)place(move.q,move.r);else doPass();return;
+    if(!isCpuLevelSupported(level,state.radius)){
+      recoverCpu(cpuCompatibilityReason(level,state.radius),level);
+      return;
+    }
+    if(['easy','normal'].includes(level)||typeof Worker==='undefined'||location.protocol==='file:'){
+      runSynchronousCpu(level);return;
     }
     try{
-      if(!aiWorker){
-        aiWorker=new Worker(new URL('./src/ai-worker.js',location.href),{type:'module'});
-        aiWorker.onerror=()=>{
-          aiWorker?.terminate();aiWorker=null;
-          if(generation===aiGeneration) {
-            const move=botMove(Math.random,level);if(move)place(move.q,move.r);else doPass();
-          }
-        };
-      }
+      if(!aiWorker)aiWorker=new Worker(new URL('./src/ai-worker.js',location.href),{type:'module'});
+      aiWorker.onerror=event=>{
+        if(generation!==aiGeneration)return;
+        aiWorker?.terminate();aiWorker=null;
+        recoverCpu(event?.message||'Workerの実行に失敗',level);
+      };
       aiWorker.onmessage=e=>{
         if(generation!==aiGeneration||e.data?.generation!==aiGeneration)return;
+        if(aiWatchdog!==null)clearTimeout(aiWatchdog);
+        aiWatchdog=null;
         const {move,decision,error}=e.data||{};
-        if(error){msgEl.textContent='CPUエラー: '+error;return;}
+        if(error){recoverCpu(error,level);return;}
         if(decision)lastCpuDecision=decision;
-        if(move)place(move.q,move.r);else doPass();
+        try{
+          if(move)place(move.q,move.r);else doPass();
+        }catch(failure){recoverCpu(failure,level);}
       };
       aiWorker.postMessage({state,level,generation});
-    }catch{
-      const move=botMove(Math.random,level);if(move)place(move.q,move.r);else doPass();
+      // A hung model (especially large Attention) must never freeze the match.
+      aiWatchdog=setTimeout(()=>{
+        if(generation!==aiGeneration)return;
+        aiWorker?.terminate();aiWorker=null;aiWatchdog=null;
+        recoverCpu('CPUの応答時間超過（8秒）',level);
+      },8000);
+    }catch(error){
+      aiWorker?.terminate();aiWorker=null;
+      recoverCpu(error,level);
     }
   },mode==='bots'?spectatorSpeed:240);
 }
@@ -2315,6 +2461,10 @@ function setHints(options={}) {
 function setCpuLevel(value) {
   if (!CPU_LEVELS.includes(value))
     return {ok:false,reason:'不明なCPU難易度'};
+  if(!isCpuLevelSupported(value,state.radius)){
+    cpuLevelEl.value=cpuLevel;
+    return {ok:false,reason:cpuCompatibilityReason(value,state.radius)};
+  }
   cpuLevelEl.value=value;
   if(cpuLevel===value)return {ok:true,cpuLevel};
   cpuLevel=value;
@@ -2324,6 +2474,10 @@ function setCpuLevel(value) {
 function setSeatLevel(index,value){
   if(!Number.isInteger(index)||index<0||index>=3||!SEAT_LEVELS.includes(value))
     return {ok:false,reason:'色またはプレイヤーの指定が不正です'};
+  if(value!=='human'&&!isCpuLevelSupported(value,state.radius)){
+    seatLevelEls[index].value=seatLevels[index];
+    return {ok:false,reason:cpuCompatibilityReason(value,state.radius)};
+  }
   stopBots();
   seatLevels[index]=value;
   seatLevelEls[index].value=value;
@@ -2414,6 +2568,11 @@ function render() {
   turnLabelEl.textContent=replay?'棋譜再生 · '+replay.index+' / '+actions.length+'手':view.ended?'勝敗が決まりました':view.passes+'人連続パス · '+view.moveCount+'手';
   modeEl.value=mode;
   boardSizeEl.value=String(state.radius);
+  for(const option of cpuLevelEl.options)
+    option.disabled=!isCpuLevelSupported(option.value,state.radius);
+  for(const seatEl of seatLevelEls)
+    for(const option of seatEl.options)
+      option.disabled=option.value!=='human'&&!isCpuLevelSupported(option.value,state.radius);
   boardSvg.setAttribute('aria-label',view.radius<0?'四角形の囲碁盤':'六角形の囲碁盤');
   // Avoid overriding the native Android picker while the selection is in progress.
   if(document.activeElement!==cpuLevelEl)cpuLevelEl.value=cpuLevel;
@@ -2487,8 +2646,14 @@ function render() {
 function reset({radius=state.radius,nextMode=mode,nextLevel=selectedCpuLevel(),nextSeats=selectedSeatLevels()}={}) {
   if (!['cpu','local','bots','custom','online'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
   if (!CPU_LEVELS.includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
+  if((nextMode==='cpu'||nextMode==='bots')&&!isCpuLevelSupported(nextLevel,radius))
+    return {ok:false,reason:cpuCompatibilityReason(nextLevel,radius)};
+  const usableLevel=compatibleCpuLevel(nextLevel,radius);
   if(!Array.isArray(nextSeats)||nextSeats.length!==3||!nextSeats.every(x=>SEAT_LEVELS.includes(x)))
     return {ok:false,reason:'各色のプレイヤー設定が不正です'};
+  if(nextMode==='custom'&&nextSeats.some(x=>x!=='human'&&!isCpuLevelSupported(x,radius)))
+    return {ok:false,reason:'選択した盤面で使用できないCPUが含まれています'};
+  const usableSeats=compatibleSeats(nextSeats,radius);
   let next;
   try {next=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
   stopBots();
@@ -2497,7 +2662,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=selectedCpuLevel(),n
     if(mode==='online'){network?.close();network=null;}
   }
   replay=null;state=next;keyboardFocusKey=radius<0?Math.floor(-radius/2)+','+Math.floor(-radius/2):'0,0';
-  mode=nextMode;cpuLevel=nextLevel;cpuLevelEl.value=cpuLevel;seatLevels=nextSeats.slice();
+  mode=nextMode;cpuLevel=usableLevel;cpuLevelEl.value=cpuLevel;seatLevels=usableSeats.slice();
   seatLevelEls.forEach((el,i)=>{el.value=seatLevels[i];});spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
   past=[];actions=[];lastCpuDecision=null;currentMatchId=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
   if(nextMode==='online'&&network?.status().host)network.broadcast();
@@ -2530,10 +2695,14 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
     normalized.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
   }
   const nextMode=networkSync?'online':(['cpu','local','bots','custom'].includes(record.mode)?record.mode:'local');
-  const nextLevel=CPU_LEVELS.includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
-  const nextSeats=record.seatLevels===undefined?DEFAULT_SEATS.slice():record.seatLevels;
-  if(!Array.isArray(nextSeats)||nextSeats.length!==3||!nextSeats.every(x=>SEAT_LEVELS.includes(x)))
+  const requestedLevel=CPU_LEVELS.includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
+  const requestedSeats=record.seatLevels===undefined?DEFAULT_SEATS.slice():record.seatLevels;
+  if(!Array.isArray(requestedSeats)||requestedSeats.length!==3||!requestedSeats.every(x=>SEAT_LEVELS.includes(x)))
     return {ok:false,reason:'棋譜のプレイヤー設定が不正です'};
+  // Repair legacy saves with a CPU incompatible with the selected board.
+  const nextLevel=compatibleCpuLevel(requestedLevel,next.radius);
+  const nextSeats=compatibleSeats(requestedSeats,next.radius);
+  const cpuMigrated=nextLevel!==requestedLevel || nextSeats.some((v,i)=>v!==requestedSeats[i]);
   const nextShowLegal=typeof record.showLegal==='boolean'?record.showLegal:showLegal;
   const nextShowDanger=typeof record.showDanger==='boolean'?record.showDanger:showDanger;
   stopBots();
@@ -2552,6 +2721,7 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
   zoomScale=typeof record.zoomScale==='number'&&record.zoomScale>=1&&record.zoomScale<=3.5?record.zoomScale:1;
   showLegal=nextShowLegal;showDanger=nextShowDanger;past=states;actions=normalized;
   save();render();if(zoomBoard)centerBoard();scheduleBots();
+  if(cpuMigrated)msgEl.textContent+=' · 盤面に対応しない旧CPU設定を安全なCPUへ変更しました';
   return {ok:true,state:snapshot(state)};
 }
 function updateMatchList(){
@@ -2789,7 +2959,11 @@ boardSizeEl.addEventListener('change',()=>{
   if(state.moveCount>0 && !confirm('盤面サイズを変えると対局が最初からになります。よろしいですか？')) {
     boardSizeEl.value=String(state.radius);return;
   }
-  const result=reset({radius,nextLevel:radius<0?SQUARE_TRAINED_LEVEL:cpuLevel===SQUARE_TRAINED_LEVEL?'hard':selectedCpuLevel()});
+  const changedShape=(radius<0)!==(state.radius<0);
+  const requestedLevel=selectedCpuLevel();
+  const nextLevel=changedShape&&radius<0?defaultCpuLevelForBoard(radius):
+    compatibleCpuLevel(requestedLevel,radius);
+  const result=reset({radius,nextLevel,nextSeats:compatibleSeats(selectedSeatLevels(),radius)});
   if(!result.ok){boardSizeEl.value=String(state.radius);msgEl.textContent=result.reason;}
 });
 undoBtn.addEventListener('click',undo);
@@ -2815,7 +2989,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.8.1',
+  version: '1.9.2',
   getNeuralModelInfo: neuralModelInfo,
   getTrainedModelsInfo: trainedModelsInfo,
   getEliteModelsInfo: eliteModelsInfo,
