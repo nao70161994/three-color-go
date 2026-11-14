@@ -1,38 +1,11 @@
-import {chooseDifficultyMove,seededRandom} from './agent.js';
-import {chooseStrongMove} from './strong-ai.js';
-import {chooseNeuralMove} from './neural-ai.js';
-import {chooseTrainedMove,TRAINED_LEVELS} from './trained-direct-ai.js';
-import {chooseEliteMove,ELITE_LEVELS} from './elite-models.js';
-import {chooseSquareTrainedMove,SQUARE_TRAINED_LEVEL} from './square-policy.js';
-import {chooseSquareDeepMove,SQUARE_DEEP_LEVELS} from './square-deep-ai.js';
-// Separate thread: large-board search must not block taps or scrolling.
+/** Shared CPU execution in a separate thread; keep the logic in cpu-engine.js. */
+import {selectCpuMove} from './cpu-engine.js';
 self.addEventListener('message',({data})=>{
   const {state,level,generation}=data;
   try{
-    let move,decision=null;
-    if(level==='hard'||level==='neural'||TRAINED_LEVELS.includes(level)||ELITE_LEVELS.includes(level)||level===SQUARE_TRAINED_LEVEL||SQUARE_DEEP_LEVELS.includes(level)){
-      const candidates=[];
-      move=SQUARE_DEEP_LEVELS.includes(level)
-        ? chooseSquareDeepMove(state,level,candidates)
-        : level===SQUARE_TRAINED_LEVEL
-        ? chooseSquareTrainedMove(state,candidates)
-        : ELITE_LEVELS.includes(level)
-        ? chooseEliteMove(state,level,candidates)
-        : TRAINED_LEVELS.includes(level)
-        ? chooseTrainedMove(state,level,candidates)
-        : level==='neural' ? chooseNeuralMove(state,Math.random,candidates)
-          : chooseStrongMove(state,Math.random,candidates);
-      decision={turn:state.moveCount+1,chosen:move,
-        candidates,notes:SQUARE_DEEP_LEVELS.includes(level)
-          ? '四角盤用の自己対戦学習モデル（探索なし）'
-          : level===SQUARE_TRAINED_LEVEL
-          ? '四角盤専用の学習方策（教師模倣・探索なし）'
-          : ELITE_LEVELS.includes(level)
-          ? '新旧上位学習AIの方策確率（探索・戦略ルールなし）'
-          : TRAINED_LEVELS.includes(level)
-          ? '合法手＋パスを直接比較した方策確率（眼の戦略的フィルターなし）'
-          : level==='neural'?'学習モデルの相対スコア':'3手探索の相対スコア'};
-    }else move=chooseDifficultyMove(state,Math.random,level);
+    const {move,decision}=selectCpuMove(state,level,Math.random);
     self.postMessage({generation,move,decision});
-  }catch(error){self.postMessage({generation,error:String(error.message||error)});}
+  }catch(error){
+    self.postMessage({generation,error:String(error?.message||error)});
+  }
 });
