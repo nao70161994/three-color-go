@@ -170,9 +170,13 @@ function syncOnlineDelta(action,expected){
   save();render();return true;
 }
 function syncOnlineRecord(remote) {
-  if(!remote||!Array.isArray(remote.actions)||remote.actions.length>MAX_ONLINE_ACTIONS)return;
+  if(!remote||!Array.isArray(remote.actions)||remote.actions.length>MAX_ONLINE_ACTIONS)return false;
   const result=loadRecord({...remote,mode:'online'},{networkSync:true});
-  if(!result.ok)netMessage='同期に失敗しました: '+result.reason;
+  if(!result.ok){
+    netMessage='同期に失敗しました: '+result.reason;
+    return false;
+  }
+  return true;
 }
 function networkChanged(status) {
   netMessage=status.message;
