@@ -123,3 +123,16 @@ test('single IP cannot flood the public lobby with new tickets',async()=>{
     body:JSON.stringify({ticket:ticket(47)})}));
   assert.equal(reject.status,429);
 });
+
+test('malicious request without Content-Length cannot bypass 512-byte lobby limit',async()=>{
+  storage.clear();
+  const lobby=new Matchmaker(ctx,{});
+  const long=JSON.stringify({ticket:ticket(101),padding:'x'.repeat(2048)});
+  const reqBig=new Request(endpoint+'/join',{method:'POST',
+    headers:{'content-type':'application/json'},body:long});
+  const result=await lobby.fetch(reqBig);
+  assert.equal(result.status,413);
+  assert.equal(storage.has('lobby'),false);
+  const okay=await lobby.fetch(req('/join',ticket(102),'POST'));
+  assert.equal(okay.status,200,'normal small JSON requests remain accepted');
+});
