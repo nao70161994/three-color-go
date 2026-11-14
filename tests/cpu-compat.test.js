@@ -108,3 +108,23 @@ test('HTML CPU selections exactly match the shared capability catalog',()=>{
     assert.deepEqual(values,id==='cpuLevel'?[...CPU_LEVELS]:['human',...CPU_LEVELS],id);
   }
 });
+
+test('19x19 square strong CPU uses bounded candidates and remains legal midgame',()=>{
+  const radius=-19;
+  let state=createGame(radius);
+  const points=pointsOnBoard(radius);
+  for(let step=0;step<60;step++){
+    let found=false;
+    for(let i=0;i<points.length;i++){
+      const p=points[(step*37+i)%points.length];
+      const r=play(state,p.q,p.r);
+      if(r.ok){state=r.state;found=true;break;}
+    }
+    if(!found)throw Error('Could not construct a midgame square position');
+  }
+  const begin=performance.now();
+  const {move}=selectCpuMove(state,'hard',seededRandom(303));
+  const elapsed=performance.now()-begin;
+  assert.ok(move===null||play(state,move.q,move.r).ok,'Strong CPU plays a legal move');
+  assert.ok(elapsed<1500,'19x19 60-stone response time '+elapsed+'ms exceeds mobile-oriented bound');
+});
