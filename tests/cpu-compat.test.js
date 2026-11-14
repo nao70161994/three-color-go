@@ -96,3 +96,13 @@ test('Browser, Worker, offline and PWA share catalog/dispatcher/assets',()=>{
   for(const path of ['board-layout.js','cpu-catalog.js','cpu-engine.js'])
     assert.ok(read('sw.js').includes('./src/'+path));
 });
+
+test('HTML CPU selections exactly match the shared capability catalog',()=>{
+  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+  for(const id of ['cpuLevel','seatBlack','seatWhite','seatRed']){
+    const match=html.match(new RegExp('<select id="'+id+'"[^>]*>([\\s\\S]*?)<\\/select>'));
+    assert.ok(match,'Missing CPU select '+id);
+    const values=[...match[1].matchAll(/<option\s+value="([^"]+)"/g)].map(m=>m[1]);
+    assert.deepEqual(values,id==='cpuLevel'?[...CPU_LEVELS]:['human',...CPU_LEVELS],id);
+  }
+});
