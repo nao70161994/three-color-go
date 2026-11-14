@@ -44,7 +44,8 @@ jobs:
           "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --virtual-time-budget=40000 --dump-dom \
             http://localhost:8000/tests/browser-smoke.html >/tmp/three-color-go-smoke.html 2>/tmp/chrome.log
           grep 'data-status="passed"' /tmp/three-color-go-smoke.html || {
-            tail -c 16000 /tmp/three-color-go-smoke.html
+            head -c 12000 /tmp/three-color-go-smoke.html
+            tail -c 4000 /tmp/three-color-go-smoke.html
             tail -c 4000 /tmp/chrome.log
             exit 1
           }
