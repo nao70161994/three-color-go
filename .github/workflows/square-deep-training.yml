@@ -2,7 +2,7 @@ name: Real square-board GNN and Attention self-play training (32 games each)
 on:
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
   actions: read
 concurrency:
   group: square-deep-training-20261107
@@ -18,8 +18,6 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: experiment/square-deep-gnn-attention-20261107
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -130,14 +128,15 @@ jobs:
           import os
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(text)
           PY
-      - name: Commit only verified actual weights and generated offline edition
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/square-deep-model-data.js play.html reports/square-deep-32-summary.md
-          git commit -m "Freeze 32-game square self-play GNN16 GNN64 Attention checkpoints"
-          git push origin HEAD:experiment/square-deep-gnn-attention-20261107
+      # Keep historical frozen outputs as artifacts; never push to an obsolete branch.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-deep-32-frozen
+          path: |
+            src/square-deep-model-data.js
+            play.html
+            reports/square-deep-32-summary.md
+          retention-days: 90
       - uses: actions/upload-artifact@v4
         if: always()
         with:
