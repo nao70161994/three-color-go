@@ -38,6 +38,13 @@ export function adjacentKeys(key, radius) {
     .map(([x,y]) => pointKey(x,y));
 }
 
+// Cache a frozen history array's membership set per immutable state version.
+const historySets=new WeakMap();
+function hasPosition(state,hash){
+  let set=historySets.get(state.seen);
+  if(!set){set=new Set(state.seen);historySets.set(state.seen,set);}
+  return set.has(hash);
+}
 export function boardHash(board) {
   return Object.keys(board).sort().map(k => `${k}:${board[k]}`).join('|');
 }
@@ -102,7 +109,7 @@ export function play(state, q, r) {
     return {ok:false, reason:'自殺手は禁止です'};
   }
   const hash = boardHash(board);
-  if (state.seen.includes(hash)) return {ok:false, reason:'全局同形禁止により置けません'};
+  if (hasPosition(state,hash)) return {ok:false, reason:'全局同形禁止により置けません'};
   const next = {
     ...state, board, turn:(state.turn+1)%3, passes:0,
     moveCount: state.moveCount + 1,
