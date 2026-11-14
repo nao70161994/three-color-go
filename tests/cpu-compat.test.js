@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {createGame,play,pass,insideBoard,pointsOnBoard} from '../src/game.js';
 import {seededRandom} from '../src/agent.js';
 import {selectCpuMove} from '../src/cpu-engine.js';
+import {chooseSquareTrainedMove} from '../src/square-policy.js';
 import {boardEdgeFactor,boardCenterDistance,center,boardExtent} from '../src/board-layout.js';
 import {CPU_LEVELS,isCpuLevelSupported,compatibleCpuLevel,compatibleSeats,
   defaultCpuLevelForBoard} from '../src/cpu-catalog.js';
@@ -33,6 +34,7 @@ test('CPU compatibility is explicit and disallows computationally prohibitive at
 test('CPU dispatcher cannot run models on unsupported geometry',()=>{
   assert.throws(()=>selectCpuMove(createGame(-9),'elite-gnn64-50000'),/六角盤/);
   assert.throws(()=>selectCpuMove(createGame(4),'square-gnn16-32'),/四角盤/);
+  assert.throws(()=>chooseSquareTrainedMove(createGame(4)),/四角盤/);
   assert.throws(()=>selectCpuMove(createGame(-19),'square-attn64-32'),/負荷|Attention/);
   assert.throws(()=>selectCpuMove(createGame(8),'elite-attn64-50000'),/負荷|Attention/);
 });
