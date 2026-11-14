@@ -1,7 +1,7 @@
-# AI agent instructions: Three Color Hex Go
+# AI agent instructions: Three Color Go (hexagonal and square boards)
 
 ## Goal
-A playable 3-player Go variant. Three colors, hexagonal board (6 neighbors), stone-count scoring, positional superko. Improve the game only while preserving agreed rules unless the owner requests a rule change.
+A playable 3-player Go variant. Three colors, hexagonal boards (6 neighbors) and square boards (4 neighbors, negative radius: -9/-13/-19), stone-count scoring, positional superko. Improve the game only while preserving agreed rules unless the owner requests a rule change.
 
 ## Available agent interfaces
 - Node.js JSONL CLI: `node scripts/agent-play.mjs`. Send one JSON object per line and parse one JSON result per line. No dependencies.
@@ -102,8 +102,13 @@ A playable 3-player Go variant. Three colors, hexagonal board (6 neighbors), sto
 - Public Pages deploy only after main CI completes successfully. Before merging test `npm test`, Chrome browser, standalone parity and Worker matchmaker queue tests.
 - Browser DOM cells are reused across board updates; tests should verify focus and selected point states.
 
-## Known limitations
-- CPU is a tactical one-ply, deterministic-under-seed heuristic, not a competitive Go engine.
-- No online play.
-- No dead-stone agreement or automatic removal after 3 passes.
-- Browser save uses localStorage and may be unavailable in restricted browsing environments.
+## Current v1.9.2 constraints and verification
+- CPU availability depends on board geometry: `src/cpu-catalog.js` is authoritative. Hex neural models must not run on square boards. Square deep models must not run on hex boards.
+- Square Attention64 is disabled at 19×19 and hex Attention64 at radius >=8 for responsiveness. Do not silently substitute a different neural model.
+- `src/cpu-engine.js` is the shared move-dispatch path for the UI and Web Worker. CPU errors trigger a documented fallback; test it in the browser.
+- `src/board-layout.js` owns drawing geometry and board-relative heuristic distances. Rules and group topology belong in `src/game.js`.
+- Square deep weights in `src/square-deep-model-data.js` currently contain only 32 games each; 512-game candidates were evaluated (all lost to fixed CPU) and are **not** adopted.
+- Online rooms use PeerJS/WebRTC with the host browser as authority; Cloudflare Worker provides matchmaking only. Live three-device testing remains necessary.
+- Human eye fills remain LEGAL. Do not modify game rules to compensate for weak CPU policies.
+- No dead-stone agreement or automatic removal after 3 passes. Browser storage is localStorage and can be unavailable or cleared.
+- Before merging: run all Node tests, the Chrome browser smoke including square boards, standalone equality check, and ensure the Pages deploy workflow reports success.

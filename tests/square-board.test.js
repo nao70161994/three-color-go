@@ -70,7 +70,9 @@ test('square board option, worker and offline model wiring are present',()=>{
   const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
   for(const n of [9,13,19])assert.ok(html.includes('value="-'+n+'"'));
   assert.ok(html.includes('value="'+SQUARE_TRAINED_LEVEL+'"'));
-  assert.ok(worker.includes('chooseSquareTrainedMove'));
-  assert.ok(main.includes('chooseSquareTrainedMove'));
+  const dispatcher=readFileSync(new URL('../src/cpu-engine.js',import.meta.url),'utf8');
+  assert.ok(worker.includes('selectCpuMove'));
+  assert.ok(main.includes('selectCpuMove'));
+  assert.ok(dispatcher.includes('chooseSquareTrainedMove'));
   assert.ok(main.includes('boardExtent(view.radius)'));
 });

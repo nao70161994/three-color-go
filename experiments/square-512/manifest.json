@@ -1,0 +1,35 @@
+{
+  "sourceRun": 42364679877,
+  "architectures": {
+    "gnn16": {
+      "sha256": "1fcda7bd052fde3d0eef22abf2395bcdb164006f13cdfaec4355060eec5689f2",
+      "trainingGames": 512,
+      "naturallyEndedGames": 181,
+      "evaluationGames": 12,
+      "evaluationFinished": 12,
+      "evaluationWinShare": 0,
+      "meanObservedStoneShare": 0.0579403482695243,
+      "seed": 20471118
+    },
+    "gnn64": {
+      "sha256": "734f31a6e908eda4fd51678d1e3808d9f31584fadec0cc88103f182b8434fa5f",
+      "trainingGames": 512,
+      "naturallyEndedGames": 203,
+      "evaluationGames": 12,
+      "evaluationFinished": 12,
+      "evaluationWinShare": 0,
+      "meanObservedStoneShare": 0.1245677569382511,
+      "seed": 20471118
+    },
+    "attn64": {
+      "sha256": "98aa3add4ef48076c066162892116eefe1606fa2c71d676a90280006219c3afb",
+      "trainingGames": 512,
+      "naturallyEndedGames": 225,
+      "evaluationGames": 12,
+      "evaluationFinished": 12,
+      "evaluationWinShare": 0,
+      "meanObservedStoneShare": 0.011313414254590724,
+      "seed": 20471118
+    }
+  }
+}

@@ -128,3 +128,35 @@ test('protocol v2 broadcasts deltas and resynchronizes rejected increments',asyn
   assert.equal(full.w,2,'failed delta must request a full resync');
   white.close();red.close();host.close();
 });
+
+test('online guest rejects an invalid initial host record instead of reporting connected',async()=>{
+  nodes.clear();
+  const host=createOnlineSession({Peer:FakePeer,getRecord:()=>({radius:3,actions:[]}),
+    applyMove:()=>({ok:false}),receiveRecord:()=>true});
+  const room=await host.createRoom();
+  const guest=createOnlineSession({Peer:FakePeer,
+    getRecord:()=>({}),applyMove:()=>({ok:false}),
+    receiveRecord:()=>false});
+  await assert.rejects(guest.joinRoom(room.room),/棋譜を検証/);
+  assert.equal(guest.status().connected,false);
+  guest.close();host.close();
+});
+
+test('online guest bounds repeated failed full-record resynchronization',async()=>{
+  nodes.clear();
+  const host=createOnlineSession({Peer:FakePeer,getRecord:()=>({radius:3,actions:[]}),
+    applyMove:()=>({ok:false}),receiveRecord:()=>true});
+  const room=await host.createRoom();
+  let accepted=true,received=0;
+  const guest=createOnlineSession({Peer:FakePeer,
+    getRecord:()=>({}),applyMove:()=>({ok:false}),
+    receiveRecord:()=>{received++;return accepted;}});
+  await guest.joinRoom(room.room);
+  assert.equal(guest.status().connected,true);
+  accepted=false;
+  host.broadcast();
+  for(let i=0;i<6;i++)await tick();
+  assert.equal(guest.status().connected,false,'persistent invalid sync must close');
+  assert.ok(received>=4&&received<=6,'retry cap prevents an endless resync loop');
+  guest.close();host.close();
+});

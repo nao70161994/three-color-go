@@ -30,7 +30,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function run(){
   const win=frame.contentWindow, doc=frame.contentDocument, game=win.threeColorGo;
   check(game && typeof game.getState==='function','AI操作用APIが存在');
-  check(game.version==='1.8.1','公開APIのバージョンがv1.8.1');
+  check(game.version==='1.9.2','公開APIのバージョンがv1.9.2');
   check(doc.querySelector('#boardSize').value==='4','初期サイズは半径4・61マス');
   check(doc.querySelector('#replayOpen').disabled,'棋譜が空なら再生ボタンは無効');
   check(doc.querySelector('#boardSize option[value="3"]').textContent.includes('小（37マス）'),'新しい小サイズは37マス');
@@ -39,6 +39,54 @@ async function run(){
   check(doc.querySelector('#mode option[value="bots"]')!==null,'CPU3人観戦モードを選べる');
   check(doc.querySelector('#boardSize option[value="11"]').textContent.includes('397'),'19路盤の361交点を超える397マスが選べる');
   check(doc.querySelector('#boardSize option[value="12"]').textContent.includes('469'),'469マスが選べる');
+  // v1.9.2: real square-board rendering, CPU selection and shape migration.
+  for(const size of [9,13,19]){
+    check(game.reset({mode:'local',radius:-size,cpuLevel:'hard'}).ok,
+      size+'×'+size+'の四角盤でローカル対局を初期化');
+    check(game.getState().radius===-size,'四角盤の形状コードを保持');
+    check(doc.querySelectorAll('#board g.cell').length===size*size,
+      size+'×'+size+'の交点をSVGに描画');
+    check(doc.querySelector('#board g.cell rect')!==null,'四角盤の交点をrectで描画');
+    check(!game.setCpuLevel('elite-gnn64-50000').ok,'四角盤で六角専用AIを拒否');
+    check(doc.querySelector('#cpuLevel option[value="elite-gnn64-50000"]').disabled,
+      '六角専用AI選択肢を無効化');
+    check(doc.querySelector('#cpuLevel option[value="square-attn64-32"]').disabled===(size===19),
+      '19路の重いAttentionのみ無効化');
+    check(game.setCpuLevel('square-gnn16-32').ok,'四角盤GNN16を選択可能');
+    check(game.reset({mode:'bots',radius:-size,cpuLevel:'square-gnn16-32'}).ok,
+      '四角盤GNN16の観戦対局を初期化');
+    check(game.pauseBots().ok && game.stepBot().ok,
+      '四角盤で学習済みGNNの合法着手を実行');
+    check(game.getState().moveCount===1,'四角盤のCPU着手が棋譜に記録される');
+  }
+  check(game.reset({mode:'bots',radius:-9,cpuLevel:'square-gnn16-32'}).ok,'再現性試験の準備');
+  game.pauseBots();
+  check(game.autoPlay(8,12345).ok,'四角盤でシード付き自動対局が成功');
+  const seededSquare=JSON.stringify(game.exportRecord().actions);
+  check(game.reset({mode:'bots',radius:-9,cpuLevel:'square-gnn16-32'}).ok,'再現性試験の再初期化');
+  game.pauseBots();
+  check(game.autoPlay(8,12345).ok &&
+    JSON.stringify(game.exportRecord().actions)===seededSquare,
+    '同じ乱数シードなら四角盤学習CPUが同じ棋譜を生成');
+  check(game.reset({mode:'cpu',radius:-9,cpuLevel:'square-gnn16-32'}).ok,
+    '四角盤のCPU対戦モードで初期化');
+  check(!game.reset({mode:'custom',radius:-9,
+    seatLevels:['human','elite-gnn64-50000','easy']}).ok,
+    '四角盤の自由編成に六角専用AIを混入させない');
+  const shapeSelect=doc.getElementById('boardSize');
+  shapeSelect.value='4';
+  shapeSelect.dispatchEvent(new win.Event('change',{bubbles:true}));
+  check(game.getState().radius===4 && game.getPresentation().cpuLevel==='hard',
+    '四角盤GNN選択中に六角へ切り替えると安全なCPUへ復帰');
+  check(game.reset({mode:'local',radius:-9,cpuLevel:'hard'}).ok &&
+    game.importRecord({radius:-9,mode:'local',cpuLevel:'elite-gnn64-50000',
+      actions:[{type:'play',q:4,r:4}]}).ok,
+    '旧バージョンの非互換CPU保存データを安全に復旧');
+  check(game.getPresentation().cpuLevel==='square-trained-v1',
+    '保存データのCPU移行先が四角盤の学習CPU');
+  check(game.getSquareDeepModelsInfo().length===3,'四角盤深層学習の履歴を公開');
+  check(game.reset({mode:'local',radius:2,cpuLevel:'easy'}).ok,
+    '四角盤回帰試験後に従来六角盤へ復帰');
   check(game.reset({mode:'local',radius:2,cpuLevel:'easy'}).ok,'3人交代モードで初期化');
   check(game.getPresentation().cpuLevel==='easy','CPU難易度を指定して初期化');
   check(doc.getElementById('cpuSetting').hidden,'3人交代中はCPU設定を隠す');
@@ -397,7 +445,7 @@ async function run(){
   check(standalone.reset({mode:'local',radius:2}).ok,'オフライン版を初期化');
   check(standalone.play(0,0).ok,'オフライン版で着手できる');
   check(standalone.getState().scores.black===1,'オフライン版で得点を表示');
-  check(standalone.version==='1.8.1','オフライン版がv1.8.1へ同期している');
+  check(standalone.version==='1.9.2','オフライン版がv1.9.2へ同期している');
   check(standalone.setCpuLevel('neural').ok,'単一HTML版でも学習済みCPUへ切り替え可能');
   check(standalone.setCpuLevel('trained-lr001-final').ok&&
     standalone.setCpuLevel('trained-lr001-peak').ok&&

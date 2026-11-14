@@ -1,5 +1,6 @@
 import { COLORS, adjacentKeys, createGame, pass, play, pointKey, pointsOnBoard, scores, winner } from './game.js';
 import { chooseMove, groupInfo, isOwnEye, isUnsafeCpuMove, seededRandom } from './agent.js';
+import {boardCenterDistance,boardEdgeFactor} from './board-layout.js';
 
 /**
  * Strong CPU: 3-ply, three-player adversarial candidate search.
@@ -43,7 +44,7 @@ function candidates(state, player, width, random) {
   // All shortlisted moves still pass through the exact rules engine.
   const points=pointsOnBoard(state.radius);
   let shortlist=points;
-  if(state.radius>=8) {
+  if(points.length>=120) {
     const board=state.board;
     // Always consider critical liberties before the proximity shortlist.
     // Otherwise a large-board CPU can overlook an endangered group far away.
@@ -63,7 +64,7 @@ function candidates(state, player, width, random) {
       const neighbors=adjacentKeys(key,state.radius);
       const friends=neighbors.filter(n=>board[n]===player).length;
       const enemies=neighbors.filter(n=>board[n]&&board[n]!==player).length;
-      const distance=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r));
+      const distance=boardCenterDistance(q,r,state.radius);
       return {q,r,priority:friends*1.7+enemies*2.2-distance*.07+random()*.15};
     }).sort((a,b)=>b.priority-a.priority).slice(0,24);
     const selected=new Map();
@@ -75,7 +76,7 @@ function candidates(state, player, width, random) {
       if(state.board[pointKey(q,r)] || isOwnEye(state,q,r,player))continue;
       const next=play(state,q,r);
       if(!next.ok || isUnsafeCpuMove(state,q,r,next))continue;
-      const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/Math.abs(state.radius);
+      const edge=boardEdgeFactor(q,r,state.radius);
       const rank=positionValue(next.state,player)+next.captured.length*5
         + (1-edge)*.38 + random()*.04;
       options.push({q,r,state:next.state,rank});
@@ -106,10 +107,12 @@ export function chooseStrongMove(state,random=Math.random,inspection=null) {
   if(state.ended)return null;
   const cells=pointsOnBoard(state.radius).length;
   if(state.moveCount>=cells*2)return null;
-  const width=state.radius<=3?6:state.radius===4?5:state.radius===5?3:2;
+  const width=state.radius<0
+    ?(cells>=169?2:4)
+    :state.radius<=3?6:state.radius===4?5:state.radius===5?3:2;
   // Compare at least two plausible replies from each rival on standard boards.
   // Huge boards retain a single reply per rival to keep mobile turns responsive.
-  const opponentWidth=state.radius<=5?2:1;
+  const opponentWidth=state.radius<0?(cells<169?2:1):(state.radius<=5?2:1);
   const me=COLORS[state.turn];
   const roots=candidates(state,me,width,random);
   if(!roots.length)return null;

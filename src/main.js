@@ -1,11 +1,14 @@
 import { COLORS, LABELS, boardPointsCount, pointsOnBoard, pointKey, createGame, play, pass, scores, winner } from './game.js';
-import { chooseMove, chooseDifficultyMove, dangerGroups, legalMoves, seededRandom, snapshot } from './agent.js';
-import { chooseStrongMove } from './strong-ai.js';
-import { chooseNeuralMove, neuralModelInfo } from './neural-ai.js';
-import { chooseTrainedMove, TRAINED_LEVELS, trainedModelsInfo } from './trained-direct-ai.js';
-import { chooseEliteMove, ELITE_LEVELS, eliteModelsInfo } from './elite-models.js';
-import {chooseSquareTrainedMove,SQUARE_TRAINED_LEVEL,squareTrainedModelInfo} from './square-policy.js';
-import {chooseSquareDeepMove,SQUARE_DEEP_LEVELS,squareDeepModelsInfo} from './square-deep-ai.js';
+import { dangerGroups, legalMoves, seededRandom, snapshot } from './agent.js';
+import {neuralModelInfo} from './neural-ai.js';
+import {trainedModelsInfo} from './trained-direct-ai.js';
+import {eliteModelsInfo} from './elite-models.js';
+import {squareTrainedModelInfo} from './square-policy.js';
+import {squareDeepModelsInfo} from './square-deep-ai.js';
+import {CPU_LEVELS,SEAT_LEVELS,isCpuLevelSupported,compatibleCpuLevel,compatibleSeats,
+  defaultCpuLevelForBoard,cpuCompatibilityReason} from './cpu-catalog.js';
+import {selectCpuMove} from './cpu-engine.js';
+import {SIZE,SQUARE_STEP,center,boardExtent} from './board-layout.js';
 import { analyzeRecord, formatAnalysis, explainPosition } from './insights.js';
 import { createOnlineSession, loadPeerJS, roomLink, validRoom, secureToken } from './online.js';
 import { makeMatchmaker } from './matchmaking.js';
@@ -63,13 +66,10 @@ const passBtn = document.getElementById('passBtn');
 const undoBtn = document.getElementById('undoBtn');
 const resetBtn = document.getElementById('resetBtn');
 
-const SIZE = 29, ROOT3 = Math.sqrt(3);
 let state = createGame(4);
 let mode = 'cpu', past = [], actions = [], botTimer = null;
 let cpuLevel = 'hard', showLegal = false, showDanger = true;
-const CPU_LEVELS=['easy','normal','hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL,...SQUARE_DEEP_LEVELS];
-const SEAT_LEVELS=['human',...CPU_LEVELS];
-const DEFAULT_SEATS=['human','human','trained-lr001-final'];
+ const DEFAULT_SEATS=['human','human','trained-lr001-final'];
 let seatLevels=DEFAULT_SEATS.slice();
 function selectedSeatLevels(){
   return seatLevelEls.map((el,i)=>SEAT_LEVELS.includes(el.value)?el.value:seatLevels[i]);
@@ -87,7 +87,7 @@ let replay = null, network = null, netMessage = '部屋を作るか招待URLで�
 let pinchStart = null, zoomScale = 1;
 let matchCancellation=null, matchTicket=null, currentMatchId=null;
 let randomAttempt=null, keyboardFocusKey='0,0', suppressBoardClickUntil=0;
-let aiWorker=null, aiGeneration=0;
+let aiWorker=null, aiGeneration=0, aiWatchdog=null;
 let lastCpuDecision = null;
 const MAX_ONLINE_ACTIONS=1800;
 const STORAGE = 'three-color-go.v2';
@@ -98,15 +98,6 @@ const MATCH_ENDPOINT_KEY='three-color-go.matchmaker-url';
 const MATCH_TIMEOUT=150000;
 let randomMatching=false, saveWarning=false;
 
-const SQUARE_STEP=SIZE*1.6;
-function center(q,r,radius=state.radius) {
-  return radius<0 ? [SQUARE_STEP*(q+(radius+1)/2),SQUARE_STEP*(r+(radius+1)/2)]
-    : [SIZE*ROOT3*(q+r/2), SIZE*1.5*r];
-}
-function boardExtent(radius){
-  if(radius<0){const half=SQUARE_STEP*(-radius)/2+SIZE;return {x:half,y:half};}
-  return {x:SIZE*ROOT3*radius+SIZE+4,y:SIZE*1.5*radius+SIZE+4};
-}
 function vertices(x,y) {
   return Array.from({length:6},(_,i)=>{
     const a = (Math.PI/180)*(60*i-90);
@@ -121,6 +112,8 @@ function el(name,attrs={}) {
 function stopBots(){
   aiGeneration++;
   if(botTimer!==null)clearTimeout(botTimer);
+  if(aiWatchdog!==null)clearTimeout(aiWatchdog);
+  aiWatchdog=null;
   botTimer=null;
 }
 function visibleState() { return replay ? replay.frames[replay.index] : state; }
@@ -177,9 +170,13 @@ function syncOnlineDelta(action,expected){
   save();render();return true;
 }
 function syncOnlineRecord(remote) {
-  if(!remote||!Array.isArray(remote.actions)||remote.actions.length>MAX_ONLINE_ACTIONS)return;
+  if(!remote||!Array.isArray(remote.actions)||remote.actions.length>MAX_ONLINE_ACTIONS)return false;
   const result=loadRecord({...remote,mode:'online'},{networkSync:true});
-  if(!result.ok)netMessage='同期に失敗しました: '+result.reason;
+  if(!result.ok){
+    netMessage='同期に失敗しました: '+result.reason;
+    return false;
+  }
+  return true;
 }
 function networkChanged(status) {
   netMessage=status.message;
@@ -254,31 +251,30 @@ function permittedForHuman() {
   return false;
 }
 function botMove(random=Math.random,level=turnCpuLevel()) {
-  if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL,...SQUARE_DEEP_LEVELS].includes(level))
-    return chooseDifficultyMove(state,random,level);
-  const candidates=[];
-  const chosen=SQUARE_DEEP_LEVELS.includes(level)
-    ? chooseSquareDeepMove(state,level,candidates)
-    : level===SQUARE_TRAINED_LEVEL
-    ? chooseSquareTrainedMove(state,candidates)
-    : ELITE_LEVELS.includes(level)
-    ? chooseEliteMove(state,level,candidates)
-    : TRAINED_LEVELS.includes(level) ? chooseTrainedMove(state,level,candidates)
-    : level==='neural' ? chooseNeuralMove(state,random,candidates)
-      : chooseStrongMove(state,random,candidates);
-  lastCpuDecision={turn:state.moveCount+1,color:COLORS[state.turn],level,
-    chosen,candidates,notes:SQUARE_DEEP_LEVELS.includes(level)
-      ? '四角盤用の実自己対戦で学習したGNN/Attention方策（探索なし）'
-      : level===SQUARE_TRAINED_LEVEL
-      ? '四角盤専用の教師模倣学習方策（探索なし）'
-      : ELITE_LEVELS.includes(level)
-      ? '上位学習済みAI：合法着手＋パスを純粋な方策で選択（探索なし）'
-      : TRAINED_LEVELS.includes(level)
-      ? '合法手＋パスを直接比較した方策確率（眼の戦略的フィルターなし）'
-      : level==='neural'
-        ? '学習モデルの相対スコア（棋力・勝率を保証しません）'
-        : '3手読みの相対評価値（勝率ではありません）'};
-  return chosen;
+  const result=selectCpuMove(state,level,random);
+  if(result.decision)lastCpuDecision=result.decision;
+  return result.move;
+}
+function recoverCpu(error,failedLevel){
+  // Worker/CPU failures must not strand a human-vs-CPU or spectator match.
+  const fallback=failedLevel==='hard'?'easy':'hard';
+  const reason=String(error?.message||error).slice(0,160);
+  if(mode==='custom'){
+    seatLevels[state.turn]=fallback;
+    seatLevelEls[state.turn].value=fallback;
+  }else{
+    cpuLevel=fallback;cpuLevelEl.value=fallback;
+  }
+  lastCpuDecision=null;
+  save();render();
+  msgEl.textContent='CPU処理エラー: '+reason+'。'+fallback+'へ切り替えて続行します。';
+  scheduleBots();
+}
+function runSynchronousCpu(level){
+  try{
+    const move=botMove(Math.random,level);
+    if(move)place(move.q,move.r);else doPass();
+  }catch(error){recoverCpu(error,level);}
 }
 function pauseBots() {
   if(!watchOnly())return {ok:false,reason:'全員CPUの対局ではありません'};
@@ -293,8 +289,13 @@ function resumeBots() {
 function stepBot() {
   if(!watchOnly()||!spectatorPaused||replay||state.ended)
     return {ok:false,reason:'一時停止中のCPU3人対局だけ1手進められます'};
-  const move=botMove();
-  return move?place(move.q,move.r):doPass();
+  try{
+    const move=botMove();
+    return move?place(move.q,move.r):doPass();
+  }catch(error){
+    recoverCpu(error,turnCpuLevel());
+    return {ok:false,reason:'CPUを切り替えました: '+error.message};
+  }
 }
 function setSpectatorSpeed(value) {
   const n=Number(value);
@@ -318,29 +319,41 @@ function scheduleBots(){
   const generation=aiGeneration,level=turnCpuLevel();
   botTimer=setTimeout(()=>{
     botTimer=null;
-    if(!['hard','neural',...TRAINED_LEVELS,...ELITE_LEVELS,SQUARE_TRAINED_LEVEL,...SQUARE_DEEP_LEVELS].includes(level)||typeof Worker==='undefined'||location.protocol==='file:'){
-      const move=botMove(Math.random,level);if(move)place(move.q,move.r);else doPass();return;
+    if(!isCpuLevelSupported(level,state.radius)){
+      recoverCpu(cpuCompatibilityReason(level,state.radius),level);
+      return;
+    }
+    if(['easy','normal'].includes(level)||typeof Worker==='undefined'||location.protocol==='file:'){
+      runSynchronousCpu(level);return;
     }
     try{
-      if(!aiWorker){
-        aiWorker=new Worker(new URL('./src/ai-worker.js',location.href),{type:'module'});
-        aiWorker.onerror=()=>{
-          aiWorker?.terminate();aiWorker=null;
-          if(generation===aiGeneration) {
-            const move=botMove(Math.random,level);if(move)place(move.q,move.r);else doPass();
-          }
-        };
-      }
+      if(!aiWorker)aiWorker=new Worker(new URL('./src/ai-worker.js',location.href),{type:'module'});
+      aiWorker.onerror=event=>{
+        if(generation!==aiGeneration)return;
+        aiWorker?.terminate();aiWorker=null;
+        recoverCpu(event?.message||'Workerの実行に失敗',level);
+      };
       aiWorker.onmessage=e=>{
         if(generation!==aiGeneration||e.data?.generation!==aiGeneration)return;
+        if(aiWatchdog!==null)clearTimeout(aiWatchdog);
+        aiWatchdog=null;
         const {move,decision,error}=e.data||{};
-        if(error){msgEl.textContent='CPUエラー: '+error;return;}
+        if(error){recoverCpu(error,level);return;}
         if(decision)lastCpuDecision=decision;
-        if(move)place(move.q,move.r);else doPass();
+        try{
+          if(move)place(move.q,move.r);else doPass();
+        }catch(failure){recoverCpu(failure,level);}
       };
       aiWorker.postMessage({state,level,generation});
-    }catch{
-      const move=botMove(Math.random,level);if(move)place(move.q,move.r);else doPass();
+      // A hung model (especially large Attention) must never freeze the match.
+      aiWatchdog=setTimeout(()=>{
+        if(generation!==aiGeneration)return;
+        aiWorker?.terminate();aiWorker=null;aiWatchdog=null;
+        recoverCpu('CPUの応答時間超過（8秒）',level);
+      },8000);
+    }catch(error){
+      aiWorker?.terminate();aiWorker=null;
+      recoverCpu(error,level);
     }
   },mode==='bots'?spectatorSpeed:240);
 }
@@ -378,6 +391,10 @@ function setHints(options={}) {
 function setCpuLevel(value) {
   if (!CPU_LEVELS.includes(value))
     return {ok:false,reason:'不明なCPU難易度'};
+  if(!isCpuLevelSupported(value,state.radius)){
+    cpuLevelEl.value=cpuLevel;
+    return {ok:false,reason:cpuCompatibilityReason(value,state.radius)};
+  }
   cpuLevelEl.value=value;
   if(cpuLevel===value)return {ok:true,cpuLevel};
   cpuLevel=value;
@@ -387,6 +404,10 @@ function setCpuLevel(value) {
 function setSeatLevel(index,value){
   if(!Number.isInteger(index)||index<0||index>=3||!SEAT_LEVELS.includes(value))
     return {ok:false,reason:'色またはプレイヤーの指定が不正です'};
+  if(value!=='human'&&!isCpuLevelSupported(value,state.radius)){
+    seatLevelEls[index].value=seatLevels[index];
+    return {ok:false,reason:cpuCompatibilityReason(value,state.radius)};
+  }
   stopBots();
   seatLevels[index]=value;
   seatLevelEls[index].value=value;
@@ -477,6 +498,11 @@ function render() {
   turnLabelEl.textContent=replay?'棋譜再生 · '+replay.index+' / '+actions.length+'手':view.ended?'勝敗が決まりました':view.passes+'人連続パス · '+view.moveCount+'手';
   modeEl.value=mode;
   boardSizeEl.value=String(state.radius);
+  for(const option of cpuLevelEl.options)
+    option.disabled=!isCpuLevelSupported(option.value,state.radius);
+  for(const seatEl of seatLevelEls)
+    for(const option of seatEl.options)
+      option.disabled=option.value!=='human'&&!isCpuLevelSupported(option.value,state.radius);
   boardSvg.setAttribute('aria-label',view.radius<0?'四角形の囲碁盤':'六角形の囲碁盤');
   // Avoid overriding the native Android picker while the selection is in progress.
   if(document.activeElement!==cpuLevelEl)cpuLevelEl.value=cpuLevel;
@@ -550,8 +576,14 @@ function render() {
 function reset({radius=state.radius,nextMode=mode,nextLevel=selectedCpuLevel(),nextSeats=selectedSeatLevels()}={}) {
   if (!['cpu','local','bots','custom','online'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
   if (!CPU_LEVELS.includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
+  if((nextMode==='cpu'||nextMode==='bots')&&!isCpuLevelSupported(nextLevel,radius))
+    return {ok:false,reason:cpuCompatibilityReason(nextLevel,radius)};
+  const usableLevel=compatibleCpuLevel(nextLevel,radius);
   if(!Array.isArray(nextSeats)||nextSeats.length!==3||!nextSeats.every(x=>SEAT_LEVELS.includes(x)))
     return {ok:false,reason:'各色のプレイヤー設定が不正です'};
+  if(nextMode==='custom'&&nextSeats.some(x=>x!=='human'&&!isCpuLevelSupported(x,radius)))
+    return {ok:false,reason:'選択した盤面で使用できないCPUが含まれています'};
+  const usableSeats=compatibleSeats(nextSeats,radius);
   let next;
   try {next=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
   stopBots();
@@ -560,7 +592,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=selectedCpuLevel(),n
     if(mode==='online'){network?.close();network=null;}
   }
   replay=null;state=next;keyboardFocusKey=radius<0?Math.floor(-radius/2)+','+Math.floor(-radius/2):'0,0';
-  mode=nextMode;cpuLevel=nextLevel;cpuLevelEl.value=cpuLevel;seatLevels=nextSeats.slice();
+  mode=nextMode;cpuLevel=usableLevel;cpuLevelEl.value=cpuLevel;seatLevels=usableSeats.slice();
   seatLevelEls.forEach((el,i)=>{el.value=seatLevels[i];});spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
   past=[];actions=[];lastCpuDecision=null;currentMatchId=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
   if(nextMode==='online'&&network?.status().host)network.broadcast();
@@ -593,10 +625,14 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
     normalized.push(action.type==='pass'?{type:'pass'}:{type:'play',q:action.q,r:action.r});
   }
   const nextMode=networkSync?'online':(['cpu','local','bots','custom'].includes(record.mode)?record.mode:'local');
-  const nextLevel=CPU_LEVELS.includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
-  const nextSeats=record.seatLevels===undefined?DEFAULT_SEATS.slice():record.seatLevels;
-  if(!Array.isArray(nextSeats)||nextSeats.length!==3||!nextSeats.every(x=>SEAT_LEVELS.includes(x)))
+  const requestedLevel=CPU_LEVELS.includes(record.cpuLevel)?record.cpuLevel:cpuLevel;
+  const requestedSeats=record.seatLevels===undefined?DEFAULT_SEATS.slice():record.seatLevels;
+  if(!Array.isArray(requestedSeats)||requestedSeats.length!==3||!requestedSeats.every(x=>SEAT_LEVELS.includes(x)))
     return {ok:false,reason:'棋譜のプレイヤー設定が不正です'};
+  // Repair legacy saves with a CPU incompatible with the selected board.
+  const nextLevel=compatibleCpuLevel(requestedLevel,next.radius);
+  const nextSeats=compatibleSeats(requestedSeats,next.radius);
+  const cpuMigrated=nextLevel!==requestedLevel || nextSeats.some((v,i)=>v!==requestedSeats[i]);
   const nextShowLegal=typeof record.showLegal==='boolean'?record.showLegal:showLegal;
   const nextShowDanger=typeof record.showDanger==='boolean'?record.showDanger:showDanger;
   stopBots();
@@ -615,6 +651,7 @@ function loadRecord(record,{resumeSavedBots=false,networkSync=false}={}) {
   zoomScale=typeof record.zoomScale==='number'&&record.zoomScale>=1&&record.zoomScale<=3.5?record.zoomScale:1;
   showLegal=nextShowLegal;showDanger=nextShowDanger;past=states;actions=normalized;
   save();render();if(zoomBoard)centerBoard();scheduleBots();
+  if(cpuMigrated)msgEl.textContent+=' · 盤面に対応しない旧CPU設定を安全なCPUへ変更しました';
   return {ok:true,state:snapshot(state)};
 }
 function updateMatchList(){
@@ -852,7 +889,11 @@ boardSizeEl.addEventListener('change',()=>{
   if(state.moveCount>0 && !confirm('盤面サイズを変えると対局が最初からになります。よろしいですか？')) {
     boardSizeEl.value=String(state.radius);return;
   }
-  const result=reset({radius,nextLevel:radius<0?SQUARE_TRAINED_LEVEL:cpuLevel===SQUARE_TRAINED_LEVEL?'hard':selectedCpuLevel()});
+  const changedShape=(radius<0)!==(state.radius<0);
+  const requestedLevel=selectedCpuLevel();
+  const nextLevel=changedShape&&radius<0?defaultCpuLevelForBoard(radius):
+    compatibleCpuLevel(requestedLevel,radius);
+  const result=reset({radius,nextLevel,nextSeats:compatibleSeats(selectedSeatLevels(),radius)});
   if(!result.ok){boardSizeEl.value=String(state.radius);msgEl.textContent=result.reason;}
 });
 undoBtn.addEventListener('click',undo);
@@ -878,7 +919,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.8.1',
+  version: '1.9.2',
   getNeuralModelInfo: neuralModelInfo,
   getTrainedModelsInfo: trainedModelsInfo,
   getEliteModelsInfo: eliteModelsInfo,

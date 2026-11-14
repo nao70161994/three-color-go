@@ -30,6 +30,7 @@ export function getTrainedModel(id){
  * Rule legality is checked in direct-policy.js, not strategic 'eye' filters.
  */
 export function chooseTrainedMove(state,id='trained-lr001-final',inspection=null){
+  if(state.radius<0)throw Error('旧PV2学習CPUは六角盤専用です');
   const model=getTrainedModel(id);
   if(state.ended)return null;
   const result=selectDirectPolicyMove(state,model,{greedy:true});

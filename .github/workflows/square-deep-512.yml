@@ -1,8 +1,5 @@
 name: Continue square deep GNN and Attention to 512 games per model
 on:
-  push:
-    branches: [experiment/square-deep-gnn-attention-20261107]
-    paths: [.github/workflows/square-deep-512.yml]
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,8 +18,6 @@ jobs:
     timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: experiment/square-deep-gnn-attention-20261107
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

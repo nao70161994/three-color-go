@@ -1,4 +1,5 @@
 import { COLORS, adjacentKeys, createGame, insideBoard, pass, play, pointKey, pointsOnBoard, scores, winner } from './game.js';
+import {boardCenterDistance,boardEdgeFactor} from './board-layout.js';
 
 /** Stable JSON view shared by browser automation and CLI agents. */
 export function snapshot(state) {
@@ -162,7 +163,7 @@ function baselineValue(state,result,q,r,random) {
   const enemies=neighbors.filter(k=>state.board[k]&&state.board[k]!==own).length;
   const empties=neighbors.filter(k=>!result.state.board[k]).length;
   return result.captured.length*22 + friends*1.4 + enemies*.2 + empties*.5
-    - (Math.abs(q)+Math.abs(r)+Math.abs(q+r))*.08 + random()*1.4;
+    - boardCenterDistance(q,r,state.radius)*(state.radius<0?0.08:0.16) + random()*1.4;
 }
 
 function tacticalValue(state,result,q,r,random,atRisk) {
@@ -187,7 +188,7 @@ function tacticalValue(state,result,q,r,random,atRisk) {
   }
   const open=neighbors.filter(k=>!next.board[k]).length;
   const friends=neighbors.filter(k=>state.board[k]===own).length;
-  const edge=Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))/Math.abs(state.radius);
+  const edge=boardEdgeFactor(q,r,state.radius);
   return 1 + result.captured.length*25 + rescued*14 + pressured*3.5
     + friends*.55 + open*.6 - selfAtari*22 - edge*.22 + random()*.4;
 }

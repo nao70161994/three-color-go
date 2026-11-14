@@ -106,6 +106,7 @@ function shortlist(state,random){
 }
 export function chooseNeuralMove(state,random=Math.random,inspection=null){
   if(state.ended)return null;
+  if(state.radius<0)throw Error('旧ニューラルCPUは六角盤専用です');
   const cells=3*state.radius*(state.radius+1)+1;
   if(state.moveCount>=cells*2)return null;
   const own=COLORS[state.turn];

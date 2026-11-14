@@ -17,11 +17,14 @@ export function secureToken(){
 }
 export function createOnlineSession({Peer,getRecord,applyMove,receiveRecord,receiveDelta=()=>false,onStatus=()=>{},token=secureToken}){
   let peer=null,connection=null,host=false,hostId=null,seat=null,connected=false,peerCount=0;
-  let message='未接続';
+  let message='未接続',syncFailures=0;
   const players=new Map(),tokens=new Map();
   const status=()=>({host,seat,room:hostId,connected,players:host?players.size:peerCount,
     ready:connected&&(host?players.size===2:peerCount===2),message});
   const notify=()=>onStatus(status());
+  const acceptRecord=record=>{
+    try{return receiveRecord(record)!==false;}catch{return false;}
+  };
   const send=(conn,payload)=>{if(conn?.open)conn.send({...payload,v:ONLINE_PROTOCOL});};
   const sync=(conn)=>send(conn,{type:'sync',record:getRecord(),players:players.size});
   const broadcast=()=>{
@@ -37,7 +40,7 @@ export function createOnlineSession({Peer,getRecord,applyMove,receiveRecord,rece
   const close=()=>{
     connection?.close?.();for(const conn of players.values())conn.close?.();
     players.clear();tokens.clear();connection=null;peer?.destroy?.();
-    peer=null;host=false;hostId=null;seat=null;connected=false;peerCount=0;message='未接続';notify();
+    peer=null;host=false;hostId=null;seat=null;connected=false;peerCount=0;syncFailures=0;message='未接続';notify();
   };
   function hostConn(conn){
     let joined=null;
@@ -99,14 +102,29 @@ export function createOnlineSession({Peer,getRecord,applyMove,receiveRecord,rece
           if(!msg || msg.v!==ONLINE_PROTOCOL)return;
           if(msg.type==='full'){message='満席です';notify();if(!done){done=true;clearTimeout(timeout);reject(Error(message));}}
           if(msg.type==='welcome'){
-            seat=msg.seat;connected=true;peerCount=msg.players||0;
-            receiveRecord(msg.record);message='接続しました';notify();
+            if(![1,2].includes(msg.seat)||!Number.isInteger(msg.players)||msg.players<1||msg.players>2||!acceptRecord(msg.record)){
+              const failure='ホストの棋譜を検証できません';
+              message=failure;notify();
+              if(!done){done=true;clearTimeout(timeout);reject(Error(failure));conn.close?.();p.destroy?.();}
+              return;
+            }
+            seat=msg.seat;connected=true;peerCount=msg.players;syncFailures=0;
+            message='接続しました';notify();
             if(!done){done=true;clearTimeout(timeout);resolve({status:status(),token:providedToken});}
           }else if(msg.type==='sync' && connected){
-            peerCount=msg.players;receiveRecord(msg.record);notify();
+            if(!acceptRecord(msg.record)){
+              if(++syncFailures<=2)send(conn,{type:'resync'});
+              else{message='棋譜の同期に失敗しました';connected=false;conn.close?.();}
+            }else{
+              syncFailures=0;peerCount=msg.players;
+              message='同期しました';
+            }
+            notify();
           }else if(msg.type==='delta' && connected){
             peerCount=msg.players;
-            if(!receiveDelta(msg.action,msg.expected))send(conn,{type:'resync'});
+            let applied=false;
+            try{applied=receiveDelta(msg.action,msg.expected)===true;}catch{}
+            if(!applied)send(conn,{type:'resync'});
             notify();
           }else if(msg.type==='error'){message=String(msg.message).slice(0,120);notify();}
         });

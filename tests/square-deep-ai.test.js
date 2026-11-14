@@ -52,8 +52,12 @@ test('Square deep policy is only exposed with real self-play checkpoints',()=>{
 });
 test('Square deep levels and offline bundle are wired across entrypoints',()=>{
   const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
-  for(const file of ['index.html','src/main.js','src/ai-worker.js','scripts/build-standalone.mjs']){
+  for(const file of ['index.html','scripts/build-standalone.mjs','src/cpu-catalog.js','src/cpu-engine.js']){
     const txt=read(file);
-    assert.ok(txt.includes('square-deep')||txt.includes('SQUARE_DEEP')||txt.includes('square-gnn16-32'));
+    assert.ok(txt.includes('square-deep')||txt.includes('SQUARE_DEEP')||
+      txt.includes('square-gnn16-32')||txt.includes('squareDeep'));
+  }
+  for(const file of ['src/main.js','src/ai-worker.js']){
+    assert.ok(read(file).includes('selectCpuMove'),'shared CPU dispatcher: '+file);
   }
 });
