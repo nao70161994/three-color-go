@@ -5,7 +5,7 @@
  * The pass action is always compared with every legal placement.
  */
 import {COLORS,adjacentKeys,pointKey,pointsOnBoard} from './game.js';
-import {chooseDifficultyMove,groupInfo,legalMoves} from './agent.js';
+import {groupInfo,legalMoves} from './agent.js';
 import {SQUARE_POLICY_WEIGHTS} from './square-policy-weights.js';
 export const SQUARE_TRAINED_LEVEL='square-trained-v1';
 export const SQUARE_FEATURES=16;
@@ -82,7 +82,7 @@ export function squarePolicyDistribution(state,model=SQUARE_POLICY_WEIGHTS){
 export function chooseSquareTrainedMove(state,inspection=null,model=SQUARE_POLICY_WEIGHTS){
   if(state.ended)return null;
   // The square-specific policy does not claim to be trained for hex grids.
-  if(state.radius>=0)return chooseDifficultyMove(state,Math.random,'normal');
+  if(state.radius>=0)throw Error('四角盤専用の学習CPUは六角盤で利用できません');
   const {actions,probabilities}=squarePolicyDistribution(state,model);
   let best=0;
   for(let i=1;i<actions.length;i++)if(probabilities[i]>probabilities[best])best=i;
