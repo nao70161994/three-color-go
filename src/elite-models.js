@@ -45,6 +45,7 @@ export function getEliteModel(id){
 }
 export function chooseEliteMove(state,id='elite-attn64-50000',inspection=null){
   if(state.ended)return null;
+  if(state.radius<0)throw Error('六角盤用の学習CPUです');
   const model=getEliteModel(id);
   const result=id==='elite-pv2-122400'
     ?selectDirectPolicyMove(state,model,{greedy:true})
