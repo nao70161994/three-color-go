@@ -1,0 +1,62 @@
+name: Repository-wide regression and standalone regeneration
+on:
+  push:
+    branches: [fix/full-repo-audit-20261114]
+    paths:
+      - .github/workflows/full-repo-audit.yml
+      - src/**
+      - tests/**
+      - scripts/**
+      - index.html
+      - sw.js
+      - package.json
+      - AGENTS.md
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: three-color-go-full-audit
+  cancel-in-progress: true
+jobs:
+  verify-and-bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/full-repo-audit-20261114
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify all Node regression tests
+        run: npm test
+      - name: Regenerate complete offline single-file game
+        run: |
+          npm run build:standalone
+          npm run check:standalone
+      - name: Verify real Chrome UI including square board
+        shell: bash
+        run: |
+          python3 -m http.server 8000 >/tmp/three-color-go-http.log 2>&1 &
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --virtual-time-budget=40000 --dump-dom \
+            http://localhost:8000/tests/browser-smoke.html >/tmp/three-color-go-smoke.html 2>/tmp/chrome.log
+          grep 'data-status="passed"' /tmp/three-color-go-smoke.html || {
+            tail -c 16000 /tmp/three-color-go-smoke.html
+            tail -c 4000 /tmp/chrome.log
+            exit 1
+          }
+      - name: Commit verified regenerated offline game
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add play.html
+          if git diff --cached --quiet; then
+            echo "play.html already matches the sources"
+            exit 0
+          fi
+          git commit -m "Regenerate offline game after cross-board fixes"
+          git push origin HEAD:fix/full-repo-audit-20261114
