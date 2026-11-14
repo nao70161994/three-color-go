@@ -170,3 +170,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
 .seatSettingsGrid select{width:100%;min-width:0;color:#eaf1f4;background:#253b49;border:1px solid #63828d;border-radius:9px;padding:10px;font:inherit;font-size:13px}
 .seatSettings p{color:#bbd0d9;font-size:12px;line-height:1.55;margin:10px 0 0}
 @media(max-width:500px){.seatSettingsGrid{grid-template-columns:80px minmax(0,1fr);gap:8px}.seatSettingsGrid select{padding:10px 7px;font-size:12px}}
+
+/* v1.9.2: square-grid hover/focus affordances mirror hexagonal cells. */
+.cell:hover rect{fill:#e8c48c}
+.cell:focus-visible rect{stroke:#ffffff;stroke-width:3}
