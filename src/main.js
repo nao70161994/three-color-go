@@ -8,7 +8,7 @@ import {squareDeepModelsInfo} from './square-deep-ai.js';
 import {CPU_LEVELS,SEAT_LEVELS,isCpuLevelSupported,compatibleCpuLevel,compatibleSeats,
   defaultCpuLevelForBoard,cpuCompatibilityReason} from './cpu-catalog.js';
 import {selectCpuMove} from './cpu-engine.js';
-import {SIZE,center,boardExtent} from './board-layout.js';
+import {SIZE,SQUARE_STEP,center,boardExtent} from './board-layout.js';
 import { analyzeRecord, formatAnalysis, explainPosition } from './insights.js';
 import { createOnlineSession, loadPeerJS, roomLink, validRoom, secureToken } from './online.js';
 import { makeMatchmaker } from './matchmaking.js';
@@ -572,12 +572,14 @@ function render() {
 function reset({radius=state.radius,nextMode=mode,nextLevel=selectedCpuLevel(),nextSeats=selectedSeatLevels()}={}) {
   if (!['cpu','local','bots','custom','online'].includes(nextMode)) return {ok:false,reason:'不明なモード'};
   if (!CPU_LEVELS.includes(nextLevel)) return {ok:false,reason:'不明なCPU難易度'};
-  if(!isCpuLevelSupported(nextLevel,radius))
+  if((nextMode==='cpu'||nextMode==='bots')&&!isCpuLevelSupported(nextLevel,radius))
     return {ok:false,reason:cpuCompatibilityReason(nextLevel,radius)};
+  const usableLevel=compatibleCpuLevel(nextLevel,radius);
   if(!Array.isArray(nextSeats)||nextSeats.length!==3||!nextSeats.every(x=>SEAT_LEVELS.includes(x)))
     return {ok:false,reason:'各色のプレイヤー設定が不正です'};
-  if(nextSeats.some(x=>x!=='human'&&!isCpuLevelSupported(x,radius)))
+  if(nextMode==='custom'&&nextSeats.some(x=>x!=='human'&&!isCpuLevelSupported(x,radius)))
     return {ok:false,reason:'選択した盤面で使用できないCPUが含まれています'};
+  const usableSeats=compatibleSeats(nextSeats,radius);
   let next;
   try {next=createGame(radius);} catch(e) {return {ok:false,reason:e.message};}
   stopBots();
@@ -586,7 +588,7 @@ function reset({radius=state.radius,nextMode=mode,nextLevel=selectedCpuLevel(),n
     if(mode==='online'){network?.close();network=null;}
   }
   replay=null;state=next;keyboardFocusKey=radius<0?Math.floor(-radius/2)+','+Math.floor(-radius/2):'0,0';
-  mode=nextMode;cpuLevel=nextLevel;cpuLevelEl.value=cpuLevel;seatLevels=nextSeats.slice();
+  mode=nextMode;cpuLevel=usableLevel;cpuLevelEl.value=cpuLevel;seatLevels=usableSeats.slice();
   seatLevelEls.forEach((el,i)=>{el.value=seatLevels[i];});spectatorPaused=false;zoomBoard=false;zoomBoardExplicit=false;
   past=[];actions=[];lastCpuDecision=null;currentMatchId=null;save();render();if(zoomBoard)centerBoard();scheduleBots();
   if(nextMode==='online'&&network?.status().host)network.broadcast();
@@ -913,7 +915,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.8.1',
+  version: '1.9.2',
   getNeuralModelInfo: neuralModelInfo,
   getTrainedModelsInfo: trainedModelsInfo,
   getEliteModelsInfo: eliteModelsInfo,
