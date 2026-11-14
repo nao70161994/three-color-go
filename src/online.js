@@ -103,8 +103,9 @@ export function createOnlineSession({Peer,getRecord,applyMove,receiveRecord,rece
           if(msg.type==='full'){message='満席です';notify();if(!done){done=true;clearTimeout(timeout);reject(Error(message));}}
           if(msg.type==='welcome'){
             if(![1,2].includes(msg.seat)||!Number.isInteger(msg.players)||msg.players<1||msg.players>2||!acceptRecord(msg.record)){
-              message='ホストの棋譜を検証できません';notify();
-              if(!done){done=true;clearTimeout(timeout);conn.close?.();p.destroy?.();reject(Error(message));}
+              const failure='ホストの棋譜を検証できません';
+              message=failure;notify();
+              if(!done){done=true;clearTimeout(timeout);reject(Error(failure));conn.close?.();p.destroy?.();}
               return;
             }
             seat=msg.seat;connected=true;peerCount=msg.players;syncFailures=0;
