@@ -1,0 +1,201 @@
+{
+  "kind": "gnn64",
+  "initialGames": 512,
+  "dataset": {
+    "teacherGames": 44,
+    "validGames": 11,
+    "train": 3620,
+    "valid": 927
+  },
+  "bestEpoch": 26,
+  "initializationVersion": "square-teacher-gnn64-seed20261115-epoch20",
+  "heldoutMetrics": {
+    "loss": 1.86228,
+    "accuracy": 0.44229
+  },
+  "epochs": [
+    {
+      "epoch": 1,
+      "trainLoss": 2.05485,
+      "trainAccuracy": 0.39669,
+      "validLoss": 2.01832,
+      "validAccuracy": 0.41963
+    },
+    {
+      "epoch": 2,
+      "trainLoss": 2.0313,
+      "trainAccuracy": 0.40829,
+      "validLoss": 2.0638,
+      "validAccuracy": 0.40129
+    },
+    {
+      "epoch": 3,
+      "trainLoss": 2.01256,
+      "trainAccuracy": 0.41271,
+      "validLoss": 2.001,
+      "validAccuracy": 0.40561
+    },
+    {
+      "epoch": 4,
+      "trainLoss": 2.00107,
+      "trainAccuracy": 0.41354,
+      "validLoss": 1.98954,
+      "validAccuracy": 0.40885
+    },
+    {
+      "epoch": 5,
+      "trainLoss": 1.98647,
+      "trainAccuracy": 0.41989,
+      "validLoss": 1.974,
+      "validAccuracy": 0.4164
+    },
+    {
+      "epoch": 6,
+      "trainLoss": 1.96517,
+      "trainAccuracy": 0.42348,
+      "validLoss": 1.97294,
+      "validAccuracy": 0.42611
+    },
+    {
+      "epoch": 7,
+      "trainLoss": 1.95764,
+      "trainAccuracy": 0.42293,
+      "validLoss": 1.98615,
+      "validAccuracy": 0.40777
+    },
+    {
+      "epoch": 8,
+      "trainLoss": 1.93775,
+      "trainAccuracy": 0.43149,
+      "validLoss": 1.98805,
+      "validAccuracy": 0.42395
+    },
+    {
+      "epoch": 9,
+      "trainLoss": 1.94676,
+      "trainAccuracy": 0.42431,
+      "validLoss": 1.94883,
+      "validAccuracy": 0.42503
+    },
+    {
+      "epoch": 10,
+      "trainLoss": 1.92176,
+      "trainAccuracy": 0.43646,
+      "validLoss": 1.97701,
+      "validAccuracy": 0.41963
+    },
+    {
+      "epoch": 11,
+      "trainLoss": 1.91176,
+      "trainAccuracy": 0.43591,
+      "validLoss": 1.95757,
+      "validAccuracy": 0.42934
+    },
+    {
+      "epoch": 12,
+      "trainLoss": 1.90514,
+      "trainAccuracy": 0.43122,
+      "validLoss": 1.93538,
+      "validAccuracy": 0.43905
+    },
+    {
+      "epoch": 13,
+      "trainLoss": 1.89782,
+      "trainAccuracy": 0.4395,
+      "validLoss": 1.95499,
+      "validAccuracy": 0.41208
+    },
+    {
+      "epoch": 14,
+      "trainLoss": 1.88731,
+      "trainAccuracy": 0.44392,
+      "validLoss": 1.92707,
+      "validAccuracy": 0.42395
+    },
+    {
+      "epoch": 15,
+      "trainLoss": 1.87496,
+      "trainAccuracy": 0.44917,
+      "validLoss": 1.89385,
+      "validAccuracy": 0.4466
+    },
+    {
+      "epoch": 16,
+      "trainLoss": 1.86159,
+      "trainAccuracy": 0.44834,
+      "validLoss": 1.91856,
+      "validAccuracy": 0.43258
+    },
+    {
+      "epoch": 17,
+      "trainLoss": 1.86449,
+      "trainAccuracy": 0.44834,
+      "validLoss": 1.902,
+      "validAccuracy": 0.4315
+    },
+    {
+      "epoch": 18,
+      "trainLoss": 1.85211,
+      "trainAccuracy": 0.44779,
+      "validLoss": 1.90223,
+      "validAccuracy": 0.44444
+    },
+    {
+      "epoch": 19,
+      "trainLoss": 1.84777,
+      "trainAccuracy": 0.44972,
+      "validLoss": 1.8637,
+      "validAccuracy": 0.44768
+    },
+    {
+      "epoch": 20,
+      "trainLoss": 1.84188,
+      "trainAccuracy": 0.45994,
+      "validLoss": 1.9088,
+      "validAccuracy": 0.42179
+    },
+    {
+      "epoch": 21,
+      "trainLoss": 1.82656,
+      "trainAccuracy": 0.45552,
+      "validLoss": 1.87312,
+      "validAccuracy": 0.43905
+    },
+    {
+      "epoch": 22,
+      "trainLoss": 1.82245,
+      "trainAccuracy": 0.45166,
+      "validLoss": 1.89037,
+      "validAccuracy": 0.43905
+    },
+    {
+      "epoch": 23,
+      "trainLoss": 1.81694,
+      "trainAccuracy": 0.4605,
+      "validLoss": 1.86375,
+      "validAccuracy": 0.44229
+    },
+    {
+      "epoch": 24,
+      "trainLoss": 1.8176,
+      "trainAccuracy": 0.45221,
+      "validLoss": 1.91907,
+      "validAccuracy": 0.43474
+    },
+    {
+      "epoch": 25,
+      "trainLoss": 1.80373,
+      "trainAccuracy": 0.46188,
+      "validLoss": 1.88958,
+      "validAccuracy": 0.44013
+    },
+    {
+      "epoch": 26,
+      "trainLoss": 1.78891,
+      "trainAccuracy": 0.46657,
+      "validLoss": 1.86228,
+      "validAccuracy": 0.44229
+    }
+  ],
+  "output": "reports/square-strength-stage2/gnn64-staged/model.json"
+}
