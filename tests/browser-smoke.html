@@ -85,6 +85,24 @@ async function run(){
   check(game.getPresentation().cpuLevel==='square-trained-v1',
     '保存データのCPU移行先が四角盤の学習CPU');
   check(game.getSquareDeepModelsInfo().length===3,'四角盤深層学習の履歴を公開');
+  check(game.getSquareBoostModelInfo().length===2,'強化GNN64の盤面別学習記録を取得可能');
+  for(const size of [9,13]){
+    check(game.reset({mode:'bots',radius:-size,cpuLevel:'square-gnn64-boost-v1'}).ok,
+      '強化GNN64を四角'+size+'路で選択可能');
+    check(game.pauseBots().ok&&game.stepBot().ok,
+      '強化GNN64が四角'+size+'路で合法手を着手');
+    check(game.getState().moveCount===1&&game.getCpuDecision()?.level==='square-gnn64-boost-v1',
+      '強化GNN64の棋譜と推論メタデータを取得');
+  }
+  check(game.reset({mode:'local',radius:-19,cpuLevel:'normal'}).ok,
+    '強化GNN64の19路互換性試験');
+  check(doc.querySelector('#cpuLevel option[value="square-gnn64-boost-v1"]').disabled,
+    '19路では未学習の強化GNN64を無効化');
+  check(!game.setCpuLevel('square-gnn64-boost-v1').ok,
+    '19路で強化GNN64を使用できない');
+  check(game.reset({mode:'local',radius:4,cpuLevel:'hard'}).ok,
+    '強化GNN64は六角盤に影響しない');
+
   check(game.reset({mode:'local',radius:2,cpuLevel:'easy'}).ok,
     '四角盤回帰試験後に従来六角盤へ復帰');
   check(game.reset({mode:'local',radius:2,cpuLevel:'easy'}).ok,'3人交代モードで初期化');
