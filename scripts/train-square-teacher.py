@@ -48,7 +48,12 @@ def render(model,raw,records,seed,epoch,lr,valid_metrics):
         "training":"Self-play 512 games, then supervised imitation of three-player balanced/tactical/guarded CPU with distinct heldout games",
         "layers":layers
     })
+    previous=data["metadata"].get("teacherDistillationStages",[])
+    if not isinstance(previous,list):raise ValueError("Invalid previous teacher stages")
     data["metadata"].update({
+        "teacherDistillationStages":[*previous,{
+          "source":raw["version"],"seed":seed,"games":records["teacherGames"],
+          "positions":records["train"],"epochs":epoch}],
         "teacherDistillation":True,"teacherGames":records["teacherGames"],
         "teacherTrainingSamples":records["train"],"teacherValidationSamples":records["valid"],
         "teacherValidationCrossEntropy":round(valid_metrics["loss"],6),
