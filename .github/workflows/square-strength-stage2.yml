@@ -1,11 +1,8 @@
 name: Expand square GNN teacher curriculum and compare checkpoints
 on:
-  push:
-    branches: [experiment/square-strength-teacher-20261115]
-    paths: [.github/workflows/square-strength-stage2.yml]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
   actions: read
 concurrency:
   group: square-strength-stage2-20261115
@@ -177,12 +174,10 @@ jobs:
           print(report)
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
           PY
-      - name: Save model artifacts and results to experimental branch only
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add experiments/square-strength-stage2 docs/square-strength-stage2.md
-          git commit -m "Archive expanded square GNN distillation and heldout strength comparison"
-          git pull --rebase origin experiment/square-strength-teacher-20261115
-          git push origin HEAD:experiment/square-strength-teacher-20261115
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-expanded-reproducible-evaluation
+          path: |
+            experiments/square-strength-stage2/
+            docs/square-strength-stage2.md
+          retention-days: 90
