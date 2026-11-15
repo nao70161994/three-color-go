@@ -1,0 +1,47 @@
+name: Freeze audited boosted square GNN64 and verify browser release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: square-boost-release-20261115
+  cancel-in-progress: false
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check genuine model provenance and heldout duel evidence
+        run: node scripts/materialize-square-boost.mjs src/square-boost-model-data.js
+      - name: Validate game rules, numerical model integrity, and CPU integration
+        run: npm test
+      - name: Regenerate complete offline edition with exactly the checked neural weights
+        run: |
+          npm run build:standalone
+          npm run check:standalone
+      - name: Run real Chrome browser and offline regression tests
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8000 >/tmp/three-color-go-http.log 2>&1 &
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --virtual-time-budget=40000 --dump-dom \
+            http://localhost:8000/tests/browser-smoke.html >/tmp/smoke.html 2>/tmp/chrome.log
+          grep 'data-status="passed"' /tmp/smoke.html || {
+            head -c 16000 /tmp/smoke.html
+            tail -c 4000 /tmp/smoke.html
+            tail -c 4000 /tmp/chrome.log
+            exit 1
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-boost-verified-offline-build
+          path: |
+            src/square-boost-model-data.js
+            play.html
+          retention-days: 90

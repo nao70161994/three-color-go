@@ -102,6 +102,16 @@ A playable 3-player Go variant. Three colors, hexagonal boards (6 neighbors) and
 - Public Pages deploy only after main CI completes successfully. Before merging test `npm test`, Chrome browser, standalone parity and Worker matchmaker queue tests.
 - Browser DOM cells are reused across board updates; tests should verify focus and selected point states.
 
+## Current v1.9.3: supervised square GNN64 improvement
+
+- CPU ID `square-gnn64-boost-v1` is intentionally separate from self-play-only GNN16/64/Attention checkpoints. Only radius -9 and -13 are supported.
+- The 9×9 model is distilled from 512 self-play games, then 15+44 teacher games; 13×13 uses the direct-from-512 44-teacher-game variant. Training/validation games have disjoint seeds; tournament seeds are distinct from both.
+- `src/square-boost-ai.js` selects a greedy legal move including pass; no heuristic tactical veto, pass suppression or manual move ranking is applied. Its policy must be tested independently from other CPUs.
+- `scripts/materialize-square-boost.mjs` enforces SHA-256 provenance and direct-game evidence. Do not regenerate raw models or change the selected board/checkpoint pairing without rerunning heldout comparisons.
+- Direct tournament reports under `docs/square-headtohead-20261115.md` include completed-game win shares AND relative stone outranking; these are not equivalent metrics and sample sizes remain modest.
+- `src/square-boost-model-data.js` is a generated frozen asset. Any source/model change needs `npm run build:standalone`, `npm run check:standalone` and real browser smoke.
+- Default square CPU remains `square-trained-v1` until a more robust multi-seed benchmark and mobile latency testing justify a change.
+
 ## Current v1.9.2 constraints and verification
 - CPU availability depends on board geometry: `src/cpu-catalog.js` is authoritative. Hex neural models must not run on square boards. Square deep models must not run on hex boards.
 - Square Attention64 is disabled at 19×19 and hex Attention64 at radius >=8 for responsiveness. Do not silently substitute a different neural model.

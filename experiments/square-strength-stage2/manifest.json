@@ -1,0 +1,132 @@
+{
+  "variants": {
+    "gnn64-staged": {
+      "sha256": "134d037abfb7c232df2cc1b654b7ab357ff76bd407437ddc66cc4bd5981006c6",
+      "kind": "gnn64",
+      "epoch": 26,
+      "heldoutTop1": 0.44229,
+      "greedy": {
+        "-9": {
+          "wins": 0.2222222222222222,
+          "oldWins": 0,
+          "previousWins": 0.05555555555555555,
+          "stones": 0.3485578002307661,
+          "earlyPasses": 0,
+          "games": 18
+        },
+        "-13": {
+          "wins": 0.16666666666666666,
+          "oldWins": 0,
+          "previousWins": 0.5,
+          "stones": 0.39156531761591046,
+          "earlyPasses": 0,
+          "games": 6
+        }
+      },
+      "sample": {
+        "-9": {
+          "wins": 0.08333333333333333,
+          "oldWins": 0,
+          "previousWins": 0,
+          "stones": 0.23407604575563104,
+          "earlyPasses": 0,
+          "games": 18
+        },
+        "-13": {
+          "wins": 0.3333333333333333,
+          "oldWins": 0,
+          "previousWins": 0.3333333333333333,
+          "stones": 0.35908395722759695,
+          "earlyPasses": 0,
+          "games": 6
+        }
+      }
+    },
+    "gnn64-direct": {
+      "sha256": "4697a9746208e9be5175e07829cdafdbe4068253a714bcce624b6a06420d8191",
+      "kind": "gnn64",
+      "epoch": 26,
+      "heldoutTop1": 0.43905,
+      "greedy": {
+        "-9": {
+          "wins": 0.23529411764705882,
+          "oldWins": 0,
+          "previousWins": 0.05555555555555555,
+          "stones": 0.2872875256574765,
+          "earlyPasses": 0,
+          "games": 18
+        },
+        "-13": {
+          "wins": 0.5,
+          "oldWins": 0,
+          "previousWins": 0.5,
+          "stones": 0.28791264883753986,
+          "earlyPasses": 0,
+          "games": 6
+        }
+      },
+      "sample": {
+        "-9": {
+          "wins": 0.1111111111111111,
+          "oldWins": 0,
+          "previousWins": 0,
+          "stones": 0.2501294895407702,
+          "earlyPasses": 0,
+          "games": 18
+        },
+        "-13": {
+          "wins": 0,
+          "oldWins": 0,
+          "previousWins": 0.3333333333333333,
+          "stones": 0.2657266087142304,
+          "earlyPasses": 0,
+          "games": 6
+        }
+      }
+    },
+    "gnn16-staged": {
+      "sha256": "f936688951999b4dfdbb67a3267718d869b47fd9e043a7c7a2d33da3d8ee1aa7",
+      "kind": "gnn16",
+      "epoch": 26,
+      "heldoutTop1": 0.35922,
+      "greedy": {
+        "-9": {
+          "wins": 0.1111111111111111,
+          "oldWins": 0,
+          "previousWins": 0.19444444444444445,
+          "stones": 0.22938227830921892,
+          "earlyPasses": 0,
+          "games": 18
+        },
+        "-13": {
+          "wins": 0.16666666666666666,
+          "oldWins": 0,
+          "previousWins": 0.3333333333333333,
+          "stones": 0.3864847689770734,
+          "earlyPasses": 0,
+          "games": 6
+        }
+      },
+      "sample": {
+        "-9": {
+          "wins": 0,
+          "oldWins": 0,
+          "previousWins": 0.05555555555555555,
+          "stones": 0.16834441963807198,
+          "earlyPasses": 0,
+          "games": 18
+        },
+        "-13": {
+          "wins": 0.3333333333333333,
+          "oldWins": 0,
+          "previousWins": 0,
+          "stones": 0.2755247386385014,
+          "earlyPasses": 0,
+          "games": 6
+        }
+      }
+    }
+  },
+  "trainSeed": 20261116,
+  "heldoutTournamentSeed": 20270117
+}

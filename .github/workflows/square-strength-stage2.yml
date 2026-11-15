@@ -1,0 +1,183 @@
+name: Expand square GNN teacher curriculum and compare checkpoints
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: square-strength-stage2-20261115
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Collect 44 additional independent teacher games for training and 11 heldout games
+        run: |
+          set -euo pipefail
+          node scripts/collect-square-teacher.mjs \
+            --train9 36 --valid9 9 --train13 8 --valid13 2 \
+            --seed 20261116 --stride 2 \
+            --out reports/square-strength-stage2/teacher-games.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-teacher-expanded-20261115
+          path: reports/square-strength-stage2/teacher-games.jsonl*
+          retention-days: 90
+  train:
+    needs: collect
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - id: gnn64-staged
+            kind: gnn64
+            source: experiments/square-strength-20261115/gnn64.json
+            lr: '0.0008'
+          - id: gnn64-direct
+            kind: gnn64
+            source: experiments/square-512/gnn64.json
+            lr: '0.0015'
+          - id: gnn16-staged
+            kind: gnn16
+            source: experiments/square-strength-20261115/gnn16.json
+            lr: '0.0008'
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU PyTorch
+        run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - uses: actions/download-artifact@v4
+        with:
+          name: square-teacher-expanded-20261115
+          path: reports/square-strength-stage2/
+      - name: Distill from verified source on expanded independent curriculum
+        env:
+          VARIANT: ${{ matrix.id }}
+          KIND: ${{ matrix.kind }}
+          SOURCE: ${{ matrix.source }}
+          LR: ${{ matrix.lr }}
+        run: |
+          set -euo pipefail
+          mkdir -p "reports/square-strength-stage2/$VARIANT"
+          python scripts/train-square-teacher.py \
+            --kind "$KIND" --init "$SOURCE" \
+            --data reports/square-strength-stage2/teacher-games.jsonl \
+            --out "reports/square-strength-stage2/$VARIANT/model.json" \
+            --epochs 26 --batch-size 32 --lr "$LR" --seed 20261116 \
+            | tee "reports/square-strength-stage2/$VARIANT/fit.jsonl"
+          python scripts/check-architecture-parity.py \
+            "reports/square-strength-stage2/$VARIANT/model.json"
+      - name: Independently evaluate against previous-stage, original, and existing playable square CPU
+        env:
+          VARIANT: ${{ matrix.id }}
+          KIND: ${{ matrix.kind }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          v=os.environ['VARIANT'];kind=os.environ['KIND']
+          p=Path('reports/square-strength-stage2')/v/'manifest.json'
+          p.write_text(json.dumps([
+            {'id':'candidate','type':'comparison','path':str(p.parent/'model.json')},
+            {'id':'previous','type':'comparison','path':f'experiments/square-strength-20261115/{kind}.json'},
+            {'id':'selfplay512','type':'comparison','path':f'experiments/square-512/{kind}.json'},
+            {'id':'linear-teacher','type':'linear'}
+          ],indent=2))
+          PY
+          for MODE in greedy sample; do
+            node scripts/evaluate-square-strength.mjs \
+              --manifest "reports/square-strength-stage2/$VARIANT/manifest.json" \
+              --games9 18 --games13 6 --seed 20270117 \
+              --policy-mode "$MODE" --opponents balanced,tactical \
+              --out "reports/square-strength-stage2/$VARIANT/eval-$MODE.json"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: square-expanded-${{ matrix.id }}-20261115
+          path: reports/square-strength-stage2/${{ matrix.id }}/
+          retention-days: 90
+  report:
+    needs: train
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: square-expanded-*-20261115
+          path: eval/
+      - name: Archive actual checkpoints and compare both policy modes without optimistic promotion
+        run: |
+          mkdir -p experiments/square-strength-stage2 docs
+          python - <<'PY'
+          import json,hashlib,shutil,os
+          from pathlib import Path
+          out=Path('experiments/square-strength-stage2')
+          variants=['gnn64-staged','gnn64-direct','gnn16-staged']
+          summary={'variants':{},'trainSeed':20261116,'heldoutTournamentSeed':20270117}
+          lines=['# Square GNN enlarged teacher curriculum and independent evaluation','',
+            'Training: 44 additional games. Validation: 11 separate heldout teacher games. Evaluation: new seed 20270117, fully rotated seats, 18 games 9×9 and 6 games 13×13, both greedy and sampled policies.','',
+            '| Variant | Board | Mode | New win share | Previous win share | Original 512 win share | Linear CPU win share | New stones | Early pass |',
+            '|---|---|---|---:|---:|---:|---:|---:|---:|']
+          for variant in variants:
+            src=Path('eval')/('square-expanded-'+variant+'-20261115')
+            data=(src/'model.json').read_bytes()
+            model=json.loads(data)
+            if model['metadata']['games']!=512 or not model['metadata']['teacherDistillation']:
+              raise ValueError('Missing model provenance')
+            (out/(variant+'.json')).write_bytes(data)
+            shutil.copy(src/'model.report.json',out/(variant+'-fit.json'))
+            stats={'sha256':hashlib.sha256(data).hexdigest(),
+              'kind':model['kind'],'epoch':model['metadata']['teacherEpoch'],
+              'heldoutTop1':model['metadata']['teacherValidationTop1']}
+            for mode in ['greedy','sample']:
+              report=json.loads((src/('eval-'+mode+'.json')).read_text())
+              shutil.copy(src/('eval-'+mode+'.json'),out/(variant+'-'+mode+'.json'))
+              stats[mode]={}
+              for radius in [-9,-13]:
+                rows={r['id']:r for r in report['results'] if r['radius']==radius}
+                if set(rows)!={'candidate','previous','selfplay512','linear-teacher'}:
+                  raise ValueError('Missing a paired control')
+                if not all(v['games']==(18 if radius==-9 else 6) and v['finished']+v['truncated']==v['games'] for v in rows.values()):
+                  raise ValueError('Incomplete game count')
+                cur,prior,old,lin=[rows[k] for k in ['candidate','previous','selfplay512','linear-teacher']]
+                def pc(x):return 'n/a' if x is None else f'{x:.1%}'
+                lines.append(f"| {variant} | {-radius}×{-radius} | {mode} | {pc(cur['winShare'])} | {pc(prior['winShare'])} | {pc(old['winShare'])} | {pc(lin['winShare'])} | {pc(cur['meanStoneShare'])} | {cur['earlyPasses']}/{cur['games']} |")
+                stats[mode][str(radius)]={
+                   'wins':cur['winShare'],'oldWins':old['winShare'],
+                   'previousWins':prior['winShare'],'stones':cur['meanStoneShare'],
+                   'earlyPasses':cur['earlyPasses'],'games':cur['games']}
+            summary['variants'][variant]=stats
+          lines+=['','These results are exploratory and are not a final statistical proof of superior strength. The playable default remains unchanged until repeated independent validation and integration tests.','']
+          (out/'manifest.json').write_text(json.dumps(summary,indent=2)+'\n')
+          report='\n'.join(lines)
+          Path('docs/square-strength-stage2.md').write_text(report)
+          print(report)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-expanded-reproducible-evaluation
+          path: |
+            experiments/square-strength-stage2/
+            docs/square-strength-stage2.md
+          retention-days: 90

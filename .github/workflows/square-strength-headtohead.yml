@@ -1,0 +1,102 @@
+name: Square neural head-to-head with 6-seat rotation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: square-strength-headtohead-20261115
+  cancel-in-progress: false
+jobs:
+  compare:
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        pair: ['staged,direct','staged,linear','direct,linear','staged,old','direct,old']
+        mode: [greedy,sample]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build immutable comparison manifest of authentic checkpoints
+        run: |
+          mkdir -p reports/square-headtohead
+          cat >reports/square-headtohead/manifest.json <<'EOF'
+          [
+            {"id":"staged","type":"comparison","path":"experiments/square-strength-stage2/gnn64-staged.json"},
+            {"id":"direct","type":"comparison","path":"experiments/square-strength-stage2/gnn64-direct.json"},
+            {"id":"linear","type":"linear"},
+            {"id":"old","type":"comparison","path":"experiments/square-512/gnn64.json"}
+          ]
+          EOF
+      - name: Real 3-player direct duels with all six seat permutations
+        env:
+          PAIR: ${{ matrix.pair }}
+          MODE: ${{ matrix.mode }}
+        run: |
+          set -euo pipefail
+          TAG="${PAIR/,/-}-$MODE"
+          node scripts/headtohead-square.mjs \
+            --manifest reports/square-headtohead/manifest.json \
+            --pair "$PAIR" --mode "$MODE" --bridge balanced \
+            --games9 18 --games13 12 --seed 20271117 \
+            --out "reports/square-headtohead/$TAG.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-duel-${{ matrix.pair }}-${{ matrix.mode }}
+          path: reports/square-headtohead/*.json
+          retention-days: 90
+  aggregate:
+    needs: compare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: square-duel-*
+          path: duel/
+      - name: Archive direct matches and a non-overstated summary
+        run: |
+          mkdir -p experiments/square-headtohead docs
+          python3 - <<'PY'
+          import json,shutil,os
+          from pathlib import Path
+          kinds=['staged,direct','staged,linear','direct,linear','staged,old','direct,old']
+          lines=['# Direct three-player square GNN duels','','Two distinct contestants and a third-party balanced CPU share one board. All six seat assignments are played with fixed independent seeds. **Only naturally completed games contribute to win/rank rates.**','','| Match | Policy | 9×9 rank A>B | 13×13 rank A>B | 9×9 win A/B | 13×13 win A/B | Finished |',
+            '|---|---|---:|---:|---:|---:|---:|']
+          manifest={'seed':20271117,'matches':[]}
+          for pair in kinds:
+            a,b=pair.split(',')
+            for mode in ['greedy','sample']:
+              tag=pair.replace(',','-')+'-'+mode
+              directory=Path('duel')/('square-duel-'+pair+'-'+mode)
+              raw=(directory/(tag+'.json')).read_text()
+              data=json.loads(raw)
+              if data['labels']!={'a':a,'b':b,'bridge':'balanced'}:raise ValueError('Mismatched labels')
+              if data['seed']!=20271117 or data['mode']!=mode:raise ValueError('Mismatched fixture')
+              if [r['games'] for r in data['reports']]!=[18,12]:raise ValueError('Missing games')
+              shutil.copy(directory/(tag+'.json'),Path('experiments/square-headtohead')/(tag+'.json'))
+              manifest['matches'].append({k:v for k,v in data.items() if k!='reports'})
+              r9,r13=data['reports']
+              def pc(v):return 'n/a' if v is None else f'{v:.1%}'
+              wins=lambda r:pc(r['winShareA'])+'/'+pc(r['winShareB'])
+              lines.append(f"| {a} vs {b} | {mode} | {pc(r9['aOutranksB'])} | {pc(r13['aOutranksB'])} | {wins(r9)} | {wins(r13)} | {r9['finished']+r13['finished']}/30 |")
+          (Path('experiments/square-headtohead')/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          lines+=['','Rank means which model retains more stones than the other contestant at a completed game. It does not mean the model won the whole 3-person game. Multiple opponent policies and mobile benchmarking are still needed for definitive rankings.','']
+          report='\n'.join(lines)
+          Path('docs/square-headtohead-20261115.md').write_text(report)
+          print(report)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-duels-reproducible-evaluation
+          path: |
+            experiments/square-headtohead/
+            docs/square-headtohead-20261115.md
+          retention-days: 90

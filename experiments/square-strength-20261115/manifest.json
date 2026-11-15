@@ -1,0 +1,19 @@
+{
+  "sourceRun": "current-github-actions",
+  "models": {
+    "gnn16": {
+      "sha256": "2c9ecd7a8a1dda39ad789cfb372338b958b3f3dba10a7544fa05b02b0284ec7d",
+      "baseSelfPlayGames": 512,
+      "teacherGames": 15,
+      "bestEpoch": 20,
+      "validationTop1": 0.32955
+    },
+    "gnn64": {
+      "sha256": "4d60f5941d190191c63afcc015535e2a8f7a828604a819c80ab8d1678af1f739",
+      "baseSelfPlayGames": 512,
+      "teacherGames": 15,
+      "bestEpoch": 20,
+      "validationTop1": 0.40625
+    }
+  }
+}

@@ -1,0 +1,163 @@
+name: Train and independently evaluate stronger square-board GNNs
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: square-teacher-strength-20261115
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm unchanged rules and model ABI
+        run: npm test
+      - name: Generate true 3-player square games with heldout seed split
+        run: |
+          set -euo pipefail
+          node scripts/collect-square-teacher.mjs \
+            --train9 12 --valid9 3 --train13 3 --valid13 1 \
+            --seed 20261115 --stride 2 \
+            --out reports/square-strength/teacher-games.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-teacher-dataset-20261115
+          path: reports/square-strength/teacher-games.jsonl*
+          retention-days: 90
+  distill:
+    needs: collect
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [gnn16,gnn64]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU PyTorch
+        run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - uses: actions/download-artifact@v4
+        with:
+          name: square-teacher-dataset-20261115
+          path: reports/square-strength/
+      - name: Fine-tune actual 512-game model on the teacher decision labels
+        env:
+          KIND: ${{ matrix.kind }}
+        run: |
+          set -euo pipefail
+          mkdir -p "reports/square-strength/$KIND"
+          python scripts/train-square-teacher.py \
+            --kind "$KIND" \
+            --init "experiments/square-512/$KIND.json" \
+            --data reports/square-strength/teacher-games.jsonl \
+            --out "reports/square-strength/$KIND/model.json" \
+            --epochs 22 --batch-size 32 --lr 0.0015 --seed 20261115 \
+            | tee "reports/square-strength/$KIND/fit.jsonl"
+      - name: Check PyTorch and in-browser forward pass numerical parity
+        env:
+          KIND: ${{ matrix.kind }}
+        run: python scripts/check-architecture-parity.py "reports/square-strength/$KIND/model.json"
+      - name: Evaluate original and distilled model against exactly the same CPU fixtures
+        env:
+          KIND: ${{ matrix.kind }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          kind=os.environ['KIND']
+          p=Path('reports/square-strength')/kind/'manifest.json'
+          p.write_text(json.dumps([
+            {'id':'distilled','type':'comparison','path':str(p.parent/'model.json')},
+            {'id':'selfplay512','type':'comparison','path':f'experiments/square-512/{kind}.json'},
+            {'id':'linear-teacher','type':'linear'}],indent=2))
+          PY
+          node scripts/evaluate-square-strength.mjs \
+            --manifest "reports/square-strength/$KIND/manifest.json" \
+            --games9 9 --games13 3 --seed 20261215 \
+            --policy-mode greedy --opponents balanced,tactical \
+            --out "reports/square-strength/$KIND/heldout-greedy.json"
+          node scripts/evaluate-square-strength.mjs \
+            --manifest "reports/square-strength/$KIND/manifest.json" \
+            --games9 9 --games13 3 --seed 20261215 \
+            --policy-mode sample --opponents balanced,tactical \
+            --out "reports/square-strength/$KIND/heldout-sample.json"
+      - name: Upload checkpoints, per-game results and parity validation
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: square-strength-${{ matrix.kind }}-20261115
+          path: reports/square-strength/${{ matrix.kind }}/
+          retention-days: 90
+  summarize:
+    needs: distill
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: square-strength-*-20261115
+          path: results/
+      - name: Summarize actual independent completed-game wins and decisions
+        run: |
+          mkdir -p experiments/square-strength-20261115 docs
+          python3 - <<'PY'
+          import json,shutil,hashlib,os
+          from pathlib import Path
+          rows=['# Teacher-assisted square-board GNN strength experiment','','Initial models: 512 real self-play games. Teacher: separate balanced/tactical/guarded CPU games. Training and heldout teacher games are separate. Tournament uses unseen seed 20261215 and complete seat rotation.','','| Model | Board | Policy | Distilled win share | 512 win share | Linear win share | Distilled stones | 512 stones | Early passes |','|---|---|---|---:|---:|---:|---:|---:|---:|']
+          manifest={'sourceRun':'current-github-actions','models':{}}
+          for kind in ['gnn16','gnn64']:
+            path=Path('results')/('square-strength-'+kind+'-20261115')
+            model=(path/'model.json').read_bytes()
+            data=json.loads(model)
+            assert data['metadata']['teacherDistillation'] is True
+            assert data['metadata']['games']==512
+            assert data['metadata']['teacherValidationSamples']>=20
+            artifact=Path('experiments/square-strength-20261115')/(kind+'.json')
+            artifact.write_bytes(model)
+            manifest['models'][kind]={'sha256':hashlib.sha256(model).hexdigest(),
+              'baseSelfPlayGames':512,'teacherGames':data['metadata']['teacherGames'],
+              'bestEpoch':data['metadata']['teacherEpoch'],
+              'validationTop1':data['metadata']['teacherValidationTop1']}
+            shutil.copy(path/'model.report.json',Path('experiments/square-strength-20261115')/(kind+'-fit.json'))
+            for mode in ['greedy','sample']:
+              records=json.loads((path/('heldout-'+mode+'.json')).read_text())['results']
+              shutil.copy(path/('heldout-'+mode+'.json'),Path('experiments/square-strength-20261115')/(kind+'-'+mode+'.json'))
+              for radius in [-9,-13]:
+                by={r['id']:r for r in records if r['radius']==radius}
+                assert set(by)=={'distilled','selfplay512','linear-teacher'}
+                d,b,t=[by[x] for x in ['distilled','selfplay512','linear-teacher']]
+                if d['games']!=b['games'] or d['seed']!=b['seed']:raise Exception('Non-paired evaluation')
+                def fmt(v):return 'n/a' if v is None else f'{v:.1%}'
+                rows.append(f"| {kind} | {-radius}×{-radius} | {mode} | {fmt(d['winShare'])} | {fmt(b['winShare'])} | {fmt(t['winShare'])} | {fmt(d['meanStoneShare'])} | {fmt(b['meanStoneShare'])} | {d['earlyPasses']}/{d['games']} |")
+          (Path('experiments/square-strength-20261115')/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          rows+=['','Caveats: These are small exploratory tournaments; none of the resulting models is automatically promoted to public CPU selection. A larger independent tournament is required. Finishes and observed stone percentages are distinct measurements.','']
+          report='\n'.join(rows)
+          Path('docs/square-strength-experiment.md').write_text(report)
+          print(report)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-teacher-reproducible-evaluation
+          path: |
+            experiments/square-strength-20261115/
+            docs/square-strength-experiment.md
+          retention-days: 90

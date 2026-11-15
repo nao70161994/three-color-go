@@ -5,6 +5,7 @@ import {trainedModelsInfo} from './trained-direct-ai.js';
 import {eliteModelsInfo} from './elite-models.js';
 import {squareTrainedModelInfo} from './square-policy.js';
 import {squareDeepModelsInfo} from './square-deep-ai.js';
+import {squareBoostModelInfo} from './square-boost-ai.js';
 import {CPU_LEVELS,SEAT_LEVELS,isCpuLevelSupported,compatibleCpuLevel,compatibleSeats,
   defaultCpuLevelForBoard,cpuCompatibilityReason} from './cpu-catalog.js';
 import {selectCpuMove} from './cpu-engine.js';
@@ -919,12 +920,13 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.9.2',
+  version: '1.9.3',
   getNeuralModelInfo: neuralModelInfo,
   getTrainedModelsInfo: trainedModelsInfo,
   getEliteModelsInfo: eliteModelsInfo,
   getSquareTrainedModelInfo: squareTrainedModelInfo,
   getSquareDeepModelsInfo: squareDeepModelsInfo,
+  getSquareBoostModelInfo: squareBoostModelInfo,
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),
   explainPosition: ()=>explainPosition(state),

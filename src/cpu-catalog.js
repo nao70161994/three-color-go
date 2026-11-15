@@ -5,7 +5,7 @@ const UNIVERSAL=['easy','normal','hard'];
 const HEX_ONLY=['neural','trained-lr001-final','trained-lr001-peak',
   'trained-lr0003-peak','elite-attn64-50000','elite-gnn64-50000','elite-pv2-122400'];
 const SQUARE_ONLY=['square-trained-v1','square-gnn16-32',
-  'square-gnn64-32','square-attn64-32'];
+  'square-gnn64-32','square-attn64-32','square-gnn64-boost-v1'];
 export const CPU_LEVELS=Object.freeze([...UNIVERSAL,...HEX_ONLY,...SQUARE_ONLY]);
 export const SEAT_LEVELS=Object.freeze(['human',...CPU_LEVELS]);
 export function isCpuLevelSupported(level,radius){
@@ -14,7 +14,7 @@ export function isCpuLevelSupported(level,radius){
   if(HEX_ONLY.includes(level))
     return radius>0 && !(level==='elite-attn64-50000' && radius>=8);
   if(SQUARE_ONLY.includes(level))
-    return radius<0 && !(level==='square-attn64-32' && radius<=-19);
+    return radius<0 && !((level==='square-attn64-32'||level==='square-gnn64-boost-v1') && radius<=-19);
   return false;
 }
 export function defaultCpuLevelForBoard(radius){
@@ -28,6 +28,8 @@ export function compatibleSeats(levels,radius){
 }
 export function cpuCompatibilityReason(level,radius){
   if(!CPU_LEVELS.includes(level))return '不明なCPU難易度です';
+  if(level==='square-gnn64-boost-v1'&&radius<=-19)
+    return '強化GNN64は四角9×9・13×13専用の学習CPUです';
   if(level==='square-attn64-32'&&radius<=-19)
     return '19×19のAttentionは計算負荷が高いため現在利用できません';
   if(level==='elite-attn64-50000'&&radius>=8)
