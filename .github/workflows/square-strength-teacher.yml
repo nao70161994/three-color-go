@@ -1,11 +1,8 @@
 name: Train and independently evaluate stronger square-board GNNs
 on:
-  push:
-    branches: [experiment/square-strength-teacher-20261115]
-    paths: [.github/workflows/square-strength-teacher.yml]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
   actions: read
 concurrency:
   group: square-teacher-strength-20261115
@@ -157,11 +154,10 @@ jobs:
           print(report)
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
           PY
-      - name: Commit archived checkpoints with true scores to experiment branch only
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add experiments/square-strength-20261115 docs/square-strength-experiment.md
-          git commit -m "Archive real teacher-distilled square GNNs with paired strength evidence"
-          git push origin HEAD:experiment/square-strength-teacher-20261115
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-teacher-reproducible-evaluation
+          path: |
+            experiments/square-strength-20261115/
+            docs/square-strength-experiment.md
+          retention-days: 90
