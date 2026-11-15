@@ -1,11 +1,8 @@
 name: Square neural head-to-head with 6-seat rotation
 on:
-  push:
-    branches: [experiment/square-strength-teacher-20261115]
-    paths: [.github/workflows/square-strength-headtohead.yml]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: square-strength-headtohead-20261115
   cancel-in-progress: false
@@ -96,12 +93,10 @@ jobs:
           print(report)
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
           PY
-      - name: Commit only audited scores and evidence to the experiment branch
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add experiments/square-headtohead docs/square-headtohead-20261115.md
-          git commit -m "Record actual square GNN vs GNN and GNN vs linear six-seat duels"
-          git pull --rebase origin experiment/square-strength-teacher-20261115
-          git push origin HEAD:experiment/square-strength-teacher-20261115
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-duels-reproducible-evaluation
+          path: |
+            experiments/square-headtohead/
+            docs/square-headtohead-20261115.md
+          retention-days: 90
