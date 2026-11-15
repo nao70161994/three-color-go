@@ -86,7 +86,7 @@ def main():
         split=s["split"]
         if split not in grouped or s["radius"] not in [-9,-13]:
             raise ValueError("Bad teacher dataset split/geometry")
-        if not (0<=s["selected"]<=-s["radius"]**2+100000): # checked against actual feature length below
+        if not (0<=s["selected"]<=s["radius"]**2):
             raise ValueError("Bad selected action")
         if len(s["features"])!=s["radius"]**2 or any(len(x)!=10 for x in s["features"]):
             raise ValueError("Wrong teacher features")
