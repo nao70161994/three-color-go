@@ -6,20 +6,20 @@ import {selectComparisonMove,validateComparisonModel} from './architecture-compa
 
 export const SQUARE_BOOST_LEVEL='square-gnn64-boost-v1';
 const SOURCES=Object.freeze({'-9':'gnn64-staged','-13':'gnn64-direct'});
-const checked=new WeakSet();
+const boostValidated=new WeakSet();
 export function getSquareBoostModel(radius){
   if(!Object.hasOwn(SOURCES,String(radius)))
     throw Error('強化GNN64は四角9×9と13×13専用です');
   const model=SQUARE_BOOST_MODELS[String(radius)];
   if(!model)throw Error('強化GNN64の学習済み重みがありません');
-  if(!checked.has(model)){
+  if(!boostValidated.has(model)){
     validateComparisonModel(model);
     if(model.kind!=='gnn64'||model.metadata?.boardShape!=='square'||
        model.metadata?.games!==512||model.metadata?.teacherDistillation!==true||
        model.metadata?.teacherTrainingSamples<3000||
        !model.metadata.radii.includes(radius))
       throw Error('強化GNN64の学習元が不正です');
-    checked.add(model);
+    boostValidated.add(model);
   }
   return model;
 }
