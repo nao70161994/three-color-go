@@ -1,0 +1,105 @@
+{
+  "seed": 20271117,
+  "matches": [
+    {
+      "version": 1,
+      "labels": {
+        "a": "staged",
+        "b": "direct",
+        "bridge": "balanced"
+      },
+      "seed": 20271117,
+      "mode": "greedy"
+    },
+    {
+      "version": 1,
+      "labels": {
+        "a": "staged",
+        "b": "direct",
+        "bridge": "balanced"
+      },
+      "seed": 20271117,
+      "mode": "sample"
+    },
+    {
+      "version": 1,
+      "labels": {
+        "a": "staged",
+        "b": "linear",
+        "bridge": "balanced"
+      },
+      "seed": 20271117,
+      "mode": "greedy"
+    },
+    {
+      "version": 1,
+      "labels": {
+        "a": "staged",
+        "b": "linear",
+        "bridge": "balanced"
+      },
+      "seed": 20271117,
+      "mode": "sample"
+    },
+    {
+      "version": 1,
+      "labels": {
+        "a": "direct",
+        "b": "linear",
+        "bridge": "balanced"
+      },
+      "seed": 20271117,
+      "mode": "greedy"
+    },
+    {
+      "version": 1,
+      "labels": {
+        "a": "direct",
+        "b": "linear",
+        "bridge": "balanced"
+      },
+      "seed": 20271117,
+      "mode": "sample"
+    },
+    {
+      "version": 1,
+      "labels": {
+        "a": "staged",
+        "b": "old",
+        "bridge": "balanced"
+      },
+      "seed": 20271117,
+      "mode": "greedy"
+    },
+    {
+      "version": 1,
+      "labels": {
+        "a": "staged",
+        "b": "old",
+        "bridge": "balanced"
+      },
+      "seed": 20271117,
+      "mode": "sample"
+    },
+    {
+      "version": 1,
+      "labels": {
+        "a": "direct",
+        "b": "old",
+        "bridge": "balanced"
+      },
+      "seed": 20271117,
+      "mode": "greedy"
+    },
+    {
+      "version": 1,
+      "labels": {
+        "a": "direct",
+        "b": "old",
+        "bridge": "balanced"
+      },
+      "seed": 20271117,
+      "mode": "sample"
+    }
+  ]
+}
