@@ -1,11 +1,8 @@
 name: Freeze audited boosted square GNN64 and verify browser release
 on:
-  push:
-    branches: [experiment/square-strength-teacher-20261115]
-    paths: [.github/workflows/square-strength-release.yml]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: square-boost-release-20261115
   cancel-in-progress: false
@@ -15,9 +12,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: experiment/square-strength-teacher-20261115
-          persist-credentials: true
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -44,12 +38,10 @@ jobs:
             tail -c 4000 /tmp/chrome.log
             exit 1
           }
-      - name: Commit exact verified weights and offline edition
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/square-boost-model-data.js play.html
-          git commit -m "Freeze SHA-verified board-specialized boosted GNN64 and rebuilt offline edition"
-          git pull --rebase origin experiment/square-strength-teacher-20261115
-          git push origin HEAD:experiment/square-strength-teacher-20261115
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-boost-verified-offline-build
+          path: |
+            src/square-boost-model-data.js
+            play.html
+          retention-days: 90
