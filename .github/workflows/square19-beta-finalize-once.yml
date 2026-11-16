@@ -1,0 +1,51 @@
+name: One-time 19x19 neural beta offline release verification
+on:
+  push:
+    branches: [experiment/square-rl-and-19-20261116]
+    paths: [.github/workflows/square19-beta-finalize-once.yml]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/square-rl-and-19-20261116
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Ensure same original teacher checkpoint and validated 19 beta
+        run: |
+          node scripts/materialize-square-boost.mjs
+          npm test
+      - name: Generate true offline HTML with all 19x19 beta choices
+        run: |
+          npm run build:standalone
+          npm run check:standalone
+      - name: Actual Chrome and offline browser smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8000 >/tmp/three-color-go-http.log 2>&1 &
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --virtual-time-budget=40000 --dump-dom http://localhost:8000/tests/browser-smoke.html >/tmp/smoke.html 2>/tmp/chrome.log
+          grep 'data-status="passed"' /tmp/smoke.html || {
+            head -c 16000 /tmp/smoke.html
+            tail -c 3000 /tmp/chrome.log
+            exit 1
+          }
+      - name: Commit verified single-file game without altering training provenance
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add play.html
+          if ! git diff --cached --quiet; then
+            git commit -m "Regenerate v1.9.4 offline game with opt-in 19x19 GNN beta"
+            git pull --rebase origin experiment/square-rl-and-19-20261116
+            git push origin HEAD:experiment/square-rl-and-19-20261116
+          fi
