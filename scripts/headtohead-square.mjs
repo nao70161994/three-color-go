@@ -13,7 +13,7 @@ const ORDERS=[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
 const args={};
 for(let i=2;i<process.argv.length;i+=2){
  const k=process.argv[i],v=process.argv[i+1];
- if(!['--manifest','--pair','--seed','--games9','--games13','--mode','--bridge','--out'].includes(k)||v===undefined)throw Error('Unknown option '+k);
+ if(!['--manifest','--pair','--seed','--games9','--games13','--games19','--mode','--bridge','--out'].includes(k)||v===undefined)throw Error('Unknown option '+k);
  args[k.slice(2)]=v;
 }
 if(!args.manifest||!args.pair||!args.out)throw Error('Missing required tournament arguments');
@@ -24,10 +24,11 @@ for(const p of pairs){
 }
 const [a,b]=args.pair.split(','),bridge=args.bridge??'balanced';
 const seed=Number(args.seed??20270121),mode=args.mode??'greedy',
- games9=Number(args.games9??24),games13=Number(args.games13??12);
+ games9=Number(args.games9??24),games13=Number(args.games13??12),games19=Number(args.games19??0);
 if(!players.has(a)||!players.has(b)||a===b||
  !['baseline','tactical','guarded','balanced'].includes(bridge)||
- !['greedy','sample'].includes(mode)||[games9,games13].some(n=>!Number.isSafeInteger(n)||n<6||n%6!==0||n>120)||
+ !['greedy','sample'].includes(mode)||[games9,games13,games19].every(n=>n===0)||
+ [games9,games13,games19].some(n=>!Number.isSafeInteger(n)||n<0||n>120||(n!==0&&(n<6||n%6!==0)))||
  !Number.isSafeInteger(seed)||seed<0||seed>0xffffffff)throw Error('Invalid tournament configuration');
 function choice(state,id,rng){
  if(id==='bridge')return chooseMove(state,rng,bridge);
@@ -36,7 +37,7 @@ function choice(state,id,rng){
  return selectComparisonMove(state,model,{greedy:mode==='greedy',random:rng,temperature:1.0}).move;
 }
 const reports=[];
-for(const [size,games] of [[9,games9],[13,games13]]){
+for(const [size,games] of [[9,games9],[13,games13],[19,games19]].filter(([,count])=>count>0)){
  const radius=-size,limit=pointsOnBoard(radius).length*3+3;
  const records=[];
  for(let g=0;g<games/6;g++){
