@@ -9,7 +9,7 @@ import {chooseTrainedMove,TRAINED_LEVELS} from './trained-direct-ai.js';
 import {chooseEliteMove,ELITE_LEVELS} from './elite-models.js';
 import {chooseSquareTrainedMove,SQUARE_TRAINED_LEVEL} from './square-policy.js';
 import {chooseSquareDeepMove,SQUARE_DEEP_LEVELS} from './square-deep-ai.js';
-import {chooseSquareBoostMove,SQUARE_BOOST_LEVEL} from './square-boost-ai.js';
+import {chooseSquareBoostMove,SQUARE_BOOST_LEVEL,chooseSquare19BetaMove,SQUARE_19_BETA_LEVEL} from './square-boost-ai.js';
 import {isCpuLevelSupported,cpuCompatibilityReason} from './cpu-catalog.js';
 
 export function selectCpuMove(state,level,random=Math.random){
@@ -19,7 +19,9 @@ export function selectCpuMove(state,level,random=Math.random){
   if(level==='easy'||level==='normal')
     return {move:chooseDifficultyMove(state,random,level),decision:null};
   const candidates=[];
-  const move=level===SQUARE_BOOST_LEVEL
+  const move=level===SQUARE_19_BETA_LEVEL
+    ? chooseSquare19BetaMove(state,candidates)
+    : level===SQUARE_BOOST_LEVEL
     ? chooseSquareBoostMove(state,candidates)
     : SQUARE_DEEP_LEVELS.includes(level)
     ? chooseSquareDeepMove(state,level,candidates,random)
@@ -35,13 +37,15 @@ export function selectCpuMove(state,level,random=Math.random){
   const descriptions={
     deep:'四角盤用の自己対戦学習GNN/Attention方策（探索なし、実験版）',
     boost:'512局自己対戦後にCPU教師データを追加学習したGNN64。盤面サイズ別モデル、greedy着手',
+    square19:'19路実験版。13路で学習済みのGNN64を転用。19路での追加学習は不採用、greedy着手',
     square:'四角盤専用の教師模倣学習方策（探索なし）',
     elite:'六角盤の自己対戦学習済み方策（探索なし）',
     trained:'六角盤の合法手＋パス学習済み方策（探索なし）',
     neural:'六角盤の教師模倣ニューラルCPU',
     hard:'3手読みの相対評価値（勝率ではありません）'
   };
-  const type=level===SQUARE_BOOST_LEVEL?'boost':
+  const type=level===SQUARE_19_BETA_LEVEL?'square19':
+    level===SQUARE_BOOST_LEVEL?'boost':
     SQUARE_DEEP_LEVELS.includes(level)?'deep':
     level===SQUARE_TRAINED_LEVEL?'square':
     ELITE_LEVELS.includes(level)?'elite':
