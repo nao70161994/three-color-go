@@ -102,6 +102,15 @@ A playable 3-player Go variant. Three colors, hexagonal boards (6 neighbors) and
 - Public Pages deploy only after main CI completes successfully. Before merging test `npm test`, Chrome browser, standalone parity and Worker matchmaker queue tests.
 - Browser DOM cells are reused across board updates; tests should verify focus and selected point states.
 
+## Current v1.9.4: 19×19 GNN64 experimental option and RL adoption discipline
+
+- `square-gnn64-19-beta` is a 19×19 **opt-in beta** that uses the **unchanged** `SQUARE_BOOST_MODELS['-13']` weights. It has never been trained on 19×19! The strength evidence is `docs/square19-source-check.md` (12 seat-rotated games with each of two third-party heuristics). A relative stone outrank rate is **not** a full three-person game win rate.
+- `square-gnn64-boost-v1` remains strictly 9×9/13×13. `src/cpu-catalog.js` must reject the 19 β on hex/9×9/13×13 and reject the boost-v1 on 19×19. No silent CPU swaps.
+- Actual teacher-anchored league self-play was tried on 9×9/13×13, with full records and independent head-to-head `docs/square-postteacher-rl.md`, `docs/square-rl-milestones.md`, `docs/square-rl-confirm9.md`, `docs/square-conservative-rl.md`. No 36/96-game RL checkpoint consistently beat the original teacher-distilled GNN. **Do not replace** the production 9/13 weights without new independent seeds, 6-seat direct matches and statistically useful game counts.
+- 19×19 teacher fine-tuning from 3 teacher games performed worse than transferring the original 13×13 weights without changes. Both have been archived. `experiments/square19-transfer/` and `experiments/square19-source/` preserve datasets, weights, provenance, and independent tournament scores.
+- The 19 β must remain clearly labeled experimental in all four CPU selects and in offline `play.html`; do not claim to have trained 19×19 weights. The first completed real Android device performance test is still pending.
+- After changing any CPU IDs, ensure `src/cpu-engine.js`, `src/ai-worker.js`, the standalone bundler, PWA, native browser test, `tests/square19-beta-ai.test.js` and exported `getSquare19BetaModelInfo()` stay consistent.
+
 ## Current v1.9.3: supervised square GNN64 improvement
 
 - CPU ID `square-gnn64-boost-v1` is intentionally separate from self-play-only GNN16/64/Attention checkpoints. Only radius -9 and -13 are supported.

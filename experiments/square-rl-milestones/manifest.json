@@ -1,0 +1,52 @@
+{
+  "seed": 20280316,
+  "h2hSeed": 20280317,
+  "boards": {
+    "9": {
+      "4": {
+        "sha256": "c53ff1e0cdc742a7b8afc6483c734683f7ce1b34e152558c0710493ee5a6578c",
+        "eligible": false,
+        "candidateWin": 0.2222222222222222,
+        "sourceWin": 0.1111111111111111,
+        "headtoheadOutrank": 0.25
+      },
+      "8": {
+        "sha256": "c7e2f008626c0939d91b47a1d918407d28bfcbbcb43d36e72cc837832e29dbe2",
+        "eligible": false,
+        "candidateWin": 0.3888888888888889,
+        "sourceWin": 0.1111111111111111,
+        "headtoheadOutrank": 0.65
+      },
+      "12": {
+        "sha256": "90e011d4620b2960b9a0e0052cc68d81079f7aa1f88652a09cfe0a7f6b09ff23",
+        "eligible": false,
+        "candidateWin": 0.2222222222222222,
+        "sourceWin": 0.1111111111111111,
+        "headtoheadOutrank": 0.45454545454545453
+      }
+    },
+    "13": {
+      "4": {
+        "sha256": "9db0e415168424a5175d00be247634766a30135a58097e10cf18c30a9178483e",
+        "eligible": false,
+        "candidateWin": 0.3333333333333333,
+        "sourceWin": 0.5,
+        "headtoheadOutrank": 0.3333333333333333
+      },
+      "8": {
+        "sha256": "b12e13cec218fb92122e04e5a87c081f4e8c6af0a7afee7935987cf88f26cbba",
+        "eligible": false,
+        "candidateWin": 0.5,
+        "sourceWin": 0.5,
+        "headtoheadOutrank": 0.5
+      },
+      "12": {
+        "sha256": "b7a8d6238376f1b79fcf9a24864e1eabe8c30e7fdcbf4c00c321073a4fc2be1c",
+        "eligible": false,
+        "candidateWin": 0.4166666666666667,
+        "sourceWin": 0.5,
+        "headtoheadOutrank": 0.6666666666666666
+      }
+    }
+  }
+}

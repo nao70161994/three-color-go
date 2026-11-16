@@ -1,0 +1,299 @@
+{
+  "version": 1,
+  "comparison": "square-heldout-rotated",
+  "seed": 20280216,
+  "policyMode": "greedy",
+  "opponents": [
+    "balanced",
+    "tactical"
+  ],
+  "games": {
+    "-9": 0,
+    "-13": 0,
+    "-19": 6
+  },
+  "results": [
+    {
+      "id": "candidate",
+      "kind": "gnn64",
+      "trainingGames": 512,
+      "teacherDistilled": true,
+      "policyMode": "greedy",
+      "radius": -19,
+      "seed": 20280216,
+      "opponents": [
+        "balanced",
+        "tactical"
+      ],
+      "games": 6,
+      "finished": 6,
+      "truncated": 0,
+      "winShare": 0,
+      "meanStoneShare": 0.253405442893382,
+      "earlyPasses": 0,
+      "meanDecisionMs": 26.763494714398146,
+      "records": [
+        {
+          "seat": 0,
+          "seed": 22180273,
+          "ended": true,
+          "truncated": false,
+          "turns": 725,
+          "earlyPass": false,
+          "stoneShare": 0.26586102719033233,
+          "winShare": 0,
+          "decisionMs": 6973.860517000007,
+          "decisions": 242
+        },
+        {
+          "seat": 1,
+          "seed": 22180273,
+          "ended": true,
+          "truncated": false,
+          "turns": 613,
+          "earlyPass": false,
+          "stoneShare": 0.21176470588235294,
+          "winShare": 0,
+          "decisionMs": 5396.97896199999,
+          "decisions": 204
+        },
+        {
+          "seat": 2,
+          "seed": 22180273,
+          "ended": true,
+          "truncated": false,
+          "turns": 638,
+          "earlyPass": false,
+          "stoneShare": 0.21739130434782608,
+          "winShare": 0,
+          "decisionMs": 5376.338418999956,
+          "decisions": 212
+        },
+        {
+          "seat": 0,
+          "seed": 22188192,
+          "ended": true,
+          "truncated": false,
+          "turns": 628,
+          "earlyPass": false,
+          "stoneShare": 0.2861356932153392,
+          "winShare": 0,
+          "decisionMs": 5576.879978999947,
+          "decisions": 210
+        },
+        {
+          "seat": 1,
+          "seed": 22188192,
+          "ended": true,
+          "truncated": false,
+          "turns": 589,
+          "earlyPass": false,
+          "stoneShare": 0.195906432748538,
+          "winShare": 0,
+          "decisionMs": 5015.065190000038,
+          "decisions": 196
+        },
+        {
+          "seat": 2,
+          "seed": 22188192,
+          "ended": true,
+          "truncated": false,
+          "turns": 623,
+          "earlyPass": false,
+          "stoneShare": 0.3433734939759036,
+          "winShare": 0,
+          "decisionMs": 5677.2787150001095,
+          "decisions": 207
+        }
+      ]
+    },
+    {
+      "id": "source",
+      "kind": "gnn64",
+      "trainingGames": 512,
+      "teacherDistilled": true,
+      "policyMode": "greedy",
+      "radius": -19,
+      "seed": 20280216,
+      "opponents": [
+        "balanced",
+        "tactical"
+      ],
+      "games": 6,
+      "finished": 6,
+      "truncated": 0,
+      "winShare": 0,
+      "meanStoneShare": 0.28687082481062104,
+      "earlyPasses": 0,
+      "meanDecisionMs": 26.980920031336513,
+      "records": [
+        {
+          "seat": 0,
+          "seed": 22180273,
+          "ended": true,
+          "truncated": false,
+          "turns": 674,
+          "earlyPass": false,
+          "stoneShare": 0.20648967551622419,
+          "winShare": 0,
+          "decisionMs": 6051.149511999931,
+          "decisions": 225
+        },
+        {
+          "seat": 1,
+          "seed": 22180273,
+          "ended": true,
+          "truncated": false,
+          "turns": 519,
+          "earlyPass": false,
+          "stoneShare": 0.23652694610778444,
+          "winShare": 0,
+          "decisionMs": 4730.378780000028,
+          "decisions": 173
+        },
+        {
+          "seat": 2,
+          "seed": 22180273,
+          "ended": true,
+          "truncated": false,
+          "turns": 515,
+          "earlyPass": false,
+          "stoneShare": 0.3323442136498516,
+          "winShare": 0,
+          "decisionMs": 4657.000071000104,
+          "decisions": 171
+        },
+        {
+          "seat": 0,
+          "seed": 22188192,
+          "ended": true,
+          "truncated": false,
+          "turns": 545,
+          "earlyPass": false,
+          "stoneShare": 0.34523809523809523,
+          "winShare": 0,
+          "decisionMs": 4890.289355999848,
+          "decisions": 182
+        },
+        {
+          "seat": 1,
+          "seed": 22188192,
+          "ended": true,
+          "truncated": false,
+          "turns": 546,
+          "earlyPass": false,
+          "stoneShare": 0.28405797101449276,
+          "winShare": 0,
+          "decisionMs": 4866.555996000272,
+          "decisions": 182
+        },
+        {
+          "seat": 2,
+          "seed": 22188192,
+          "ended": true,
+          "truncated": false,
+          "turns": 458,
+          "earlyPass": false,
+          "stoneShare": 0.3165680473372781,
+          "winShare": 0,
+          "decisionMs": 4078.9245189999347,
+          "decisions": 152
+        }
+      ]
+    },
+    {
+      "id": "linear",
+      "kind": "linear",
+      "trainingGames": null,
+      "teacherDistilled": false,
+      "policyMode": "greedy",
+      "radius": -19,
+      "seed": 20280216,
+      "opponents": [
+        "balanced",
+        "tactical"
+      ],
+      "games": 6,
+      "finished": 6,
+      "truncated": 0,
+      "winShare": 0,
+      "meanStoneShare": 0.08130067984724788,
+      "earlyPasses": 0,
+      "meanDecisionMs": 16.11153859432139,
+      "records": [
+        {
+          "seat": 0,
+          "seed": 22180273,
+          "ended": true,
+          "truncated": false,
+          "turns": 663,
+          "earlyPass": false,
+          "stoneShare": 0,
+          "winShare": 0,
+          "decisionMs": 3344.6795370000473,
+          "decisions": 221
+        },
+        {
+          "seat": 1,
+          "seed": 22180273,
+          "ended": true,
+          "truncated": false,
+          "turns": 833,
+          "earlyPass": false,
+          "stoneShare": 0.2588996763754045,
+          "winShare": 0,
+          "decisionMs": 4708.951459000382,
+          "decisions": 278
+        },
+        {
+          "seat": 2,
+          "seed": 22180273,
+          "ended": true,
+          "truncated": false,
+          "turns": 726,
+          "earlyPass": false,
+          "stoneShare": 0.009146341463414634,
+          "winShare": 0,
+          "decisionMs": 3932.033803000202,
+          "decisions": 242
+        },
+        {
+          "seat": 0,
+          "seed": 22188192,
+          "ended": true,
+          "truncated": false,
+          "turns": 748,
+          "earlyPass": false,
+          "stoneShare": 0.09404388714733543,
+          "winShare": 0,
+          "decisionMs": 3718.728748000227,
+          "decisions": 250
+        },
+        {
+          "seat": 1,
+          "seed": 22188192,
+          "ended": true,
+          "truncated": false,
+          "turns": 737,
+          "earlyPass": false,
+          "stoneShare": 0.10094637223974763,
+          "winShare": 0,
+          "decisionMs": 3957.4214840003406,
+          "decisions": 246
+        },
+        {
+          "seat": 2,
+          "seed": 22188192,
+          "ended": true,
+          "truncated": false,
+          "turns": 726,
+          "earlyPass": false,
+          "stoneShare": 0.02476780185758514,
+          "winShare": 0,
+          "decisionMs": 4167.150550000137,
+          "decisions": 242
+        }
+      ]
+    }
+  ]
+}

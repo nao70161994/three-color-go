@@ -1,0 +1,23 @@
+{
+  "fixtures": {
+    "balanced": {
+      "seed": 20280416,
+      "candidateWin": 0.03333333333333333,
+      "sourceWin": 0.23333333333333334,
+      "linearWin": 0.16666666666666666,
+      "vsSourceOutrank": 0.2833333333333333,
+      "vsLinearOutrank": 0.6538461538461539,
+      "candidateEarlyPasses": 0
+    },
+    "guarded": {
+      "seed": 20280417,
+      "candidateWin": 0.3103448275862069,
+      "sourceWin": 0.35,
+      "linearWin": 0.2,
+      "vsSourceOutrank": 0.5862068965517241,
+      "vsLinearOutrank": 0.6551724137931034,
+      "candidateEarlyPasses": 0
+    }
+  },
+  "decision": "not promoted: inconsistent or insufficient confirmed improvement"
+}

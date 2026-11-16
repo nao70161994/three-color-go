@@ -13,7 +13,7 @@ import {chooseSquareTrainedMove} from '../src/square-policy.js';
 const args={};
 for(let i=2;i<process.argv.length;i+=2){
  const k=process.argv[i],v=process.argv[i+1];
- if(!['--manifest','--out','--games9','--games13','--seed','--policy-mode','--opponents','--horizon-multiplier'].includes(k)||v===undefined)
+ if(!['--manifest','--out','--games9','--games13','--games19','--seed','--policy-mode','--opponents','--horizon-multiplier'].includes(k)||v===undefined)
   throw Error('Bad square benchmark argument: '+k);
  args[k.slice(2)]=v;
 }
@@ -31,13 +31,13 @@ for(const def of definitions){
   models.set(def.id,{type:'comparison',model});
  }else throw Error('Unknown policy type');
 }
-const games={[-9]:Number(args.games9??12),[-13]:Number(args.games13??6)};
+const games={[-9]:Number(args.games9??12),[-13]:Number(args.games13??6),[-19]:Number(args.games19??0)};
 const seed=Number(args.seed??20261127);
 const policyMode=args['policy-mode']??'greedy';
 const opponents=(args.opponents??'balanced,tactical').split(',');
 const horizonMultiplier=Number(args['horizon-multiplier']??3);
 if(!Number.isSafeInteger(seed)||seed<0||seed>0xffffffff||
- Object.values(games).some(n=>!Number.isInteger(n)||n<3||n>90||n%3!==0)||
+ Object.values(games).every(n=>n===0)||Object.values(games).some(n=>!Number.isInteger(n)||n<0||n>90||(n!==0&&(n<3||n%3!==0)))||
  !['greedy','sample'].includes(policyMode)||
  opponents.length!==2||opponents.some(s=>!['balanced','tactical','guarded','baseline'].includes(s))||
  !Number.isInteger(horizonMultiplier)||horizonMultiplier<3||horizonMultiplier>20)
@@ -45,6 +45,7 @@ if(!Number.isSafeInteger(seed)||seed<0||seed>0xffffffff||
 const results=[];
 for(const [id,entry] of models){
  for(const [stringRadius,count] of Object.entries(games)){
+  if(count===0)continue;
   const radius=Number(stringRadius),limit=pointsOnBoard(radius).length*horizonMultiplier+3;
   const records=[];
   for(let game=0;game<count;game++){

@@ -1,0 +1,37 @@
+{
+  "seeds": [
+    20280616,
+    20280617
+  ],
+  "metrics": {
+    "balanced": {
+      "linear": {
+        "outrankRate": 0.9166666666666666,
+        "finished": 12,
+        "winPretrained": 0.3333333333333333,
+        "winRival": 0.08333333333333333
+      },
+      "transfer3": {
+        "outrankRate": 0.75,
+        "finished": 12,
+        "winPretrained": 0.5,
+        "winRival": 0.08333333333333333
+      }
+    },
+    "guarded": {
+      "linear": {
+        "outrankRate": 1,
+        "finished": 12,
+        "winPretrained": 0.3333333333333333,
+        "winRival": 0
+      },
+      "transfer3": {
+        "outrankRate": 0.5,
+        "finished": 12,
+        "winPretrained": 0.3333333333333333,
+        "winRival": 0.08333333333333333
+      }
+    }
+  },
+  "optInBetaEligible": true
+}

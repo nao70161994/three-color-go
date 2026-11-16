@@ -1,0 +1,148 @@
+name: Post-teacher mixed-league square GNN64 RL experiment
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: square-postteacher-rl-20261116
+  cancel-in-progress: false
+jobs:
+  league:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - board: '9'
+            radius: '-9'
+            init: gnn64-staged
+          - board: '13'
+            radius: '-13'
+            init: gnn64-direct
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: CPU-only learner dependencies
+        run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Real mixed GNN/teacher self-play, checkpointed every 4 iterations
+        env:
+          RADIUS: ${{ matrix.radius }}
+          INIT: ${{ matrix.init }}
+          BOARD: ${{ matrix.board }}
+        run: |
+          set -euo pipefail
+          mkdir -p "reports/square-postteacher-rl/$BOARD"
+          python scripts/train-square-postteacher-rl.py \
+            --source "experiments/square-strength-stage2/$INIT.json" \
+            --radius "$RADIUS" --iterations 12 --games 3 \
+            --seed 20261116 --temperature 1.1 \
+            --lr 0.00015 --kl 0.12 --entropy 0.002 --critic 0.30 \
+            --batch-size 24 --sample-stride 2 --horizon-multiplier 3 \
+            --checkpoint-every 4 \
+            --out "reports/square-postteacher-rl/$BOARD/model.json" \
+            | tee "reports/square-postteacher-rl/$BOARD/training.jsonl"
+      - name: Check JS/PyTorch numerical inference match
+        env: {BOARD: '${{ matrix.board }}'}
+        run: python scripts/check-architecture-parity.py "reports/square-postteacher-rl/$BOARD/model.json"
+      - name: Paired independent heldout fixed-opponent tournament
+        env:
+          BOARD: ${{ matrix.board }}
+          INIT: ${{ matrix.init }}
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path('reports/square-postteacher-rl')/os.environ['BOARD']/'manifest.json'
+          p.write_text(json.dumps([
+            {'id':'league','type':'comparison','path':str(p.parent/'model.json')},
+            {'id':'source','type':'comparison','path':'experiments/square-strength-stage2/'+os.environ['INIT']+'.json'},
+            {'id':'linear','type':'linear'}],indent=2))
+          PY
+          node scripts/evaluate-square-strength.mjs \
+            --manifest "reports/square-postteacher-rl/$BOARD/manifest.json" \
+            --games9 9 --games13 6 --seed 20280116 \
+            --policy-mode greedy --opponents balanced,tactical \
+            --out "reports/square-postteacher-rl/$BOARD/heldout.json"
+      - name: Same-game actual head-to-head against frozen teacher checkpoint
+        env: {BOARD: '${{ matrix.board }}'}
+        run: |
+          node scripts/headtohead-square.mjs \
+            --manifest "reports/square-postteacher-rl/$BOARD/manifest.json" \
+            --pair league,source --mode greedy --bridge tactical \
+            --games9 12 --games13 6 --seed 20280117 \
+            --out "reports/square-postteacher-rl/$BOARD/headtohead.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: square-league-${{ matrix.board }}-20261116
+          path: reports/square-postteacher-rl/${{ matrix.board }}/
+          retention-days: 90
+  report:
+    needs: league
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {pattern: 'square-league-*-20261116',path: 'candidate/'}
+      - name: Archive actual trained checkpoints, unbiased evaluation and adoption decision
+        run: |
+          mkdir -p experiments/square-postteacher-rl docs
+          python - <<'PY'
+          import json,hashlib,shutil,os
+          from pathlib import Path
+          out=Path('experiments/square-postteacher-rl')
+          lines=['# Post-teacher GNN64 mixed-league reinforcement learning experiment','',
+            'Frozen GNN64 teacher models compete with a trainable GNN64 and seeded tactical/balanced/guarded CPUs. Genuine three-color rules including legal pass. Policy gradient is regularized by KL from a frozen initial model. Games below are independent of training seeds.','',
+            '| Train board | League games | Natural endings | Target board | Candidate win share | Source win share | Direct outrank rate | Candidate early passes | Decision |',
+            '|---|---:|---:|---|---:|---:|---:|---:|---|']
+          summary={'seed':20261116,'evaluationSeeds':[20280116,20280117],'boards':{}}
+          for board in ['9','13']:
+            root=Path('candidate')/('square-league-'+board+'-20261116')
+            raw=(root/'model.json').read_bytes()
+            model=json.loads(raw);league=model['metadata']['league']
+            assert league['radius']==-int(board) and league['games']==36
+            if league['finished']+league['truncated']!=36:raise ValueError('Wrong training game status')
+            (out/('gnn64-'+board+'.json')).write_bytes(raw)
+            shutil.copy(root/'training.jsonl',out/('gnn64-'+board+'-training.jsonl'))
+            shutil.copy(root/'heldout.json',out/('gnn64-'+board+'-heldout.json'))
+            shutil.copy(root/'headtohead.json',out/('gnn64-'+board+'-h2h.json'))
+            ev=json.loads((root/'heldout.json').read_text())
+            h2h=json.loads((root/'headtohead.json').read_text())
+            radius=-int(board)
+            by={r['id']:r for r in ev['results'] if r['radius']==radius}
+            duel=next(r for r in h2h['reports'] if r['board']==int(board))
+            candidate,source=by['league'],by['source']
+            if not all(x['seed']==20280116 for x in [candidate,source]) or h2h['seed']!=20280117:
+              raise ValueError('Test seed leakage')
+            win_c=candidate['winShare'] or 0
+            win_s=source['winShare'] or 0
+            outrank=duel['aOutranksB']
+            safe=(candidate['truncated']==0 and source['truncated']==0 and
+                  candidate['earlyPasses']==0 and duel['finished']==duel['games'] and
+                  outrank is not None and outrank>0.55 and win_c>win_s)
+            verdict='eligible for larger confirmation' if safe else 'do not promote'
+            lines.append(f"| {board}×{board} | 36 | {league['finished']} | {board}×{board} | {win_c:.1%} | {win_s:.1%} | {outrank:.1%} | {candidate['earlyPasses']} | {verdict} |")
+            summary['boards'][board]={
+              'sha256':hashlib.sha256(raw).hexdigest(),
+              'league':league,'candidateWin':win_c,'sourceWin':win_s,
+              'directOutrank':outrank,'decision':verdict}
+          (out/'manifest.json').write_text(json.dumps(summary,indent=2)+'\n')
+          lines+=['','The experiments are small. Eligibility does not imply automatic production adoption; confidence across more independent seeds and opponent types is still required. A zero or negative change means the published boosted GNN remains in place.','']
+          report='\n'.join(lines)
+          Path('docs/square-postteacher-rl.md').write_text(report)
+          print(report)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-league-report-manual
+          path: |
+            experiments/square-postteacher-rl/
+            docs/square-postteacher-rl.md
+          retention-days: 90

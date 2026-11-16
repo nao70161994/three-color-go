@@ -1,0 +1,45 @@
+{
+  "train9": 0,
+  "valid9": 0,
+  "train13": 0,
+  "valid13": 0,
+  "train19": 3,
+  "valid19": 1,
+  "seed": 20261116,
+  "stride": 4,
+  "out": "reports/square19/teacher.jsonl",
+  "games": {
+    "train9": 0,
+    "valid9": 0,
+    "train13": 0,
+    "valid13": 0,
+    "train19": 3,
+    "valid19": 1
+  },
+  "samples": {
+    "train": 510,
+    "valid": 136
+  },
+  "strategyBySeat": {
+    "train-19-0": [
+      "balanced",
+      "tactical",
+      "guarded"
+    ],
+    "train-19-1": [
+      "tactical",
+      "guarded",
+      "balanced"
+    ],
+    "train-19-2": [
+      "guarded",
+      "balanced",
+      "tactical"
+    ],
+    "valid-19-0": [
+      "balanced",
+      "tactical",
+      "guarded"
+    ]
+  }
+}

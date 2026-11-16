@@ -197,14 +197,14 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
     </header>
     <div class="settings">
       <div class="setting"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">1人で遊ぶ（CPU 2人）</option><option value="bots">CPU 3人の対局を観戦</option><option value="custom">自由編成（色ごとに人間／CPU）</option><option value="local">3人で交代</option><option value="online">オンライン3人対戦（試験版）</option></select></div>
-      <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option><option value="neural">ディープラーニング（旧実験版）</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option><option value="square-gnn16-32">四角深層AI：GNN16／自己対戦32局（実験）</option><option value="square-gnn64-32">四角深層AI：GNN64／自己対戦32局（実験）</option><option value="square-attn64-32">四角深層AI：Attention64／自己対戦32局（実験）</option><option value="square-gnn64-boost-v1">四角深層AI：強化GNN64／自己対戦512局＋教師学習（9・13路・実験）</option></select></div>
+      <div class="setting" id="cpuSetting"><label for="cpuLevel">CPUの強さ</label><select id="cpuLevel"><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard" selected>むずかしい</option><option value="neural">ディープラーニング（旧実験版）</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option><option value="square-gnn16-32">四角深層AI：GNN16／自己対戦32局（実験）</option><option value="square-gnn64-32">四角深層AI：GNN64／自己対戦32局（実験）</option><option value="square-attn64-32">四角深層AI：Attention64／自己対戦32局（実験）</option><option value="square-gnn64-boost-v1">四角深層AI：強化GNN64／自己対戦512局＋教師学習（9・13路・実験）</option><option value="square-gnn64-19-beta">四角深層AI：19路GNN64β／13路学習重み転用（実験）</option></select></div>
     </div>
     <section class="seatSettings" id="seatSettings" aria-label="色ごとのプレイヤー設定" hidden>
       <strong>各色の担当（対局中も変更できます）</strong>
       <div class="seatSettingsGrid">
-        <label for="seatBlack"><span class="stone tiny black"></span> 黒（先手）</label><select id="seatBlack"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option><option value="square-gnn16-32">四角深層AI：GNN16／自己対戦32局（実験）</option><option value="square-gnn64-32">四角深層AI：GNN64／自己対戦32局（実験）</option><option value="square-attn64-32">四角深層AI：Attention64／自己対戦32局（実験）</option><option value="square-gnn64-boost-v1">四角深層AI：強化GNN64／自己対戦512局＋教師学習（9・13路・実験）</option></select>
-        <label for="seatWhite"><span class="stone tiny white"></span> 白（2手目）</label><select id="seatWhite"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option><option value="square-gnn16-32">四角深層AI：GNN16／自己対戦32局（実験）</option><option value="square-gnn64-32">四角深層AI：GNN64／自己対戦32局（実験）</option><option value="square-attn64-32">四角深層AI：Attention64／自己対戦32局（実験）</option><option value="square-gnn64-boost-v1">四角深層AI：強化GNN64／自己対戦512局＋教師学習（9・13路・実験）</option></select>
-        <label for="seatRed"><span class="stone tiny red"></span> 赤（3手目）</label><select id="seatRed"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final" selected>深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option><option value="square-gnn16-32">四角深層AI：GNN16／自己対戦32局（実験）</option><option value="square-gnn64-32">四角深層AI：GNN64／自己対戦32局（実験）</option><option value="square-attn64-32">四角深層AI：Attention64／自己対戦32局（実験）</option><option value="square-gnn64-boost-v1">四角深層AI：強化GNN64／自己対戦512局＋教師学習（9・13路・実験）</option></select>
+        <label for="seatBlack"><span class="stone tiny black"></span> 黒（先手）</label><select id="seatBlack"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option><option value="square-gnn16-32">四角深層AI：GNN16／自己対戦32局（実験）</option><option value="square-gnn64-32">四角深層AI：GNN64／自己対戦32局（実験）</option><option value="square-attn64-32">四角深層AI：Attention64／自己対戦32局（実験）</option><option value="square-gnn64-boost-v1">四角深層AI：強化GNN64／自己対戦512局＋教師学習（9・13路・実験）</option><option value="square-gnn64-19-beta">四角深層AI：19路GNN64β／13路学習重み転用（実験）</option></select>
+        <label for="seatWhite"><span class="stone tiny white"></span> 白（2手目）</label><select id="seatWhite"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final">深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option><option value="square-gnn16-32">四角深層AI：GNN16／自己対戦32局（実験）</option><option value="square-gnn64-32">四角深層AI：GNN64／自己対戦32局（実験）</option><option value="square-attn64-32">四角深層AI：Attention64／自己対戦32局（実験）</option><option value="square-gnn64-boost-v1">四角深層AI：強化GNN64／自己対戦512局＋教師学習（9・13路・実験）</option><option value="square-gnn64-19-beta">四角深層AI：19路GNN64β／13路学習重み転用（実験）</option></select>
+        <label for="seatRed"><span class="stone tiny red"></span> 赤（3手目）</label><select id="seatRed"><option value="human">人間</option><option value="easy">CPU：やさしい</option><option value="normal">CPU：ふつう</option><option value="hard">CPU：むずかしい</option><option value="neural">CPU：旧ディープラーニング</option><option value="trained-lr001-final" selected>深層学習：0.001／102,840局（パス学習済み）</option><option value="trained-lr001-peak">深層学習：0.001／96,120局（パス学習済み）</option><option value="trained-lr0003-peak">深層学習：0.0003／95,800局（パス学習済み）</option><option value="elite-attn64-50000">有力AI：Attention 50,000局</option><option value="elite-gnn64-50000">有力AI：64次元GNN 50,000局</option><option value="elite-pv2-122400">有力AI：旧PV2 122,400局</option><option value="square-trained-v1">四角盤専用：学習CPU（教師模倣・初期版）</option><option value="square-gnn16-32">四角深層AI：GNN16／自己対戦32局（実験）</option><option value="square-gnn64-32">四角深層AI：GNN64／自己対戦32局（実験）</option><option value="square-attn64-32">四角深層AI：Attention64／自己対戦32局（実験）</option><option value="square-gnn64-boost-v1">四角深層AI：強化GNN64／自己対戦512局＋教師学習（9・13路・実験）</option><option value="square-gnn64-19-beta">四角深層AI：19路GNN64β／13路学習重み転用（実験）</option></select>
       </div>
       <p>初期設定は人間2人＋学習済みCPU1人。人間の手番は同じ盤面を交代で操作します。全員CPUなら観戦・一時停止もできます。</p>
     </section>
@@ -301,9 +301,10 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
       </ul>
       <p>「自由編成」を選ぶと黒・白・赤を個別に人間または異なるCPUに設定できます（人間2人＋CPU1人も可能）。「むずかしい」は相手2人の応手を先読みします。「ディープラーニング」は模擬対局の評価データから学習した小型ニューラルネットワークで着手候補を採点します（既存CPUより強い保証はありません）。新しい3つの「深層学習」CPUは、探索なしで自己対戦学習したPV2モデルの保存済み重みを使用します。合法手がある局面でもパスを方策候補に含め、それぞれ440局追加学習しています。序盤パスの過大評価を避ける初期値調整も行っていますが、最善の終局判断を保証するものではありません。深層学習AIには眼埋め防止などの戦略ルールを加えていません。最有力は過去の独立CPU評価で選ばれたもので、すべての盤面や人間相手で最強と保証されたものではありません。「危険」は呼吸点が1つの集団で、必ず取られるという意味ではありません。オンライン対戦は試験版です。死に石の合意処理は未対応です。</p>
       <p>強化GNN64は512局自己対戦後、balanced／tactical／guarded CPUの実対局で教師あり追加学習したモデルです。9×9では段階学習版、13×13では直接学習版を使用し、最も評価値の高い合法手またはパスを選びます（19×19は未対応）。小規模な独立対戦では従来の学習CPUより有利でしたが、安定して最強という保証はありません。</p>
+      <p>19×19専用GNN64βは、13路で学習した強化GNN64を重みを変更せず転用した実験版です。19路の教師3局による追加学習版より良く、既存の線形学習CPUより石を多く残す結果でした。ただし19路で十分に学習したモデルではなく、Androidの処理速度や対人戦での棋力は未確認です。対戦するCPUとして任意で選べますが、既定CPUは変更しません。</p>
       <p>四角盤9×9／13×13／19×19は上下左右でつながります。四角盤GNN・Attentionは32局の自己対戦学習による実験版で、従来CPUより弱い結果です。19×19のAttentionと大型六角盤のAttentionは処理負荷のため選択できません。盤面変更時には非対応のCPU設定を安全なCPUに切り替えます。</p>
     </details>
-    <footer>v1.9.3 · 四角盤に強化GNN64を追加（9路・13路）</footer>
+    <footer>v1.9.4 · 四角19路にGNN64βを追加（実験版）</footer>
   </main>
   <script>window.THREE_COLOR_MATCH_URL="";</script>
   <script>
@@ -484,7 +485,7 @@ const UNIVERSAL=['easy','normal','hard'];
 const HEX_ONLY=['neural','trained-lr001-final','trained-lr001-peak',
   'trained-lr0003-peak','elite-attn64-50000','elite-gnn64-50000','elite-pv2-122400'];
 const SQUARE_ONLY=['square-trained-v1','square-gnn16-32',
-  'square-gnn64-32','square-attn64-32','square-gnn64-boost-v1'];
+  'square-gnn64-32','square-attn64-32','square-gnn64-boost-v1','square-gnn64-19-beta'];
 const CPU_LEVELS=Object.freeze([...UNIVERSAL,...HEX_ONLY,...SQUARE_ONLY]);
 const SEAT_LEVELS=Object.freeze(['human',...CPU_LEVELS]);
 function isCpuLevelSupported(level,radius){
@@ -492,8 +493,10 @@ function isCpuLevelSupported(level,radius){
   if(UNIVERSAL.includes(level))return true;
   if(HEX_ONLY.includes(level))
     return radius>0 && !(level==='elite-attn64-50000' && radius>=8);
-  if(SQUARE_ONLY.includes(level))
+  if(SQUARE_ONLY.includes(level)){
+    if(level==='square-gnn64-19-beta')return radius===-19;
     return radius<0 && !((level==='square-attn64-32'||level==='square-gnn64-boost-v1') && radius<=-19);
+  }
   return false;
 }
 function defaultCpuLevelForBoard(radius){
@@ -507,6 +510,8 @@ function compatibleSeats(levels,radius){
 }
 function cpuCompatibilityReason(level,radius){
   if(!CPU_LEVELS.includes(level))return '不明なCPU難易度です';
+  if(level==='square-gnn64-19-beta')
+    return '19路専用の実験CPUです。13路の学習済みGNNを転用しています';
   if(level==='square-gnn64-boost-v1'&&radius<=-19)
     return '強化GNN64は四角9×9・13×13専用の学習CPUです';
   if(level==='square-attn64-32'&&radius<=-19)
@@ -1799,6 +1804,7 @@ const SQUARE_BOOST_MODELS={"-9":{"architecture":"tgo-comparison-v1","kind":"gnn6
  */
 
 const SQUARE_BOOST_LEVEL='square-gnn64-boost-v1';
+const SQUARE_19_BETA_LEVEL='square-gnn64-19-beta';
 const SOURCES=Object.freeze({'-9':'gnn64-staged','-13':'gnn64-direct'});
 const boostValidated=new WeakSet();
 function getSquareBoostModel(radius){
@@ -1842,6 +1848,30 @@ function chooseSquareBoostMove(state,inspection=null){
   return picked.move;
 }
 
+/** Experimental opt-in 19x19 reuse of the UNCHANGED trained 13x13 GNN64.
+ * Exactly the source that outranked the 19x19-finetuned model and the older
+ * linear policy in independent seat-rotated tests. Not trained on 19x19.
+ */
+function square19BetaModelInfo(){
+  const base=getSquareBoostModel(-13);
+  return {id:SQUARE_19_BETA_LEVEL,board:19,sourceBoard:13,
+    source:'gnn64-direct',architecture:base.kind,
+    selfPlayGames:base.metadata.games,teacherTrainedOn19:false,
+    teacherDistillation:true,decisionMode:'greedy',experimental:true};
+}
+function chooseSquare19BetaMove(state,inspection=null){
+  if(state.ended)return null;
+  if(state.radius!==-19)throw Error('19路専用GNN64の実験CPUです');
+  const model=getSquareBoostModel(-13);
+  const picked=selectComparisonMove(state,model,{greedy:true,temperature:1});
+  if(Array.isArray(inspection)){
+    inspection.push(...picked.actions.map((a,i)=>({
+      q:a.q??null,r:a.r??null,score:picked.probabilities[i]
+    })).sort((a,b)=>b.score-a.score).slice(0,5));
+  }
+  return picked.move;
+}
+
 /** Shared CPU dispatch used by both the browser and Web Worker.
  * Unavailable geometries fail explicitly; there are no silent model swaps.
  */
@@ -1853,7 +1883,9 @@ function selectCpuMove(state,level,random=Math.random){
   if(level==='easy'||level==='normal')
     return {move:chooseDifficultyMove(state,random,level),decision:null};
   const candidates=[];
-  const move=level===SQUARE_BOOST_LEVEL
+  const move=level===SQUARE_19_BETA_LEVEL
+    ? chooseSquare19BetaMove(state,candidates)
+    : level===SQUARE_BOOST_LEVEL
     ? chooseSquareBoostMove(state,candidates)
     : SQUARE_DEEP_LEVELS.includes(level)
     ? chooseSquareDeepMove(state,level,candidates,random)
@@ -1869,13 +1901,15 @@ function selectCpuMove(state,level,random=Math.random){
   const descriptions={
     deep:'四角盤用の自己対戦学習GNN/Attention方策（探索なし、実験版）',
     boost:'512局自己対戦後にCPU教師データを追加学習したGNN64。盤面サイズ別モデル、greedy着手',
+    square19:'19路実験版。13路で学習済みのGNN64を転用。19路での追加学習は不採用、greedy着手',
     square:'四角盤専用の教師模倣学習方策（探索なし）',
     elite:'六角盤の自己対戦学習済み方策（探索なし）',
     trained:'六角盤の合法手＋パス学習済み方策（探索なし）',
     neural:'六角盤の教師模倣ニューラルCPU',
     hard:'3手読みの相対評価値（勝率ではありません）'
   };
-  const type=level===SQUARE_BOOST_LEVEL?'boost':
+  const type=level===SQUARE_19_BETA_LEVEL?'square19':
+    level===SQUARE_BOOST_LEVEL?'boost':
     SQUARE_DEEP_LEVELS.includes(level)?'deep':
     level===SQUARE_TRAINED_LEVEL?'square':
     ELITE_LEVELS.includes(level)?'elite':
@@ -3049,13 +3083,14 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.9.3',
+  version: '1.9.4',
   getNeuralModelInfo: neuralModelInfo,
   getTrainedModelsInfo: trainedModelsInfo,
   getEliteModelsInfo: eliteModelsInfo,
   getSquareTrainedModelInfo: squareTrainedModelInfo,
   getSquareDeepModelsInfo: squareDeepModelsInfo,
   getSquareBoostModelInfo: squareBoostModelInfo,
+  getSquare19BetaModelInfo: square19BetaModelInfo,
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),
   explainPosition: ()=>explainPosition(state),

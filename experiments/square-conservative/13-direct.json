@@ -1,0 +1,650 @@
+{
+  "version": 1,
+  "labels": {
+    "a": "candidate",
+    "b": "source",
+    "bridge": "tactical"
+  },
+  "seed": 20280517,
+  "mode": "greedy",
+  "reports": [
+    {
+      "board": 9,
+      "games": 24,
+      "finished": 21,
+      "truncated": 3,
+      "winShareA": 0.21428571428571427,
+      "winShareB": 0.19047619047619047,
+      "aOutranksB": 0.5238095238095238,
+      "observedStoneA": 0.2628474155695255,
+      "observedStoneB": 0.3233959757018165,
+      "records": [
+        {
+          "order": [
+            "candidate",
+            "source",
+            "bridge"
+          ],
+          "seed": 20351788,
+          "ended": true,
+          "turns": 165,
+          "countA": 31,
+          "countB": 0,
+          "rankA": 1,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.4246575342465753,
+          "shareB": 0
+        },
+        {
+          "order": [
+            "candidate",
+            "bridge",
+            "source"
+          ],
+          "seed": 20351788,
+          "ended": true,
+          "turns": 172,
+          "countA": 39,
+          "countB": 35,
+          "rankA": 1,
+          "winnerA": 1,
+          "winnerB": 0,
+          "shareA": 0.527027027027027,
+          "shareB": 0.47297297297297297
+        },
+        {
+          "order": [
+            "source",
+            "candidate",
+            "bridge"
+          ],
+          "seed": 20351788,
+          "ended": true,
+          "turns": 132,
+          "countA": 38,
+          "countB": 0,
+          "rankA": 1,
+          "winnerA": 0.5,
+          "winnerB": 0,
+          "shareA": 0.5,
+          "shareB": 0
+        },
+        {
+          "order": [
+            "source",
+            "bridge",
+            "candidate"
+          ],
+          "seed": 20351788,
+          "ended": true,
+          "turns": 184,
+          "countA": 0,
+          "countB": 29,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0,
+          "shareB": 0.4084507042253521
+        },
+        {
+          "order": [
+            "bridge",
+            "candidate",
+            "source"
+          ],
+          "seed": 20351788,
+          "ended": true,
+          "turns": 125,
+          "countA": 36,
+          "countB": 0,
+          "rankA": 1,
+          "winnerA": 1,
+          "winnerB": 0,
+          "shareA": 0.5142857142857142,
+          "shareB": 0
+        },
+        {
+          "order": [
+            "bridge",
+            "source",
+            "candidate"
+          ],
+          "seed": 20351788,
+          "ended": true,
+          "turns": 123,
+          "countA": 38,
+          "countB": 0,
+          "rankA": 1,
+          "winnerA": 1,
+          "winnerB": 0,
+          "shareA": 0.5352112676056338,
+          "shareB": 0
+        },
+        {
+          "order": [
+            "candidate",
+            "source",
+            "bridge"
+          ],
+          "seed": 20451791,
+          "ended": true,
+          "turns": 153,
+          "countA": 0,
+          "countB": 28,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0,
+          "shareB": 0.3783783783783784
+        },
+        {
+          "order": [
+            "candidate",
+            "bridge",
+            "source"
+          ],
+          "seed": 20451791,
+          "ended": true,
+          "turns": 144,
+          "countA": 0,
+          "countB": 32,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0,
+          "shareB": 0.4444444444444444
+        },
+        {
+          "order": [
+            "source",
+            "candidate",
+            "bridge"
+          ],
+          "seed": 20451791,
+          "ended": true,
+          "turns": 167,
+          "countA": 1,
+          "countB": 22,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.0136986301369863,
+          "shareB": 0.3013698630136986
+        },
+        {
+          "order": [
+            "source",
+            "bridge",
+            "candidate"
+          ],
+          "seed": 20451791,
+          "ended": true,
+          "turns": 128,
+          "countA": 0,
+          "countB": 40,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 1,
+          "shareA": 0,
+          "shareB": 0.5333333333333333
+        },
+        {
+          "order": [
+            "bridge",
+            "candidate",
+            "source"
+          ],
+          "seed": 20451791,
+          "ended": false,
+          "turns": 246,
+          "countA": 62,
+          "countB": 7,
+          "rankA": null,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.8985507246376812,
+          "shareB": 0.10144927536231885
+        },
+        {
+          "order": [
+            "bridge",
+            "source",
+            "candidate"
+          ],
+          "seed": 20451791,
+          "ended": true,
+          "turns": 139,
+          "countA": 0,
+          "countB": 29,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0,
+          "shareB": 0.4027777777777778
+        },
+        {
+          "order": [
+            "candidate",
+            "source",
+            "bridge"
+          ],
+          "seed": 20551794,
+          "ended": true,
+          "turns": 155,
+          "countA": 39,
+          "countB": 34,
+          "rankA": 1,
+          "winnerA": 1,
+          "winnerB": 0,
+          "shareA": 0.5342465753424658,
+          "shareB": 0.4657534246575342
+        },
+        {
+          "order": [
+            "candidate",
+            "bridge",
+            "source"
+          ],
+          "seed": 20551794,
+          "ended": true,
+          "turns": 116,
+          "countA": 19,
+          "countB": 18,
+          "rankA": 1,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.2638888888888889,
+          "shareB": 0.25
+        },
+        {
+          "order": [
+            "source",
+            "candidate",
+            "bridge"
+          ],
+          "seed": 20551794,
+          "ended": false,
+          "turns": 246,
+          "countA": 1,
+          "countB": 71,
+          "rankA": null,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.013888888888888888,
+          "shareB": 0.9861111111111112
+        },
+        {
+          "order": [
+            "source",
+            "bridge",
+            "candidate"
+          ],
+          "seed": 20551794,
+          "ended": true,
+          "turns": 222,
+          "countA": 10,
+          "countB": 9,
+          "rankA": 1,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.14285714285714285,
+          "shareB": 0.12857142857142856
+        },
+        {
+          "order": [
+            "bridge",
+            "candidate",
+            "source"
+          ],
+          "seed": 20551794,
+          "ended": true,
+          "turns": 174,
+          "countA": 34,
+          "countB": 40,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 1,
+          "shareA": 0.4594594594594595,
+          "shareB": 0.5405405405405406
+        },
+        {
+          "order": [
+            "bridge",
+            "source",
+            "candidate"
+          ],
+          "seed": 20551794,
+          "ended": true,
+          "turns": 239,
+          "countA": 0,
+          "countB": 74,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 1,
+          "shareA": 0,
+          "shareB": 1
+        },
+        {
+          "order": [
+            "candidate",
+            "source",
+            "bridge"
+          ],
+          "seed": 20651797,
+          "ended": true,
+          "turns": 187,
+          "countA": 25,
+          "countB": 0,
+          "rankA": 1,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.3424657534246575,
+          "shareB": 0
+        },
+        {
+          "order": [
+            "candidate",
+            "bridge",
+            "source"
+          ],
+          "seed": 20651797,
+          "ended": true,
+          "turns": 158,
+          "countA": 0,
+          "countB": 29,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0,
+          "shareB": 0.3815789473684211
+        },
+        {
+          "order": [
+            "source",
+            "candidate",
+            "bridge"
+          ],
+          "seed": 20651797,
+          "ended": true,
+          "turns": 146,
+          "countA": 33,
+          "countB": 0,
+          "rankA": 1,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.44594594594594594,
+          "shareB": 0
+        },
+        {
+          "order": [
+            "source",
+            "bridge",
+            "candidate"
+          ],
+          "seed": 20651797,
+          "ended": false,
+          "turns": 246,
+          "countA": 2,
+          "countB": 22,
+          "rankA": null,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.02857142857142857,
+          "shareB": 0.3142857142857143
+        },
+        {
+          "order": [
+            "bridge",
+            "candidate",
+            "source"
+          ],
+          "seed": 20651797,
+          "ended": true,
+          "turns": 225,
+          "countA": 20,
+          "countB": 3,
+          "rankA": 1,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.273972602739726,
+          "shareB": 0.0410958904109589
+        },
+        {
+          "order": [
+            "bridge",
+            "source",
+            "candidate"
+          ],
+          "seed": 20651797,
+          "ended": true,
+          "turns": 155,
+          "countA": 30,
+          "countB": 47,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 1,
+          "shareA": 0.38961038961038963,
+          "shareB": 0.6103896103896104
+        }
+      ]
+    },
+    {
+      "board": 13,
+      "games": 12,
+      "finished": 12,
+      "truncated": 0,
+      "winShareA": 0.16666666666666666,
+      "winShareB": 0.3333333333333333,
+      "aOutranksB": 0.3333333333333333,
+      "observedStoneA": 0.2259480997210055,
+      "observedStoneB": 0.3552055238392971,
+      "records": [
+        {
+          "order": [
+            "candidate",
+            "source",
+            "bridge"
+          ],
+          "seed": 20383464,
+          "ended": true,
+          "turns": 395,
+          "countA": 4,
+          "countB": 49,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.026143790849673203,
+          "shareB": 0.3202614379084967
+        },
+        {
+          "order": [
+            "candidate",
+            "bridge",
+            "source"
+          ],
+          "seed": 20383464,
+          "ended": true,
+          "turns": 282,
+          "countA": 22,
+          "countB": 69,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 0.5,
+          "shareA": 0.1375,
+          "shareB": 0.43125
+        },
+        {
+          "order": [
+            "source",
+            "candidate",
+            "bridge"
+          ],
+          "seed": 20383464,
+          "ended": true,
+          "turns": 273,
+          "countA": 36,
+          "countB": 33,
+          "rankA": 1,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.23076923076923078,
+          "shareB": 0.21153846153846154
+        },
+        {
+          "order": [
+            "source",
+            "bridge",
+            "candidate"
+          ],
+          "seed": 20383464,
+          "ended": true,
+          "turns": 385,
+          "countA": 50,
+          "countB": 108,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 1,
+          "shareA": 0.31645569620253167,
+          "shareB": 0.6835443037974683
+        },
+        {
+          "order": [
+            "bridge",
+            "candidate",
+            "source"
+          ],
+          "seed": 20383464,
+          "ended": true,
+          "turns": 267,
+          "countA": 0,
+          "countB": 85,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 1,
+          "shareA": 0,
+          "shareB": 0.5629139072847682
+        },
+        {
+          "order": [
+            "bridge",
+            "source",
+            "candidate"
+          ],
+          "seed": 20383464,
+          "ended": true,
+          "turns": 253,
+          "countA": 57,
+          "countB": 42,
+          "rankA": 1,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.36075949367088606,
+          "shareB": 0.26582278481012656
+        },
+        {
+          "order": [
+            "candidate",
+            "source",
+            "bridge"
+          ],
+          "seed": 20483467,
+          "ended": true,
+          "turns": 214,
+          "countA": 61,
+          "countB": 37,
+          "rankA": 1,
+          "winnerA": 1,
+          "winnerB": 0,
+          "shareA": 0.3961038961038961,
+          "shareB": 0.24025974025974026
+        },
+        {
+          "order": [
+            "candidate",
+            "bridge",
+            "source"
+          ],
+          "seed": 20483467,
+          "ended": true,
+          "turns": 243,
+          "countA": 41,
+          "countB": 47,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.2611464968152866,
+          "shareB": 0.29936305732484075
+        },
+        {
+          "order": [
+            "source",
+            "candidate",
+            "bridge"
+          ],
+          "seed": 20483467,
+          "ended": true,
+          "turns": 292,
+          "countA": 0,
+          "countB": 78,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 0.5,
+          "shareA": 0,
+          "shareB": 0.5
+        },
+        {
+          "order": [
+            "source",
+            "bridge",
+            "candidate"
+          ],
+          "seed": 20483467,
+          "ended": true,
+          "turns": 251,
+          "countA": 25,
+          "countB": 52,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 0,
+          "shareA": 0.16339869281045752,
+          "shareB": 0.33986928104575165
+        },
+        {
+          "order": [
+            "bridge",
+            "candidate",
+            "source"
+          ],
+          "seed": 20483467,
+          "ended": true,
+          "turns": 277,
+          "countA": 79,
+          "countB": 0,
+          "rankA": 1,
+          "winnerA": 1,
+          "winnerB": 0,
+          "shareA": 0.5197368421052632,
+          "shareB": 0
+        },
+        {
+          "order": [
+            "bridge",
+            "source",
+            "candidate"
+          ],
+          "seed": 20483467,
+          "ended": true,
+          "turns": 230,
+          "countA": 47,
+          "countB": 64,
+          "rankA": 0,
+          "winnerA": 0,
+          "winnerB": 1,
+          "shareA": 0.29936305732484075,
+          "shareB": 0.40764331210191085
+        }
+      ]
+    }
+  ]
+}

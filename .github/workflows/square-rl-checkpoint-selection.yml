@@ -1,0 +1,137 @@
+name: Evaluate all 4/8/12-iteration square RL checkpoints on fresh seeds
+on:
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: square-rl-milestone-selection-20261116
+  cancel-in-progress: false
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - board: '9'
+            source: gnn64-staged
+          - board: '13'
+            source: gnn64-direct
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Restore permanent checkpoints from source-controlled experiment archive
+        env:
+          BOARD: ${{ matrix.board }}
+        run: |
+          mkdir -p checkpoints
+          for NUM in 4 8 12; do
+            printf -v PAD '%04d' "$NUM"
+            cp "experiments/square-rl-milestones/$BOARD-iter$NUM.json" "checkpoints/model-iter$PAD.json"
+          done
+      - name: Verify 4, 8 and 12 iteration model snapshots are present
+        env:
+          BOARD: ${{ matrix.board }}
+          SOURCE: ${{ matrix.source }}
+        run: |
+          set -euo pipefail
+          for NUM in 0004 0008 0012; do
+            test -s "checkpoints/model-iter$NUM.json"
+          done
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          ck=Path('checkpoints')
+          board=os.environ['BOARD']
+          data=[{'id':'base','type':'comparison','path':'experiments/square-strength-stage2/'+os.environ['SOURCE']+'.json'}]
+          for num in ['0004','0008','0012']:
+            raw=json.loads((ck/('model-iter'+num+'.json')).read_text())
+            league=raw['metadata']['league']
+            assert league['radius']==-int(board) and league['iteration']==int(num)
+            assert league['games']==int(num)*3
+            data.append({'id':'iter'+str(int(num)),'type':'comparison',
+                         'path':str(ck/('model-iter'+num+'.json'))})
+          (ck/'manifest.json').write_text(json.dumps(data,indent=2))
+          PY
+      - name: Independent CPU tournament at all checkpoints
+        env:
+          BOARD: ${{ matrix.board }}
+        run: |
+          node scripts/evaluate-square-strength.mjs \
+            --manifest checkpoints/manifest.json \
+            --games9 9 --games13 6 --seed 20280316 \
+            --policy-mode greedy --opponents balanced,tactical \
+            --out "checkpoints/screening.json"
+      - name: All genuine 3-player head-to-head models versus source, six-seat rotation
+        run: |
+          for NUM in 4 8 12; do
+            node scripts/headtohead-square.mjs \
+              --manifest checkpoints/manifest.json \
+              --pair "iter$NUM,base" --mode greedy --bridge guarded \
+              --games9 12 --games13 6 --seed 20280317 \
+              --out "checkpoints/headtohead-$NUM.json"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-rl-milestone-${{ matrix.board }}-20261116
+          path: checkpoints/
+          retention-days: 90
+  summary:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {pattern: 'square-rl-milestone-*-20261116',path: milestone/}
+      - name: Summarize and save observed improvement without test overfitting claims
+        run: |
+          mkdir -p experiments/square-rl-milestones docs
+          python - <<'PY'
+          import json,hashlib,shutil,os
+          from pathlib import Path
+          out=Path('experiments/square-rl-milestones')
+          rows=['# RL milestone screening (separate from final 36-game evaluation)','',
+            'This additional independent-seed screening compares 4, 8 and 12 iterations against the same initial teacher-distilled model. Choosing the best checkpoint from the screening reuses those data for model selection; any promoted checkpoint therefore needs a third, untouched confirmation seed.','',
+            '| Board | Checkpoint games | Completed CPU games | Candidate CPU win | Base CPU win | Head-to-head rank rate | Decision |',
+            '|---|---:|---:|---:|---:|---:|---|']
+          manifest={'seed':20280316,'h2hSeed':20280317,'boards':{}}
+          for board in ['9','13']:
+            src=Path('milestone')/('square-rl-milestone-'+board+'-20261116')
+            ev=json.loads((src/'screening.json').read_text())
+            shutil.copy(src/'screening.json',out/(board+'-screening.json'))
+            models={}
+            by={r['id']:r for r in ev['results'] if r['radius']==-int(board)}
+            base=by['base']
+            for it in [4,8,12]:
+              raw=(src/f'model-iter{it:04d}.json').read_bytes()
+              shutil.copy(src/f'model-iter{it:04d}.json',out/(board+f'-iter{it}.json'))
+              direct=json.loads((src/f'headtohead-{it}.json').read_text())
+              shutil.copy(src/f'headtohead-{it}.json',out/(board+f'-h2h-{it}.json'))
+              duel=next(r for r in direct['reports'] if r['board']==int(board))
+              cand=by[f'iter{it}']
+              ok=(cand['winShare'] is not None and base['winShare'] is not None and
+                  cand['winShare']>base['winShare'] and cand['earlyPasses']==0 and
+                  cand['truncated']==0 and duel['aOutranksB'] is not None and
+                  duel['aOutranksB']>.55 and duel['truncated']==0)
+              rows.append(f"| {board}×{board} | {it*3} | {cand['finished']}/{cand['games']} | {cand['winShare'] or 0:.1%} | {base['winShare'] or 0:.1%} | {duel['aOutranksB'] or 0:.1%} | {'candidate for confirmation' if ok else 'not selected'} |")
+              models[str(it)]={'sha256':hashlib.sha256(raw).hexdigest(),'eligible':ok,
+                 'candidateWin':cand['winShare'],'sourceWin':base['winShare'],
+                 'headtoheadOutrank':duel['aOutranksB']}
+            manifest['boards'][board]=models
+          (out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          rows+=['','The screen is not sufficient for a production decision. Any selected checkpoint must pass a new independent 6-seat matchup and 19×19 must be assessed separately.','']
+          report='\n'.join(rows)
+          Path('docs/square-rl-milestones.md').write_text(report)
+          print(report)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-rl-milestone-report-manual
+          path: |
+            experiments/square-rl-milestones/
+            docs/square-rl-milestones.md
+          retention-days: 90

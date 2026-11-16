@@ -1,0 +1,13 @@
+{
+  "sha256": "ad94b496b30d745a28e289241beaa573b9b288493b4c8eeb14b228c3ec1a8be5",
+  "source": "experiments/square-strength-stage2/gnn64-direct.json",
+  "teacherGames": 3,
+  "teacherTrainingPositions": 510,
+  "teacherHeldoutPositions": 136,
+  "evaluationSeeds": [
+    20280216,
+    20280217,
+    20280218
+  ],
+  "decision": "experiment only; no production promotion without larger independent benchmarks and phone latency"
+}

@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    20280516,
+    20280517
+  ],
+  "boards": {
+    "9": {
+      "sha256": "e185f1d731ae4509e45dbda0ffa55e082e2539be818114eb6428c16de520ca79",
+      "finished": 91,
+      "win": 0.3333333333333333,
+      "sourceWin": 0.23529411764705882,
+      "rankRate": 0.2916666666666667,
+      "decision": "not promoted"
+    },
+    "13": {
+      "sha256": "69f66fcdcfe09ce2b28c9a891b8ecee16c791961e7d67dfe104d49c6032dd52f",
+      "finished": 96,
+      "win": 0.5555555555555556,
+      "sourceWin": 0.4444444444444444,
+      "rankRate": 0.3333333333333333,
+      "decision": "not promoted"
+    }
+  }
+}

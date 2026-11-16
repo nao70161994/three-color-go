@@ -1,0 +1,69 @@
+{
+  "seed": 20261116,
+  "evaluationSeeds": [
+    20280116,
+    20280117
+  ],
+  "boards": {
+    "9": {
+      "sha256": "90e011d4620b2960b9a0e0052cc68d81079f7aa1f88652a09cfe0a7f6b09ff23",
+      "league": {
+        "iteration": 12,
+        "games": 36,
+        "finished": 36,
+        "truncated": 0,
+        "sampledPositions": 897,
+        "seed": 20261116,
+        "radius": -9,
+        "temperature": 1.1,
+        "learningRate": 0.00015,
+        "anchorKlCoefficient": 0.12,
+        "criticCoefficient": 0.3,
+        "entropyCoefficient": 0.002,
+        "horizonMultiplier": 3,
+        "sourceVersion": "square-teacher-gnn64-seed20261116-epoch26",
+        "sourceSha256": "134d037abfb7c232df2cc1b654b7ab357ff76bd407437ddc66cc4bd5981006c6",
+        "opponents": [
+          "same-kind frozen teacher GNN",
+          "balanced",
+          "tactical",
+          "guarded"
+        ]
+      },
+      "candidateWin": 0.2222222222222222,
+      "sourceWin": 0.3333333333333333,
+      "directOutrank": 0.8333333333333334,
+      "decision": "do not promote"
+    },
+    "13": {
+      "sha256": "b7a8d6238376f1b79fcf9a24864e1eabe8c30e7fdcbf4c00c321073a4fc2be1c",
+      "league": {
+        "iteration": 12,
+        "games": 36,
+        "finished": 36,
+        "truncated": 0,
+        "sampledPositions": 1679,
+        "seed": 20261116,
+        "radius": -13,
+        "temperature": 1.1,
+        "learningRate": 0.00015,
+        "anchorKlCoefficient": 0.12,
+        "criticCoefficient": 0.3,
+        "entropyCoefficient": 0.002,
+        "horizonMultiplier": 3,
+        "sourceVersion": "square-teacher-gnn64-seed20261116-epoch26",
+        "sourceSha256": "4697a9746208e9be5175e07829cdafdbe4068253a714bcce624b6a06420d8191",
+        "opponents": [
+          "same-kind frozen teacher GNN",
+          "balanced",
+          "tactical",
+          "guarded"
+        ]
+      },
+      "candidateWin": 0.3333333333333333,
+      "sourceWin": 0.16666666666666666,
+      "directOutrank": 0.5,
+      "decision": "do not promote"
+    }
+  }
+}

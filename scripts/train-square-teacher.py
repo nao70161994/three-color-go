@@ -51,6 +51,8 @@ def render(model,raw,records,seed,epoch,lr,valid_metrics):
     previous=data["metadata"].get("teacherDistillationStages",[])
     if not isinstance(previous,list):raise ValueError("Invalid previous teacher stages")
     data["metadata"].update({
+        "radii":sorted(set(data["metadata"].get("radii",[])+records["radii"])),
+        "teacherTrainingRadii":records["radii"],
         "teacherDistillationStages":[*previous,{
           "source":raw["version"],"seed":seed,"games":records["teacherGames"],
           "positions":records["train"],"epochs":epoch}],
@@ -89,7 +91,7 @@ def main():
     for line in args.data.read_text().splitlines():
         s=json.loads(line)
         split=s["split"]
-        if split not in grouped or s["radius"] not in [-9,-13]:
+        if split not in grouped or s["radius"] not in [-9,-13,-19]:
             raise ValueError("Bad teacher dataset split/geometry")
         if not (0<=s["selected"]<=s["radius"]**2):
             raise ValueError("Bad selected action")
@@ -102,7 +104,8 @@ def main():
     if game_ids["train"]&game_ids["valid"]:raise ValueError("Train/validation game leakage")
     sizes={split:sum(map(len,grouped[split].values())) for split in grouped}
     if min(sizes.values())<20:raise ValueError("Too little teacher data")
-    summary={"teacherGames":len(game_ids["train"]),"validGames":len(game_ids["valid"]),**sizes}
+    summary={"teacherGames":len(game_ids["train"]),"validGames":len(game_ids["valid"]),
+             "radii":sorted(grouped["train"].keys()),**sizes}
     optimizer=torch.optim.AdamW(model.parameters(),lr=args.lr,weight_decay=0.0001)
     best=None
     best_epoch=0
