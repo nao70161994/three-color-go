@@ -1,0 +1,145 @@
+name: Conservative 96-game square GNN64 league RL replication
+on:
+  push:
+    branches: [experiment/square-rl-and-19-20261116]
+    paths: [.github/workflows/square-conservative-rl.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: square-conservative-rl-20261116
+  cancel-in-progress: false
+jobs:
+  train:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - board: '9'
+            radius: '-9'
+            init: gnn64-staged
+          - board: '13'
+            radius: '-13'
+            init: gnn64-direct
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install CPU learner
+        run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Train real 96-game league with more conservative KL and optimizer
+        env:
+          BOARD: ${{ matrix.board }}
+          RADIUS: ${{ matrix.radius }}
+          INIT: ${{ matrix.init }}
+        run: |
+          mkdir -p "reports/square-conservative/$BOARD"
+          python scripts/train-square-postteacher-rl.py \
+            --source "experiments/square-strength-stage2/$INIT.json" \
+            --radius "$RADIUS" --iterations 32 --games 3 \
+            --seed 20261117 --temperature 1.05 \
+            --lr 0.00004 --kl 0.6 --entropy 0.001 --critic 0.3 \
+            --batch-size 24 --sample-stride 2 --horizon-multiplier 3 \
+            --checkpoint-every 8 \
+            --out "reports/square-conservative/$BOARD/model.json" \
+            | tee "reports/square-conservative/$BOARD/training.jsonl"
+      - name: JS/PyTorch forward-pass parity
+        env: {BOARD: '${{ matrix.board }}'}
+        run: python scripts/check-architecture-parity.py "reports/square-conservative/$BOARD/model.json"
+      - name: New independent CPU fixtures and six-seat direct matches
+        env:
+          BOARD: ${{ matrix.board }}
+          INIT: ${{ matrix.init }}
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path('reports/square-conservative')/os.environ['BOARD']
+          (root/'manifest.json').write_text(json.dumps([
+            {'id':'candidate','type':'comparison','path':str(root/'model.json')},
+            {'id':'source','type':'comparison','path':'experiments/square-strength-stage2/'+os.environ['INIT']+'.json'},
+            {'id':'linear','type':'linear'}],indent=2))
+          PY
+          node scripts/evaluate-square-strength.mjs \
+            --manifest "reports/square-conservative/$BOARD/manifest.json" \
+            --games9 18 --games13 9 --seed 20280516 \
+            --opponents guarded,balanced --policy-mode greedy \
+            --out "reports/square-conservative/$BOARD/heldout.json"
+          node scripts/headtohead-square.mjs \
+            --manifest "reports/square-conservative/$BOARD/manifest.json" \
+            --pair candidate,source --mode greedy --bridge tactical \
+            --games9 24 --games13 12 --seed 20280517 \
+            --out "reports/square-conservative/$BOARD/direct.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: square-conservative-${{ matrix.board }}-20261116
+          path: reports/square-conservative/${{ matrix.board }}/
+          retention-days: 90
+  report:
+    needs: train
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: true}
+      - uses: actions/download-artifact@v4
+        with: {pattern: 'square-conservative-*-20261116',path: 'results/'}
+      - name: Publish actual observed outcomes, retain complete checkpoint history
+        run: |
+          mkdir -p experiments/square-conservative docs
+          python - <<'PY'
+          import json,shutil,hashlib,os
+          from pathlib import Path
+          output=Path('experiments/square-conservative')
+          lines=['# Conservative 96-game post-teacher square GNN64 RL replication','',
+            'Compared with prior 36-game runs, this experiment uses smaller learning rate, stronger reference KL, 96 real model-led 3p matches, and new independent 20280516 / 20280517 evaluations.','',
+            '| Training board | Real games | Natural endings | Own board CPU win | Source win | Head-to-head rank rate | Early passes | Decision |',
+            '|---|---:|---:|---:|---:|---:|---:|---|']
+          manifest={'fixtures':[20280516,20280517],'boards':{}}
+          for board in ['9','13']:
+            folder=Path('results')/('square-conservative-'+board+'-20261116')
+            raw=(folder/'model.json').read_bytes()
+            m=json.loads(raw);lg=m['metadata']['league']
+            if lg['games']!=96 or lg['radius']!=-int(board) or lg['finished']+lg['truncated']!=96:
+              raise ValueError('Invalid genuine league training metadata')
+            ev=json.loads((folder/'heldout.json').read_text())
+            direct=json.loads((folder/'direct.json').read_text())
+            evs={r['id']:r for r in ev['results'] if r['radius']==-int(board)}
+            duel=next(r for r in direct['reports'] if r['board']==int(board))
+            cand,src=evs['candidate'],evs['source']
+            okay=(cand['winShare'] is not None and src['winShare'] is not None and
+              cand['winShare']>src['winShare'] and cand['earlyPasses']==0 and
+              cand['truncated']==0 and duel['truncated']==0 and
+              duel['aOutranksB'] is not None and duel['aOutranksB']>.60)
+            decision='eligible for further confirmation' if okay else 'not promoted'
+            def pc(x):return 'n/a' if x is None else f'{x:.1%}'
+            lines.append(f"| {board}×{board} | {lg['games']} | {lg['finished']} | {pc(cand['winShare'])} | {pc(src['winShare'])} | {pc(duel['aOutranksB'])} | {cand['earlyPasses']} | {decision} |")
+            for name in ['model.json','training.jsonl','heldout.json','direct.json']:
+              shutil.copy(folder/name,output/(board+'-'+name))
+            for it in [8,16,24,32]:
+              shutil.copy(folder/f'model-iter{it:04d}.json',output/(board+f'-iter{it}.json'))
+            manifest['boards'][board]={'sha256':hashlib.sha256(raw).hexdigest(),
+              'finished':lg['finished'],'win':cand['winShare'],'sourceWin':src['winShare'],
+              'rankRate':duel['aOutranksB'],'decision':decision}
+          (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          lines+=['','Even an eligible result requires a further fresh-seed validation before replacing the published 9/13 GNN. This experiment does not claim fixed evidence of a stronger model.','']
+          report='\n'.join(lines)
+          Path('docs/square-conservative-rl.md').write_text(report)
+          print(report)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
+          PY
+      - name: Commit full experiment and evidence without automatically replacing playable CPU
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/square-conservative docs/square-conservative-rl.md
+          git commit -m "Archive conservative 96-game square RL and independent comparisons"
+          git pull --rebase origin experiment/square-rl-and-19-20261116
+          git push origin HEAD:experiment/square-rl-and-19-20261116
