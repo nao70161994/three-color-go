@@ -1,0 +1,112 @@
+name: Validate pretrained GNN64 19x19 beta against linear and heuristic CPUs
+on:
+  push:
+    branches: [experiment/square-rl-and-19-20261116]
+    paths: [.github/workflows/square19-pretrained-baseline.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: square19-pretrained-baseline-20261116
+  cancel-in-progress: false
+jobs:
+  evaluate:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - bridge: balanced
+            seed: '20280616'
+          - bridge: guarded
+            seed: '20280617'
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Load unchanged 13x13 candidate and old linear teacher
+        run: |
+          mkdir -p reports/square19-source
+          cat >reports/square19-source/manifest.json <<'EOF'
+          [
+            {"id":"pretrained","type":"comparison","path":"experiments/square-strength-stage2/gnn64-direct.json"},
+            {"id":"transfer3","type":"comparison","path":"experiments/square19-transfer/model.json"},
+            {"id":"linear","type":"linear"}
+          ]
+          EOF
+      - name: Twelve true completed head-to-head games per independent bridge
+        env:
+          BRIDGE: ${{ matrix.bridge }}
+          SEED: ${{ matrix.seed }}
+        run: |
+          for OTHER in linear transfer3; do
+            node scripts/headtohead-square.mjs \
+              --manifest reports/square19-source/manifest.json \
+              --pair "pretrained,$OTHER" --bridge "$BRIDGE" --mode greedy \
+              --games9 0 --games13 0 --games19 12 --seed "$SEED" \
+              --out "reports/square19-source/h2h-$OTHER-$SEED.json"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square19-source-${{ matrix.bridge }}-20261116
+          path: reports/square19-source/
+          retention-days: 90
+  report:
+    needs: evaluate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: true}
+      - uses: actions/download-artifact@v4
+        with: {pattern: 'square19-source-*-20261116',path: results/}
+      - name: Archive independently seeded source vs linear and transfer evidence
+        run: |
+          mkdir -p experiments/square19-source docs
+          python3 - <<'PY'
+          import json,shutil,os
+          from pathlib import Path
+          lines=['# 19×19 GNN64 trained on 9/13 vs 19 transfer vs linear: independent six-seat matches','',
+           'The pretrained model was never fitted to 19×19 teacher decisions, while the experimental transfer model used 3 teacher games on 19×19. Each test rotates all 6 seat assignments; outcomes are counted only for natural terminal games.','',
+           '| External third player | 19×19 rival | Naturally finished | Pretrained GNN win | Rival win | Pretrained ranks above rival |',
+           '|---|---|---:|---:|---:|---:|']
+          out=Path('experiments/square19-source');metrics={}
+          for bridge,seed in [('balanced',20280616),('guarded',20280617)]:
+            folder=Path('results')/f'square19-source-{bridge}-20261116'
+            metrics[bridge]={}
+            for rival in ['linear','transfer3']:
+              name=f'h2h-{rival}-{seed}.json'
+              data=json.loads((folder/name).read_text())
+              report=data['reports'][0]
+              if data['labels']!={'a':'pretrained','b':rival,'bridge':bridge} or report['board']!=19 or report['games']!=12:
+                raise ValueError('Mismatched fixture')
+              def pct(x):return 'n/a' if x is None else f'{x:.1%}'
+              lines.append(f"| {bridge} | {rival} | {report['finished']}/12 | {pct(report['winShareA'])} | {pct(report['winShareB'])} | {pct(report['aOutranksB'])} |")
+              shutil.copy(folder/name,out/name)
+              metrics[bridge][rival]={
+                'outrankRate':report['aOutranksB'],'finished':report['finished'],
+                'winPretrained':report['winShareA'],'winRival':report['winShareB']}
+          eligible=all(
+            metrics[b]['linear']['outrankRate'] is not None and
+            metrics[b]['linear']['outrankRate']>.65 and
+            metrics[b]['linear']['finished']>=10
+            for b in ['balanced','guarded'])
+          label='suitable only as an explicitly labeled opt-in 19x19 experimental beta' if eligible else 'do not offer experimental 19x19 neural CPU'
+          lines+=['',f'Assessment: **{label}**.','',
+            'No claim of overall 19×19 superiority or successful 19×19 self-play convergence is made. Before a default CPU replacement, substantially more heldout games and Android device latency are required.']
+          (out/'manifest.json').write_text(json.dumps({'seeds':[20280616,20280617],
+             'metrics':metrics,'optInBetaEligible':eligible},indent=2)+'\n')
+          report='\n'.join(lines)
+          Path('docs/square19-source-check.md').write_text(report)
+          print(report)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
+          PY
+      - name: Archive outcome without changing the default CPU
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/square19-source docs/square19-source-check.md
+          git commit -m "Record independent 19x19 pretrained GNN64 benchmark versus linear and transfer"
+          git pull --rebase origin experiment/square-rl-and-19-20261116
+          git push origin HEAD:experiment/square-rl-and-19-20261116
