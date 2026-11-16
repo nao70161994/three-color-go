@@ -12,25 +12,29 @@ import {PV3_ARCH,encodePV2State} from '../src/pv2-ai.js';
 const args={};
 for(let i=2;i<process.argv.length;i+=2){
  const k=process.argv[i],v=process.argv[i+1];
- if(!['--train9','--valid9','--train13','--valid13','--seed','--stride','--out'].includes(k)||v===undefined)
+ if(!['--train9','--valid9','--train13','--valid13','--train19','--valid19','--seed','--stride','--out'].includes(k)||v===undefined)
    throw Error('Unknown or incomplete argument: '+k);
  args[k.slice(2)]=v;
 }
 const config={
  train9:Number(args.train9??12),valid9:Number(args.valid9??3),
  train13:Number(args.train13??3),valid13:Number(args.valid13??1),
+ train19:Number(args.train19??0),valid19:Number(args.valid19??0),
  seed:Number(args.seed??20261115),stride:Number(args.stride??2),
  out:args.out??'reports/square-strength/teacher-games.jsonl'
 };
 if(Object.entries(config).some(([key,v])=>key!=='out'&&(!Number.isSafeInteger(v)||v<0))||
   config.stride<1||config.stride>12||
-  config.train9<1||config.valid9<1||config.train13<1||config.valid13<1||
-  config.train9+config.valid9>60||config.train13+config.valid13>20)
+  config.train9+config.train13+config.train19<1||
+  config.valid9+config.valid13+config.valid19<1||
+  config.train9+config.valid9>60||config.train13+config.valid13>20||
+  config.train19+config.valid19>10)
  throw Error('Invalid teacher curriculum');
 const rows=[];
 const stats={...config,games:{},samples:{train:0,valid:0},strategyBySeat:{}};
 const sets=[['train',9,config.train9],['valid',9,config.valid9],
- ['train',13,config.train13],['valid',13,config.valid13]];
+ ['train',13,config.train13],['valid',13,config.valid13],
+ ['train',19,config.train19],['valid',19,config.valid19]];
 for(const [split,n,games] of sets){
  const radius=-n,points=pointsOnBoard(radius);
  const lookup=new Map(points.map(({q,r},i)=>[pointKey(q,r),i]));
