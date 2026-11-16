@@ -1,0 +1,132 @@
+name: Confirm strongest 24-game 9x9 RL milestone on entirely new seeds
+on:
+  push:
+    branches: [experiment/square-rl-and-19-20261116]
+    paths: [.github/workflows/square-rl-confirm9.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: square-rl-confirm9-20261116
+  cancel-in-progress: false
+jobs:
+  confirm:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - bridge: balanced
+            opponents: balanced,tactical
+            seed: '20280416'
+          - bridge: guarded
+            opponents: guarded,baseline
+            seed: '20280417'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Construct already-screened candidates, no retraining on confirmation data
+        run: |
+          mkdir -p reports/square-rl-confirm9
+          cat >reports/square-rl-confirm9/manifest.json <<'EOF'
+          [
+            {"id":"candidate","type":"comparison","path":"experiments/square-rl-milestones/9-iter8.json"},
+            {"id":"source","type":"comparison","path":"experiments/square-strength-stage2/gnn64-staged.json"},
+            {"id":"linear","type":"linear"},
+            {"id":"final","type":"comparison","path":"experiments/square-rl-milestones/9-iter12.json"}
+          ]
+          EOF
+      - name: 30 independently seeded fixed-opponent games per GNN and linear baseline
+        env:
+          SEED: ${{ matrix.seed }}
+          OPPONENTS: ${{ matrix.opponents }}
+        run: |
+          node scripts/evaluate-square-strength.mjs \
+            --manifest reports/square-rl-confirm9/manifest.json \
+            --games9 30 --games13 0 --games19 0 \
+            --seed "$SEED" --policy-mode greedy --opponents "$OPPONENTS" \
+            --out "reports/square-rl-confirm9/eval-$SEED.json"
+      - name: Thirty all-seat real 3-player direct matches against incumbent and linear CPU
+        env:
+          SEED: ${{ matrix.seed }}
+          BRIDGE: ${{ matrix.bridge }}
+        run: |
+          for OTHER in source linear; do
+            node scripts/headtohead-square.mjs \
+              --manifest reports/square-rl-confirm9/manifest.json \
+              --pair "candidate,$OTHER" --bridge "$BRIDGE" --mode greedy \
+              --games9 30 --games13 0 --games19 0 --seed "$SEED" \
+              --out "reports/square-rl-confirm9/h2h-$OTHER-$SEED.json"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-confirm9-${{ matrix.bridge }}-20261116
+          path: reports/square-rl-confirm9/
+          retention-days: 90
+  summarize:
+    needs: confirm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: true}
+      - uses: actions/download-artifact@v4
+        with: {pattern: 'square-confirm9-*-20261116',path: confirmed/}
+      - name: Aggregate untouched confirmation seed metrics without double counting
+        run: |
+          mkdir -p experiments/square-rl-confirm9 docs
+          python3 - <<'PY'
+          import json,shutil,os
+          from pathlib import Path
+          rows=['# 9×9 RL checkpoint-8 independent confirmation','',
+            'The 24-game checkpoint was selected as a screening candidate using seed 20280316 / 20280317. Confirmation below uses **new seeds 20280416 and 20280417**, stronger/different heuristic opponents, full 3-color finished games, and all six seats.','',
+            '| Opponents | Candidate win | Source win | Linear win | Candidate vs source rank rate | Candidate vs linear rank rate | Natural terminal count |',
+            '|---|---:|---:|---:|---:|---:|---:|']
+          data={}
+          for bridge,seed in [('balanced',20280416),('guarded',20280417)]:
+            folder=Path('confirmed')/f'square-confirm9-{bridge}-20261116'
+            ev=json.loads((folder/f'eval-{seed}.json').read_text())
+            by={r['id']:r for r in ev['results']}
+            assert set(by)=={'candidate','source','linear','final'}
+            for r in by.values():assert r['games']==30 and r['radius']==-9 and r['seed']==seed
+            direct={}
+            for other in ['source','linear']:
+              h=json.loads((folder/f'h2h-{other}-{seed}.json').read_text())
+              assert h['seed']==seed and h['labels']=={'a':'candidate','b':other,'bridge':bridge}
+              direct[other]=h['reports'][0]
+              assert direct[other]['games']==30
+            def pct(x):return 'n/a' if x is None else f'{x:.1%}'
+            rows.append(f"| {bridge} + {ev['opponents']} | {pct(by['candidate']['winShare'])} | {pct(by['source']['winShare'])} | {pct(by['linear']['winShare'])} | {pct(direct['source']['aOutranksB'])} | {pct(direct['linear']['aOutranksB'])} | {direct['source']['finished']+direct['linear']['finished']}/60 |")
+            for path in [folder/f'eval-{seed}.json',folder/f'h2h-source-{seed}.json',folder/f'h2h-linear-{seed}.json']:
+              shutil.copy(path,Path('experiments/square-rl-confirm9')/path.name)
+            data[bridge]={'seed':seed,'candidateWin':by['candidate']['winShare'],
+              'sourceWin':by['source']['winShare'],
+              'linearWin':by['linear']['winShare'],
+              'vsSourceOutrank':direct['source']['aOutranksB'],
+              'vsLinearOutrank':direct['linear']['aOutranksB'],
+              'candidateEarlyPasses':by['candidate']['earlyPasses']}
+          safe=all(
+            x['candidateWin'] is not None and x['sourceWin'] is not None and
+            x['candidateWin']>=x['sourceWin'] and
+            x['vsSourceOutrank'] is not None and x['vsSourceOutrank']>.55 and
+            x['vsLinearOutrank'] is not None and x['vsLinearOutrank']>.5 and
+            x['candidateEarlyPasses']==0 for x in data.values())
+          decision='eligible for guarded experimental comparison' if safe else 'not promoted: inconsistent or insufficient confirmed improvement'
+          rows+=['',f'Decision: **{decision}**.','',
+            'This remains exploratory, not an assertion of statistical superiority. A confirmed model must still pass main CI and real mobile testing before replacing the current shipped GNN.']
+          report='\n'.join(rows)
+          Path('docs/square-rl-confirm9.md').write_text(report)
+          (Path('experiments/square-rl-confirm9')/'manifest.json').write_text(json.dumps({'fixtures':data,'decision':decision},indent=2)+'\n')
+          print(report)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
+          PY
+      - name: Save confirmation evidence, never silently overwrite the published CPU
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/square-rl-confirm9 docs/square-rl-confirm9.md
+          git commit -m "Record independent 9x9 checkpoint-8 RL confirmation against old GNN and linear CPU"
+          git pull --rebase origin experiment/square-rl-and-19-20261116
+          git push origin HEAD:experiment/square-rl-and-19-20261116
