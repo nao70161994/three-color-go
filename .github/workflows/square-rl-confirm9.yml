@@ -1,11 +1,8 @@
 name: Confirm strongest 24-game 9x9 RL milestone on entirely new seeds
 on:
-  push:
-    branches: [experiment/square-rl-and-19-20261116]
-    paths: [.github/workflows/square-rl-confirm9.yml]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: square-rl-confirm9-20261116
   cancel-in-progress: false
@@ -70,7 +67,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: {persist-credentials: true}
       - uses: actions/download-artifact@v4
         with: {pattern: 'square-confirm9-*-20261116',path: confirmed/}
       - name: Aggregate untouched confirmation seed metrics without double counting
@@ -121,12 +117,10 @@ jobs:
           print(report)
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
           PY
-      - name: Save confirmation evidence, never silently overwrite the published CPU
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add experiments/square-rl-confirm9 docs/square-rl-confirm9.md
-          git commit -m "Record independent 9x9 checkpoint-8 RL confirmation against old GNN and linear CPU"
-          git pull --rebase origin experiment/square-rl-and-19-20261116
-          git push origin HEAD:experiment/square-rl-and-19-20261116
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-rl-confirm9-report-manual
+          path: |
+            experiments/square-rl-confirm9/
+            docs/square-rl-confirm9.md
+          retention-days: 90
