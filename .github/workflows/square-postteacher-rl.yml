@@ -1,11 +1,8 @@
 name: Post-teacher mixed-league square GNN64 RL experiment
 on:
-  push:
-    branches: [experiment/square-rl-and-19-20261116]
-    paths: [.github/workflows/square-postteacher-rl.yml]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: square-postteacher-rl-20261116
   cancel-in-progress: false
@@ -91,7 +88,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: {persist-credentials: true}
       - uses: actions/download-artifact@v4
         with: {pattern: 'square-league-*-20261116',path: 'candidate/'}
       - name: Archive actual trained checkpoints, unbiased evaluation and adoption decision
@@ -143,12 +139,10 @@ jobs:
           print(report)
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
           PY
-      - name: Record verified experiment only, not published weights
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add experiments/square-postteacher-rl docs/square-postteacher-rl.md
-          git commit -m "Archive real post-teacher mixed-league RL and independent strength evaluation"
-          git pull --rebase origin experiment/square-rl-and-19-20261116
-          git push origin HEAD:experiment/square-rl-and-19-20261116
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-league-report-manual
+          path: |
+            experiments/square-postteacher-rl/
+            docs/square-postteacher-rl.md
+          retention-days: 90
