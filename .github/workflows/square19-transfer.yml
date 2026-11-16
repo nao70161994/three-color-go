@@ -1,0 +1,132 @@
+name: Square 19x19 curriculum transfer and independent playing-strength trial
+on:
+  push:
+    branches: [experiment/square-rl-and-19-20261116]
+    paths: [.github/workflows/square19-transfer.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: square19-transfer-20261116
+  cancel-in-progress: false
+jobs:
+  train-evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 200
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: true}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Generate genuine square 19x19 teacher matches, separate training and validation seeds
+        run: |
+          set -euo pipefail
+          mkdir -p reports/square19
+          node scripts/collect-square-teacher.mjs \
+            --train9 0 --valid9 0 --train13 0 --valid13 0 \
+            --train19 3 --valid19 1 --seed 20261116 --stride 4 \
+            --out reports/square19/teacher.jsonl
+      - name: CPU-only learner dependencies
+        run: |
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Transfer GNN64 from 13x13 teacher model to 19x19 training positions
+        run: |
+          set -euo pipefail
+          python scripts/train-square-teacher.py \
+            --kind gnn64 \
+            --init experiments/square-strength-stage2/gnn64-direct.json \
+            --data reports/square19/teacher.jsonl \
+            --out reports/square19/model.json \
+            --epochs 18 --batch-size 12 --lr 0.0008 --seed 20261116 \
+            | tee reports/square19/training.jsonl
+      - name: Full PyTorch/JS parity including 19x19
+        run: python scripts/check-architecture-parity.py reports/square19/model.json
+      - name: Three independent CPU baselines with 19x19 actual terminal wins
+        run: |
+          cat >reports/square19/manifest.json <<'EOF'
+          [
+            {"id":"candidate","type":"comparison","path":"reports/square19/model.json"},
+            {"id":"source","type":"comparison","path":"experiments/square-strength-stage2/gnn64-direct.json"},
+            {"id":"linear","type":"linear"}
+          ]
+          EOF
+          node scripts/evaluate-square-strength.mjs \
+            --manifest reports/square19/manifest.json \
+            --games9 0 --games13 0 --games19 6 \
+            --policy-mode greedy --seed 20280216 \
+            --opponents balanced,tactical \
+            --out reports/square19/heldout.json
+      - name: Same-board 6-seat candidate versus pretransfer source and linear CPU
+        run: |
+          node scripts/headtohead-square.mjs \
+            --manifest reports/square19/manifest.json \
+            --pair candidate,source --bridge balanced --mode greedy \
+            --games9 0 --games13 0 --games19 6 --seed 20280217 \
+            --out reports/square19/h2h-source.json
+          node scripts/headtohead-square.mjs \
+            --manifest reports/square19/manifest.json \
+            --pair candidate,linear --bridge tactical --mode greedy \
+            --games9 0 --games13 0 --games19 6 --seed 20280218 \
+            --out reports/square19/h2h-linear.json
+      - name: Archive real 19x19 model and disclose strength limitations
+        run: |
+          mkdir -p experiments/square19-transfer docs
+          python3 - <<'PY'
+          import json,shutil,hashlib,os
+          from pathlib import Path
+          out=Path('experiments/square19-transfer');root=Path('reports/square19')
+          raw=(root/'model.json').read_bytes();m=json.loads(raw)
+          if m['metadata']['teacherTrainingRadii']!=[-19] or -19 not in m['metadata']['radii']:
+            raise ValueError('19x19 training radius is missing')
+          if m['metadata']['teacherTrainingSamples']<30 or m['metadata']['teacherValidationSamples']<10:
+            raise ValueError('Insufficient genuine teacher samples')
+          e=json.loads((root/'heldout.json').read_text())
+          rows={r['id']:r for r in e['results'] if r['radius']==-19}
+          assert set(rows)=={'candidate','source','linear'}
+          a=json.loads((root/'h2h-source.json').read_text())['reports'][0]
+          b=json.loads((root/'h2h-linear.json').read_text())['reports'][0]
+          def pc(x):return 'n/a' if x is None else f'{x:.1%}'
+          lines=['# 19×19 square GNN64 transfer experiment','',
+            'Start from real 512 self-play + 44 teacher-game 13×13 GNN64. Fine-tune with 3 independently seeded 19×19 teacher games; hold out an additional 19×19 teacher game. Evaluate with fresh seeds and 6 rotated seats. **19×19 real-device inference and statistically reliable strength are not established.**','',
+            '| Model | Completed games | Win share | Observed stone share | Early passes | JS inference mean per move |',
+            '|---|---:|---:|---:|---:|---:|']
+          for key,r in rows.items():
+            lines.append(f"| {key} | {r['finished']}/{r['games']} | {pc(r['winShare'])} | {pc(r['meanStoneShare'])} | {r['earlyPasses']} | {r['meanDecisionMs']:.1f} ms |")
+          lines+=['',f"Direct outrank vs pretransfer model: {pc(a['aOutranksB'])} ({a['finished']}/{a['games']} naturally finished).",
+            f"Direct outrank vs linear learned CPU: {pc(b['aOutranksB'])} ({b['finished']}/{b['games']} naturally finished)."]
+          # Small sample: keep as an experiment, not publish it as a default CPU.
+          decision='experiment only; no production promotion without larger independent benchmarks and phone latency'
+          lines+=['',f"Decision: **{decision}**",'']
+          report='\n'.join(lines)
+          (out/'model.json').write_bytes(raw)
+          for path in ['model.report.json','training.jsonl','teacher.jsonl.meta.json','heldout.json','h2h-source.json','h2h-linear.json']:
+            shutil.copy(root/path,out/path)
+          (out/'manifest.json').write_text(json.dumps({'sha256':hashlib.sha256(raw).hexdigest(),
+            'source':'experiments/square-strength-stage2/gnn64-direct.json',
+            'teacherGames':m['metadata']['teacherGames'],
+            'teacherTrainingPositions':m['metadata']['teacherTrainingSamples'],
+            'teacherHeldoutPositions':m['metadata']['teacherValidationSamples'],
+            'evaluationSeeds':[20280216,20280217,20280218],
+            'decision':decision},indent=2)+'\n')
+          Path('docs/square19-transfer.md').write_text(report)
+          print(report)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: square19-transfer-20261116
+          path: reports/square19/
+          retention-days: 90
+      - name: Commit authentic 19x19 transfer experiment without enabling unvalidated CPU
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/square19-transfer docs/square19-transfer.md
+          git commit -m "Archive 19x19 GNN64 transfer learning and independent results"
+          git pull --rebase origin experiment/square-rl-and-19-20261116
+          git push origin HEAD:experiment/square-rl-and-19-20261116
