@@ -1,0 +1,13 @@
+{"iteration": 1, "games": 3, "finished": 3, "samples": 148, "candidateStoneShare": 0.4433, "candidateWinShare": 0.6667, "earlyPasses": 0, "actor": 0.167387, "critic": 1.274613, "kl": 0.001464, "entropy": 2.251579}
+{"iteration": 2, "games": 6, "finished": 6, "samples": 136, "candidateStoneShare": 0.0833, "candidateWinShare": 0.0, "earlyPasses": 0, "actor": -0.605459, "critic": 0.841571, "kl": 0.006285, "entropy": 2.232189}
+{"iteration": 3, "games": 9, "finished": 9, "samples": 136, "candidateStoneShare": 0.2349, "candidateWinShare": 0.3333, "earlyPasses": 0, "actor": -0.139553, "critic": 0.481984, "kl": 0.012195, "entropy": 2.322037}
+{"iteration": 4, "games": 12, "finished": 12, "samples": 148, "candidateStoneShare": 0.188, "candidateWinShare": 0.3333, "earlyPasses": 0, "actor": -0.161612, "critic": 0.465722, "kl": 0.02559, "entropy": 2.290514}
+{"iteration": 5, "games": 15, "finished": 15, "samples": 133, "candidateStoneShare": 0.2752, "candidateWinShare": 0.3333, "earlyPasses": 0, "actor": -0.168612, "critic": 0.143122, "kl": 0.025744, "entropy": 2.171584}
+{"iteration": 6, "games": 18, "finished": 18, "samples": 145, "candidateStoneShare": 0.2978, "candidateWinShare": 0.3333, "earlyPasses": 0, "actor": -0.340347, "critic": 0.140287, "kl": 0.049299, "entropy": 2.106312}
+{"iteration": 7, "games": 21, "finished": 21, "samples": 151, "candidateStoneShare": 0.1295, "candidateWinShare": 0.0, "earlyPasses": 0, "actor": -0.492859, "critic": 0.142377, "kl": 0.044162, "entropy": 2.022414}
+{"iteration": 8, "games": 24, "finished": 24, "samples": 139, "candidateStoneShare": 0.1302, "candidateWinShare": 0.0, "earlyPasses": 0, "actor": -0.497287, "critic": 0.115327, "kl": 0.051331, "entropy": 2.196279}
+{"iteration": 9, "games": 27, "finished": 27, "samples": 122, "candidateStoneShare": 0.1833, "candidateWinShare": 0.0, "earlyPasses": 0, "actor": -0.469232, "critic": 0.091271, "kl": 0.042138, "entropy": 2.34589}
+{"iteration": 10, "games": 30, "finished": 30, "samples": 140, "candidateStoneShare": 0.0519, "candidateWinShare": 0.0, "earlyPasses": 0, "actor": -0.364838, "critic": 0.13511, "kl": 0.037618, "entropy": 2.114147}
+{"iteration": 11, "games": 33, "finished": 33, "samples": 123, "candidateStoneShare": 0.1266, "candidateWinShare": 0.0, "earlyPasses": 0, "actor": -0.425009, "critic": 0.090929, "kl": 0.036998, "entropy": 2.387376}
+{"iteration": 12, "games": 36, "finished": 36, "samples": 158, "candidateStoneShare": 0.3561, "candidateWinShare": 0.3333, "earlyPasses": 0, "actor": 0.134821, "critic": 0.120217, "kl": 0.028906, "entropy": 2.050839}
+LEAGUE {"out": "reports/square-postteacher-rl/13/model.json", "games": 36, "finished": 36, "sampledPositions": 1679}
