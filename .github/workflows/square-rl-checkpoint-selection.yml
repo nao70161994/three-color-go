@@ -1,12 +1,9 @@
 name: Evaluate all 4/8/12-iteration square RL checkpoints on fresh seeds
 on:
-  push:
-    branches: [experiment/square-rl-and-19-20261116]
-    paths: [.github/workflows/square-rl-checkpoint-selection.yml]
   workflow_dispatch:
 permissions:
   actions: read
-  contents: write
+  contents: read
 concurrency:
   group: square-rl-milestone-selection-20261116
   cancel-in-progress: false
@@ -26,12 +23,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
-      - uses: actions/download-artifact@v4
-        with:
-          name: square-league-${{ matrix.board }}-20261116
-          run-id: 43793749294
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: checkpoints/
+      - name: Restore permanent checkpoints from source-controlled experiment archive
+        env:
+          BOARD: ${{ matrix.board }}
+        run: |
+          mkdir -p checkpoints
+          for NUM in 4 8 12; do
+            printf -v PAD '%04d' "$NUM"
+            cp "experiments/square-rl-milestones/$BOARD-iter$NUM.json" "checkpoints/model-iter$PAD.json"
+          done
       - name: Verify 4, 8 and 12 iteration model snapshots are present
         env:
           BOARD: ${{ matrix.board }}
@@ -84,7 +84,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: {persist-credentials: true}
       - uses: actions/download-artifact@v4
         with: {pattern: 'square-rl-milestone-*-20261116',path: milestone/}
       - name: Summarize and save observed improvement without test overfitting claims
@@ -129,12 +128,10 @@ jobs:
           print(report)
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
           PY
-      - name: Archive intermediate checkpoints, not active CPU weights
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add experiments/square-rl-milestones docs/square-rl-milestones.md
-          git commit -m "Evaluate every RL milestone on independent 3p 6-seat fixtures"
-          git pull --rebase origin experiment/square-rl-and-19-20261116
-          git push origin HEAD:experiment/square-rl-and-19-20261116
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-rl-milestone-report-manual
+          path: |
+            experiments/square-rl-milestones/
+            docs/square-rl-milestones.md
+          retention-days: 90
