@@ -1,6 +1,6 @@
 {
   "name": "three-color-go",
-  "version": "1.9.4",
+  "version": "1.9.5",
   "private": true,
   "type": "module",
   "description": "三色囲碁：六角盤と四角盤の石数得点方式",
