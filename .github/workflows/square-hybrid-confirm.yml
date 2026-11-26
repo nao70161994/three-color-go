@@ -1,11 +1,8 @@
 name: Confirm square hybrid GNN64 tactical improvement on unseen seeds
 on:
-  push:
-    branches: [experiment/square-hybrid-tactical-20261127]
-    paths: [.github/workflows/square-hybrid-confirm.yml]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: square-hybrid-confirm-20261127
   cancel-in-progress: false
@@ -48,7 +45,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: {persist-credentials: true}
       - uses: actions/download-artifact@v4
         with:
           pattern: 'square-hybrid-confirm-*'
@@ -109,12 +105,10 @@ jobs:
           print(report)
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
           PY
-      - name: Commit independent test evidence; never alter production CPU automatically
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add experiments/square-hybrid-confirm docs/square-hybrid-confirm.md
-          git commit -m "Record true independent 9/13 hybrid confirmation against GNN and learned linear CPU"
-          git pull --rebase origin experiment/square-hybrid-tactical-20261127
-          git push origin HEAD:experiment/square-hybrid-tactical-20261127
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-hybrid-confirm-verified
+          path: |
+            experiments/square-hybrid-confirm/
+            docs/square-hybrid-confirm.md
+          retention-days: 90
