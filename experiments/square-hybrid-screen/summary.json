@@ -1,0 +1,123 @@
+{
+  "seed": 20261127,
+  "boards": {
+    "neural-guard": {
+      "balanced": {
+        "9": {
+          "outrank": 0.5,
+          "wins": 0.25,
+          "oldWins": 0.16666666666666666,
+          "finish": 18,
+          "earlyPass": 0,
+          "meanMs": 6.42063800092005
+        },
+        "13": {
+          "outrank": 0.5833333333333334,
+          "wins": 0.08333333333333333,
+          "oldWins": 0.16666666666666666,
+          "finish": 12,
+          "earlyPass": 0,
+          "meanMs": 12.720760942397478
+        }
+      },
+      "guarded": {
+        "9": {
+          "outrank": 0.5,
+          "wins": 0.19444444444444445,
+          "oldWins": 0,
+          "finish": 18,
+          "earlyPass": 0,
+          "meanMs": 3.0289499440326875
+        },
+        "13": {
+          "outrank": 0.6666666666666666,
+          "wins": 0.16666666666666666,
+          "oldWins": 0.16666666666666666,
+          "finish": 12,
+          "earlyPass": 0,
+          "meanMs": 6.8503898702395505
+        }
+      }
+    },
+    "teacher-blend": {
+      "balanced": {
+        "9": {
+          "outrank": 0.5555555555555556,
+          "wins": 0.3888888888888889,
+          "oldWins": 0.1111111111111111,
+          "finish": 18,
+          "earlyPass": 0,
+          "meanMs": 7.589152300307636
+        },
+        "13": {
+          "outrank": 0.4166666666666667,
+          "wins": 0.4166666666666667,
+          "oldWins": 0,
+          "finish": 12,
+          "earlyPass": 0,
+          "meanMs": 16.952967465224333
+        }
+      },
+      "guarded": {
+        "9": {
+          "outrank": 0.5,
+          "wins": 0.2777777777777778,
+          "oldWins": 0.08333333333333333,
+          "finish": 18,
+          "earlyPass": 0,
+          "meanMs": 4.252832179372736
+        },
+        "13": {
+          "outrank": 0.3333333333333333,
+          "wins": 0.25,
+          "oldWins": 0.25,
+          "finish": 12,
+          "earlyPass": 0,
+          "meanMs": 11.286763584216835
+        }
+      }
+    },
+    "teacher-guard": {
+      "balanced": {
+        "9": {
+          "outrank": 0.7222222222222222,
+          "wins": 0.5555555555555556,
+          "oldWins": 0.027777777777777776,
+          "finish": 18,
+          "earlyPass": 0,
+          "meanMs": 3.7276866683132965
+        },
+        "13": {
+          "outrank": 0.5833333333333334,
+          "wins": 0.3333333333333333,
+          "oldWins": 0.16666666666666666,
+          "finish": 12,
+          "earlyPass": 0,
+          "meanMs": 8.895624952718403
+        }
+      },
+      "guarded": {
+        "9": {
+          "outrank": 0.6666666666666666,
+          "wins": 0.3888888888888889,
+          "oldWins": 0.1388888888888889,
+          "finish": 18,
+          "earlyPass": 0,
+          "meanMs": 5.073096938227479
+        },
+        "13": {
+          "outrank": 0.6666666666666666,
+          "wins": 0.5,
+          "oldWins": 0.16666666666666666,
+          "finish": 12,
+          "earlyPass": 0,
+          "meanMs": 12.450277413685184
+        }
+      }
+    }
+  },
+  "selection": {
+    "9": "teacher-guard",
+    "13": "teacher-guard"
+  }
+}

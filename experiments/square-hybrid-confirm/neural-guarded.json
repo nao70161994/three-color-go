@@ -1,0 +1,1131 @@
+{
+  "schema": 1,
+  "method": "3p-six-seat-direct",
+  "seed": 20271228,
+  "results": [
+    {
+      "size": 9,
+      "seed": 20271228,
+      "a": "teacher-guard",
+      "b": "neural",
+      "third": "guarded",
+      "totalGames": 36,
+      "finished": 35,
+      "truncated": 1,
+      "winShareA": 0.4142857142857143,
+      "winShareB": 0.14285714285714285,
+      "winShareThird": 0.44285714285714284,
+      "rankAboveB": 0.6857142857142857,
+      "observedStoneA": 0.3578686991196384,
+      "observedStoneB": 0.22966424109237066,
+      "earlyPassA": 0,
+      "earlyPassB": 0,
+      "meanDecisionMsA": 6.593847125225107,
+      "meanDecisionMsB": 4.562652824845462,
+      "records": [
+        {
+          "gameSeed": 21171255,
+          "players": [
+            "teacher-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 141,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.56,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 8.52312578723404,
+          "meanMsB": 5.085919595744682
+        },
+        {
+          "gameSeed": 21171255,
+          "players": [
+            "teacher-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 229,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 1,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 7.402825883116873,
+          "meanMsB": 4.100493618421041
+        },
+        {
+          "gameSeed": 21171255,
+          "players": [
+            "neural",
+            "teacher-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 123,
+          "winA": 0,
+          "winB": 1,
+          "winThird": 0,
+          "stoneA": 0,
+          "stoneB": 0.5066666666666667,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 5.422758195121975,
+          "meanMsB": 3.811580878048805
+        },
+        {
+          "gameSeed": 21171255,
+          "players": [
+            "neural",
+            "guarded",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 99,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.40540540540540543,
+          "stoneB": 0.16216216216216217,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 5.6109154545454825,
+          "meanMsB": 3.7585206060606047
+        },
+        {
+          "gameSeed": 21171255,
+          "players": [
+            "guarded",
+            "teacher-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 107,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.4583333333333333,
+          "stoneB": 0.2916666666666667,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 5.350855722222225,
+          "meanMsB": 3.673461942857154
+        },
+        {
+          "gameSeed": 21171255,
+          "players": [
+            "guarded",
+            "neural",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 99,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.20270270270270271,
+          "stoneB": 0.3783783783783784,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.073504848484845,
+          "meanMsB": 4.1921386363636
+        },
+        {
+          "gameSeed": 21179174,
+          "players": [
+            "teacher-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 151,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.527027027027027,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.8938135882353,
+          "meanMsB": 4.708967219999995
+        },
+        {
+          "gameSeed": 21179174,
+          "players": [
+            "teacher-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 155,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.4864864864864865,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.4083813076922,
+          "meanMsB": 4.598957098039297
+        },
+        {
+          "gameSeed": 21179174,
+          "players": [
+            "neural",
+            "teacher-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 130,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.4931506849315068,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.516371744186028,
+          "meanMsB": 4.667275113636337
+        },
+        {
+          "gameSeed": 21179174,
+          "players": [
+            "neural",
+            "guarded",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 131,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.5405405405405406,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.540741999999925,
+          "meanMsB": 4.627628227272722
+        },
+        {
+          "gameSeed": 21179174,
+          "players": [
+            "guarded",
+            "teacher-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 139,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.42105263157894735,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.834668630434764,
+          "meanMsB": 4.797451065217442
+        },
+        {
+          "gameSeed": 21179174,
+          "players": [
+            "guarded",
+            "neural",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 118,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.4657534246575342,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.634291666666589,
+          "meanMsB": 4.772077641025648
+        },
+        {
+          "gameSeed": 21187093,
+          "players": [
+            "teacher-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 145,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.589041095890411,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.544836775510146,
+          "meanMsB": 4.64625329166671
+        },
+        {
+          "gameSeed": 21187093,
+          "players": [
+            "teacher-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 115,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.5211267605633803,
+          "stoneB": 0.4788732394366197,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.63136474358975,
+          "meanMsB": 4.5255731052631845
+        },
+        {
+          "gameSeed": 21187093,
+          "players": [
+            "neural",
+            "teacher-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 123,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.4794520547945205,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.255356731707319,
+          "meanMsB": 4.658929292683042
+        },
+        {
+          "gameSeed": 21187093,
+          "players": [
+            "neural",
+            "guarded",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 149,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.4444444444444444,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.4790361224489486,
+          "meanMsB": 4.698548720000072
+        },
+        {
+          "gameSeed": 21187093,
+          "players": [
+            "guarded",
+            "teacher-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 163,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.35135135135135137,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.673230944444421,
+          "meanMsB": 4.641716185185201
+        },
+        {
+          "gameSeed": 21187093,
+          "players": [
+            "guarded",
+            "neural",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 136,
+          "winA": 0,
+          "winB": 1,
+          "winThird": 0,
+          "stoneA": 0,
+          "stoneB": 0.5342465753424658,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.311419555555444,
+          "meanMsB": 4.5848667555555345
+        },
+        {
+          "gameSeed": 21195012,
+          "players": [
+            "teacher-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 147,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.5466666666666666,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.6616194081632,
+          "meanMsB": 4.670350959183433
+        },
+        {
+          "gameSeed": 21195012,
+          "players": [
+            "teacher-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 156,
+          "winA": 0,
+          "winB": 1,
+          "winThird": 0,
+          "stoneA": 0,
+          "stoneB": 0.589041095890411,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.568684769230843,
+          "meanMsB": 4.718763134615424
+        },
+        {
+          "gameSeed": 21195012,
+          "players": [
+            "neural",
+            "teacher-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 134,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.5342465753424658,
+          "stoneB": 0.4657534246575342,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.700481777777734,
+          "meanMsB": 4.640697422222365
+        },
+        {
+          "gameSeed": 21195012,
+          "players": [
+            "neural",
+            "guarded",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 96,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.4,
+          "stoneB": 0.30666666666666664,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.184128343750388,
+          "meanMsB": 4.515217687500012
+        },
+        {
+          "gameSeed": 21195012,
+          "players": [
+            "guarded",
+            "teacher-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 154,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.2857142857142857,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.8476637843138155,
+          "meanMsB": 4.698372078431502
+        },
+        {
+          "gameSeed": 21195012,
+          "players": [
+            "guarded",
+            "neural",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 140,
+          "winA": 0,
+          "winB": 1,
+          "winThird": 0,
+          "stoneA": 0,
+          "stoneB": 0.625,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.309158739130472,
+          "meanMsB": 4.6020011914892205
+        },
+        {
+          "gameSeed": 21202931,
+          "players": [
+            "teacher-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 129,
+          "winA": 0.5,
+          "winB": 0,
+          "winThird": 0.5,
+          "stoneA": 0.5,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.699804023255765,
+          "meanMsB": 4.646730767441874
+        },
+        {
+          "gameSeed": 21202931,
+          "players": [
+            "teacher-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": false,
+          "turns": 246,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.22535211267605634,
+          "stoneB": 0.056338028169014086,
+          "aboveB": null,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 7.162151475609767,
+          "meanMsB": 4.904572707317018
+        },
+        {
+          "gameSeed": 21202931,
+          "players": [
+            "neural",
+            "teacher-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 144,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.41333333333333333,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.679776708333217,
+          "meanMsB": 4.612206916666689
+        },
+        {
+          "gameSeed": 21202931,
+          "players": [
+            "neural",
+            "guarded",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 122,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.16666666666666666,
+          "stoneB": 0.3194444444444444,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.456511825000052,
+          "meanMsB": 4.5902030731709464
+        },
+        {
+          "gameSeed": 21202931,
+          "players": [
+            "guarded",
+            "teacher-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 203,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.9041095890410958,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 7.8057775735295065,
+          "meanMsB": 4.738844044776303
+        },
+        {
+          "gameSeed": 21202931,
+          "players": [
+            "guarded",
+            "neural",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 225,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.3972602739726027,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.892249746666736,
+          "meanMsB": 4.805747106666629
+        },
+        {
+          "gameSeed": 21210850,
+          "players": [
+            "teacher-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 163,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.7297297297297297,
+          "stoneB": 0.2702702702702703,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 7.0319329999999765,
+          "meanMsB": 4.6768622037034895
+        },
+        {
+          "gameSeed": 21210850,
+          "players": [
+            "teacher-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 134,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.38666666666666666,
+          "stoneB": 0.24,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.180416999999822,
+          "meanMsB": 4.56647461363677
+        },
+        {
+          "gameSeed": 21210850,
+          "players": [
+            "neural",
+            "teacher-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 132,
+          "winA": 0,
+          "winB": 1,
+          "winThird": 0,
+          "stoneA": 0,
+          "stoneB": 0.5492957746478874,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.473498022726992,
+          "meanMsB": 4.576023431818612
+        },
+        {
+          "gameSeed": 21210850,
+          "players": [
+            "neural",
+            "guarded",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 119,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.49333333333333335,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.612582846154114,
+          "meanMsB": 4.630813975000274
+        },
+        {
+          "gameSeed": 21210850,
+          "players": [
+            "guarded",
+            "teacher-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 147,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.5263157894736842,
+          "stoneB": 0.3815789473684211,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.553586448979257,
+          "meanMsB": 4.5525772448978685
+        },
+        {
+          "gameSeed": 21210850,
+          "players": [
+            "guarded",
+            "neural",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 106,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.3108108108108108,
+          "stoneB": 0.22972972972972974,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.450971314285874,
+          "meanMsB": 4.558684142857133
+        }
+      ]
+    },
+    {
+      "size": 13,
+      "seed": 20271228,
+      "a": "teacher-guard",
+      "b": "neural",
+      "third": "guarded",
+      "totalGames": 18,
+      "finished": 18,
+      "truncated": 0,
+      "winShareA": 0.1111111111111111,
+      "winShareB": 0.16666666666666666,
+      "winShareThird": 0.7222222222222222,
+      "rankAboveB": 0.4444444444444444,
+      "observedStoneA": 0.24704081258185986,
+      "observedStoneB": 0.27583166450719354,
+      "earlyPassA": 0,
+      "earlyPassB": 0,
+      "meanDecisionMsA": 15.81073944208078,
+      "meanDecisionMsB": 10.896435286963925,
+      "records": [
+        {
+          "gameSeed": 21571267,
+          "players": [
+            "teacher-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 339,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.33548387096774196,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 15.706918194690319,
+          "meanMsB": 10.921175743362738
+        },
+        {
+          "gameSeed": 21571267,
+          "players": [
+            "teacher-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 263,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.4868421052631579,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 15.782842465909487,
+          "meanMsB": 11.32243244827598
+        },
+        {
+          "gameSeed": 21571267,
+          "players": [
+            "neural",
+            "teacher-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 353,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.743421052631579,
+          "stoneB": 0.2565789473684211,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 16.741835559321956,
+          "meanMsB": 10.960367898305407
+        },
+        {
+          "gameSeed": 21571267,
+          "players": [
+            "neural",
+            "guarded",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 411,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.3419354838709677,
+          "stoneB": 0.0064516129032258064,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 16.58785448175177,
+          "meanMsB": 11.293665182481728
+        },
+        {
+          "gameSeed": 21571267,
+          "players": [
+            "guarded",
+            "teacher-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 305,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.2138364779874214,
+          "stoneB": 0.2389937106918239,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 15.456528205882575,
+          "meanMsB": 10.76400466336623
+        },
+        {
+          "gameSeed": 21571267,
+          "players": [
+            "guarded",
+            "neural",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 294,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.2064516129032258,
+          "stoneB": 0.22580645161290322,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 15.653841622449159,
+          "meanMsB": 10.795458816326722
+        },
+        {
+          "gameSeed": 21579186,
+          "players": [
+            "teacher-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 267,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.3522012578616352,
+          "stoneB": 0.3018867924528302,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 15.497649247191056,
+          "meanMsB": 10.622426089887352
+        },
+        {
+          "gameSeed": 21579186,
+          "players": [
+            "teacher-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 262,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.48344370860927155,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 16.53405801136358,
+          "meanMsB": 11.188957873562915
+        },
+        {
+          "gameSeed": 21579186,
+          "players": [
+            "neural",
+            "teacher-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 249,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.32051282051282054,
+          "stoneB": 0.21153846153846154,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 15.212068325300903,
+          "meanMsB": 10.524382867470084
+        },
+        {
+          "gameSeed": 21579186,
+          "players": [
+            "neural",
+            "guarded",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 281,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.32051282051282054,
+          "stoneB": 0.1282051282051282,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 15.766863655914118,
+          "meanMsB": 10.830043946807873
+        },
+        {
+          "gameSeed": 21579186,
+          "players": [
+            "guarded",
+            "teacher-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 223,
+          "winA": 0,
+          "winB": 1,
+          "winThird": 0,
+          "stoneA": 0.21019108280254778,
+          "stoneB": 0.4012738853503185,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 14.699812472972456,
+          "meanMsB": 10.466221283784122
+        },
+        {
+          "gameSeed": 21579186,
+          "players": [
+            "guarded",
+            "neural",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 305,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.4129032258064516,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 15.74205035643543,
+          "meanMsB": 10.865065411764983
+        },
+        {
+          "gameSeed": 21587105,
+          "players": [
+            "teacher-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 304,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.2564102564102564,
+          "stoneB": 0.25,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 15.11062625490191,
+          "meanMsB": 10.799666623762718
+        },
+        {
+          "gameSeed": 21587105,
+          "players": [
+            "teacher-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 341,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.4064516129032258,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 16.20678806140342,
+          "meanMsB": 10.749018070795904
+        },
+        {
+          "gameSeed": 21587105,
+          "players": [
+            "neural",
+            "teacher-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 327,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.34838709677419355,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 16.020480825687777,
+          "meanMsB": 11.13105214678911
+        },
+        {
+          "gameSeed": 21587105,
+          "players": [
+            "neural",
+            "guarded",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 302,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.21794871794871795,
+          "stoneB": 0.22435897435897437,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 15.24933996000007,
+          "meanMsB": 10.63120347524761
+        },
+        {
+          "gameSeed": 21587105,
+          "players": [
+            "guarded",
+            "teacher-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 381,
+          "winA": 0,
+          "winB": 1,
+          "winThird": 0,
+          "stoneA": 0.37341772151898733,
+          "stoneB": 0.6265822784810127,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 16.097441614172595,
+          "meanMsB": 10.869473456693047
+        },
+        {
+          "gameSeed": 21587105,
+          "players": [
+            "guarded",
+            "neural",
+            "teacher-guard"
+          ],
+          "finished": true,
+          "turns": 287,
+          "winA": 0,
+          "winB": 1,
+          "winThird": 0,
+          "stoneA": 0,
+          "stoneB": 0.5096774193548387,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 16.526310642105436,
+          "meanMsB": 11.401219166666124
+        }
+      ]
+    }
+  ]
+}

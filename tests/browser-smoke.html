@@ -30,7 +30,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function run(){
   const win=frame.contentWindow, doc=frame.contentDocument, game=win.threeColorGo;
   check(game && typeof game.getState==='function','AI操作用APIが存在');
-  check(game.version==='1.9.4','公開APIのバージョンがv1.9.4');
+  check(game.version==='1.9.5','公開APIのバージョンがv1.9.4');
   check(doc.querySelector('#boardSize').value==='4','初期サイズは半径4・61マス');
   check(doc.querySelector('#replayOpen').disabled,'棋譜が空なら再生ボタンは無効');
   check(doc.querySelector('#boardSize option[value="3"]').textContent.includes('小（37マス）'),'新しい小サイズは37マス');
@@ -86,6 +86,20 @@ async function run(){
     '保存データのCPU移行先が四角盤の学習CPU');
   check(game.getSquareDeepModelsInfo().length===3,'四角盤深層学習の履歴を公開');
   check(game.getSquareBoostModelInfo().length===2,'強化GNN64の盤面別学習記録を取得可能');
+  check(game.getSquareHybridModelInfo().board===9,
+    '戦術ハイブリッドGNN64の学習元と対応盤を公開');
+  check(game.reset({mode:'bots',radius:-9,cpuLevel:'square-gnn64-hybrid-v1'}).ok,
+    '四角9路の戦術ハイブリッドGNN64を観戦対局で選択');
+  check(game.pauseBots().ok && game.stepBot().ok,
+    '戦術ハイブリッドGNN64が合法手を着手');
+  check(game.getState().moveCount===1 &&
+    game.getCpuDecision()?.level==='square-gnn64-hybrid-v1',
+    '戦術ハイブリッドGNN64が対局ログに記録される');
+  check(game.reset({mode:'local',radius:-13,cpuLevel:'hard'}).ok,
+    '13路で戦術CPUの対応判定を確認');
+  check(!game.setCpuLevel('square-gnn64-hybrid-v1').ok &&
+    doc.querySelector('#cpuLevel option[value="square-gnn64-hybrid-v1"]').disabled,
+    '未確認の13路では9路専用ハイブリッドCPUを拒否する');
   check(game.getSquare19BetaModelInfo().sourceBoard===13,
     '19路βは13路学習済みの重みを転用した実験CPU');
   check(game.reset({mode:'bots',radius:-19,cpuLevel:'square-gnn64-19-beta'}).ok,
@@ -478,7 +492,7 @@ async function run(){
   check(standalone.reset({mode:'local',radius:2}).ok,'オフライン版を初期化');
   check(standalone.play(0,0).ok,'オフライン版で着手できる');
   check(standalone.getState().scores.black===1,'オフライン版で得点を表示');
-  check(standalone.version==='1.9.4','オフライン版がv1.9.4へ同期している');
+  check(standalone.version==='1.9.5','オフライン版がv1.9.4へ同期している');
   check(standalone.setCpuLevel('neural').ok,'単一HTML版でも学習済みCPUへ切り替え可能');
   check(standalone.setCpuLevel('trained-lr001-final').ok&&
     standalone.setCpuLevel('trained-lr001-peak').ok&&

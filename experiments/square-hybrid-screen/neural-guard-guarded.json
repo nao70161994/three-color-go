@@ -1,0 +1,651 @@
+{
+  "schema": 1,
+  "method": "3p-six-seat-direct",
+  "seed": 20261127,
+  "results": [
+    {
+      "size": 9,
+      "seed": 20261127,
+      "a": "neural-guard",
+      "b": "neural",
+      "third": "guarded",
+      "totalGames": 18,
+      "finished": 18,
+      "truncated": 0,
+      "winShareA": 0.19444444444444445,
+      "winShareB": 0,
+      "winShareThird": 0.8055555555555556,
+      "rankAboveB": 0.5,
+      "observedStoneA": 0.23467475064739812,
+      "observedStoneB": 0.19848284663626484,
+      "earlyPassA": 0,
+      "earlyPassB": 0,
+      "meanDecisionMsA": 3.0289499440326875,
+      "meanDecisionMsB": 2.443847856971221,
+      "records": [
+        {
+          "gameSeed": 21161154,
+          "players": [
+            "neural-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 172,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.0136986301369863,
+          "stoneB": 0.3835616438356164,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 3.9460158965517262,
+          "meanMsB": 3.314638438596497
+        },
+        {
+          "gameSeed": 21161154,
+          "players": [
+            "neural-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 145,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.4647887323943662,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 3.0543511224489808,
+          "meanMsB": 2.4719003333333354
+        },
+        {
+          "gameSeed": 21161154,
+          "players": [
+            "neural",
+            "neural-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 156,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.391304347826087,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 3.3827869615384714,
+          "meanMsB": 2.5294802115384565
+        },
+        {
+          "gameSeed": 21161154,
+          "players": [
+            "neural",
+            "guarded",
+            "neural-guard"
+          ],
+          "finished": true,
+          "turns": 140,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.4583333333333333,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 2.913375608695664,
+          "meanMsB": 2.3172563617021433
+        },
+        {
+          "gameSeed": 21161154,
+          "players": [
+            "guarded",
+            "neural-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 139,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.4594594594594595,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 2.8357585869565334,
+          "meanMsB": 2.2760246086956277
+        },
+        {
+          "gameSeed": 21161154,
+          "players": [
+            "guarded",
+            "neural",
+            "neural-guard"
+          ],
+          "finished": true,
+          "turns": 130,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.4583333333333333,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 2.640318837209306,
+          "meanMsB": 2.202330883720955
+        },
+        {
+          "gameSeed": 21169073,
+          "players": [
+            "neural-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 133,
+          "winA": 0.5,
+          "winB": 0,
+          "winThird": 0.5,
+          "stoneA": 0.5,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 2.9742951777777407,
+          "meanMsB": 2.373567931818198
+        },
+        {
+          "gameSeed": 21169073,
+          "players": [
+            "neural-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 121,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.5352112676056338,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 3.0623845365853413,
+          "meanMsB": 2.4304953999999954
+        },
+        {
+          "gameSeed": 21169073,
+          "players": [
+            "neural",
+            "neural-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 156,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.3380281690140845,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 2.938427192307682,
+          "meanMsB": 2.3037994423077284
+        },
+        {
+          "gameSeed": 21169073,
+          "players": [
+            "neural",
+            "guarded",
+            "neural-guard"
+          ],
+          "finished": true,
+          "turns": 115,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.4788732394366197,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 2.9898129736841383,
+          "meanMsB": 2.423373307692332
+        },
+        {
+          "gameSeed": 21169073,
+          "players": [
+            "guarded",
+            "neural-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 139,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.4666666666666667,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 2.6995137826086983,
+          "meanMsB": 2.2706019565217384
+        },
+        {
+          "gameSeed": 21169073,
+          "players": [
+            "guarded",
+            "neural",
+            "neural-guard"
+          ],
+          "finished": true,
+          "turns": 163,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.22857142857142856,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 2.7968393703703507,
+          "meanMsB": 2.385682685185219
+        },
+        {
+          "gameSeed": 21176992,
+          "players": [
+            "neural-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 129,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.4444444444444444,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 3.268619651162712,
+          "meanMsB": 2.564929093023217
+        },
+        {
+          "gameSeed": 21176992,
+          "players": [
+            "neural-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 180,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.09090909090909091,
+          "stoneB": 0.12121212121212122,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 3.0878224333332582,
+          "meanMsB": 2.518439833333362
+        },
+        {
+          "gameSeed": 21176992,
+          "players": [
+            "neural",
+            "neural-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 132,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.4225352112676056,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 3.0184347272726715,
+          "meanMsB": 2.515212249999918
+        },
+        {
+          "gameSeed": 21176992,
+          "players": [
+            "neural",
+            "guarded",
+            "neural-guard"
+          ],
+          "finished": true,
+          "turns": 172,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.4794520547945205,
+          "stoneB": 0.0684931506849315,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 2.960014491228018,
+          "meanMsB": 2.296189068965618
+        },
+        {
+          "gameSeed": 21176992,
+          "players": [
+            "guarded",
+            "neural-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 127,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.4861111111111111,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 2.888554261904747,
+          "meanMsB": 2.402173476190412
+        },
+        {
+          "gameSeed": 21176992,
+          "players": [
+            "guarded",
+            "neural",
+            "neural-guard"
+          ],
+          "finished": true,
+          "turns": 126,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.5068493150684932,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 3.0637733809523438,
+          "meanMsB": 2.3931661428572233
+        }
+      ]
+    },
+    {
+      "size": 13,
+      "seed": 20261127,
+      "a": "neural-guard",
+      "b": "neural",
+      "third": "guarded",
+      "totalGames": 12,
+      "finished": 12,
+      "truncated": 0,
+      "winShareA": 0.16666666666666666,
+      "winShareB": 0.16666666666666666,
+      "winShareThird": 0.6666666666666666,
+      "rankAboveB": 0.6666666666666666,
+      "observedStoneA": 0.29767265418410643,
+      "observedStoneB": 0.26028906407668995,
+      "earlyPassA": 0,
+      "earlyPassB": 0,
+      "meanDecisionMsA": 6.8503898702395505,
+      "meanDecisionMsB": 5.757083986804418,
+      "records": [
+        {
+          "gameSeed": 21561166,
+          "players": [
+            "neural-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 214,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.35668789808917195,
+          "stoneB": 0.22929936305732485,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.7919358055555294,
+          "meanMsB": 5.913381915492978
+        },
+        {
+          "gameSeed": 21561166,
+          "players": [
+            "neural-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 274,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.28846153846153844,
+          "stoneB": 0.27564102564102566,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.364110500000073,
+          "meanMsB": 5.43679173626369
+        },
+        {
+          "gameSeed": 21561166,
+          "players": [
+            "neural",
+            "neural-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 302,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.4230769230769231,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.71593877227711,
+          "meanMsB": 5.58649232673275
+        },
+        {
+          "gameSeed": 21561166,
+          "players": [
+            "neural",
+            "guarded",
+            "neural-guard"
+          ],
+          "finished": true,
+          "turns": 233,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.4375,
+          "stoneB": 0.1625,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.602268519480488,
+          "meanMsB": 5.477496858974332
+        },
+        {
+          "gameSeed": 21561166,
+          "players": [
+            "guarded",
+            "neural-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 291,
+          "winA": 1,
+          "winB": 0,
+          "winThird": 0,
+          "stoneA": 0.4967741935483871,
+          "stoneB": 0.45161290322580644,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 7.132983443298745,
+          "meanMsB": 5.8803828144328625
+        },
+        {
+          "gameSeed": 21561166,
+          "players": [
+            "guarded",
+            "neural",
+            "neural-guard"
+          ],
+          "finished": true,
+          "turns": 291,
+          "winA": 0,
+          "winB": 1,
+          "winThird": 0,
+          "stoneA": 0.45161290322580644,
+          "stoneB": 0.4967741935483871,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 7.124006742268039,
+          "meanMsB": 5.722057608247475
+        },
+        {
+          "gameSeed": 21569085,
+          "players": [
+            "neural-guard",
+            "neural",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 344,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.35064935064935066,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.664906669565085,
+          "meanMsB": 5.6501427652174
+        },
+        {
+          "gameSeed": 21569085,
+          "players": [
+            "neural-guard",
+            "guarded",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 270,
+          "winA": 0,
+          "winB": 1,
+          "winThird": 0,
+          "stoneA": 0,
+          "stoneB": 0.5324675324675324,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.738066366666721,
+          "meanMsB": 5.837836355555434
+        },
+        {
+          "gameSeed": 21569085,
+          "players": [
+            "neural",
+            "neural-guard",
+            "guarded"
+          ],
+          "finished": true,
+          "turns": 312,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.20512820512820512,
+          "stoneB": 0.1987179487179487,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 7.120475826923282,
+          "meanMsB": 5.98855195192321
+        },
+        {
+          "gameSeed": 21569085,
+          "players": [
+            "neural",
+            "guarded",
+            "neural-guard"
+          ],
+          "finished": true,
+          "turns": 284,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.4528301886792453,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 6.90935806382979,
+          "meanMsB": 5.7840066736843205
+        },
+        {
+          "gameSeed": 21569085,
+          "players": [
+            "guarded",
+            "neural-guard",
+            "neural"
+          ],
+          "finished": true,
+          "turns": 331,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0,
+          "stoneB": 0.4258064516129032,
+          "aboveB": 0,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 7.035421500000269,
+          "meanMsB": 5.915487854545757
+        },
+        {
+          "gameSeed": 21569085,
+          "players": [
+            "guarded",
+            "neural",
+            "neural-guard"
+          ],
+          "finished": true,
+          "turns": 310,
+          "winA": 0,
+          "winB": 0,
+          "winThird": 1,
+          "stoneA": 0.46,
+          "stoneB": 0,
+          "aboveB": 1,
+          "earlyPassA": 0,
+          "earlyPassB": 0,
+          "meanMsA": 7.00520623300948,
+          "meanMsB": 5.892378980582825
+        }
+      ]
+    }
+  ]
+}

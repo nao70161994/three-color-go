@@ -102,6 +102,15 @@ A playable 3-player Go variant. Three colors, hexagonal boards (6 neighbors) and
 - Public Pages deploy only after main CI completes successfully. Before merging test `npm test`, Chrome browser, standalone parity and Worker matchmaker queue tests.
 - Browser DOM cells are reused across board updates; tests should verify focus and selected point states.
 
+## Current v1.9.5: 9×9 opt-in neural/teacher tactical hybrid
+
+- `square-gnn64-hybrid-v1` is an **opt-in experimental 9×9-only CPU**, not a newly trained network. It fuses the unchanged `getSquareBoostModel(-9)` GNN policy and the existing square learned linear teacher at decision time. It checks real legal `play` outcomes, urgency, eyes, self-atari and two-opponent capture exposure on bounded candidates.
+- The independent A/B scripts `scripts/benchmark-square-hybrid.mjs` implement *three players on the same board*, all six seat rotations, whole-game win share, relative stone outranking, actual finished-game counts and mean decision time. The initial screening seed 20261127 is NOT the independent 20271227/20271228 validation.
+- In independent heldout 9×9 games the experimental hybrid beat the unchanged GNN on whole-game wins with both balanced and guarded third-player strategies. But some games versus the learned linear CPU reached the safety horizon without natural termination, and this is **not** enough to change the default model or claim universal stronger playing strength. 13×13 was inconsistent, so not exposed through the new CPU ID. See `docs/square-hybrid-screen.md` and `docs/square-hybrid-confirm.md`.
+- Maintain model provenance: source GNN weights must never be modified by decision-time tactical fusion. Keep both existing boosted and 19 beta CPU IDs, and avoid silent fallback on unsupported geometries.
+- When changing the opt-in CPU, update `src/cpu-catalog.js`, `src/cpu-engine.js`, `src/square-hybrid-ai.js`, `scripts/build-standalone.mjs`, `sw.js` and all four HTML selectors. Run Node unit tests and the real Chrome browser smoke on the regenerated `play.html`.
+- Current v1.9.5 release is designed to give players a verifiable optional stronger candidate on 9×9; further untouched-seed and Android device testing remain priorities.
+
 ## Current v1.9.4: 19×19 GNN64 experimental option and RL adoption discipline
 
 - `square-gnn64-19-beta` is a 19×19 **opt-in beta** that uses the **unchanged** `SQUARE_BOOST_MODELS['-13']` weights. It has never been trained on 19×19! The strength evidence is `docs/square19-source-check.md` (12 seat-rotated games with each of two third-party heuristics). A relative stone outrank rate is **not** a full three-person game win rate.

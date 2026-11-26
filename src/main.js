@@ -6,6 +6,7 @@ import {eliteModelsInfo} from './elite-models.js';
 import {squareTrainedModelInfo} from './square-policy.js';
 import {squareDeepModelsInfo} from './square-deep-ai.js';
 import {squareBoostModelInfo,square19BetaModelInfo} from './square-boost-ai.js';
+import {squareHybridModelInfo} from './square-hybrid-ai.js';
 import {CPU_LEVELS,SEAT_LEVELS,isCpuLevelSupported,compatibleCpuLevel,compatibleSeats,
   defaultCpuLevelForBoard,cpuCompatibilityReason} from './cpu-catalog.js';
 import {selectCpuMove} from './cpu-engine.js';
@@ -920,7 +921,7 @@ modeEl.addEventListener('change',()=>{
 
 /** Public browser automation interface. All actions use the same validated game engine as human moves. */
 window.threeColorGo = Object.freeze({
-  version: '1.9.4',
+  version: '1.9.5',
   getNeuralModelInfo: neuralModelInfo,
   getTrainedModelsInfo: trainedModelsInfo,
   getEliteModelsInfo: eliteModelsInfo,
@@ -928,6 +929,7 @@ window.threeColorGo = Object.freeze({
   getSquareDeepModelsInfo: squareDeepModelsInfo,
   getSquareBoostModelInfo: squareBoostModelInfo,
   getSquare19BetaModelInfo: square19BetaModelInfo,
+  getSquareHybridModelInfo: squareHybridModelInfo,
   getState: ()=>snapshot(state),
   analyze: ()=>analyzeRecord(record()),
   explainPosition: ()=>explainPosition(state),

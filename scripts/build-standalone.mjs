@@ -28,6 +28,10 @@ const deepWeights=stripImports(read('src/square-deep-model-data.js'));
 const squareDeep=stripImports(read('src/square-deep-ai.js'));
 const squareBoostWeights=stripImports(read('src/square-boost-model-data.js'));
 const squareBoost=stripImports(read('src/square-boost-ai.js'));
+// Isolate hybrid helper names from other non-module scripts in play.html.
+const squareHybrid='const {SQUARE_HYBRID_VARIANTS,SQUARE_HYBRID_LEVEL,chooseSquareHybridMove,squareHybridModelInfo}=(()=>{\n'+
+  stripImports(read('src/square-hybrid-ai.js'))+
+  '\nreturn {SQUARE_HYBRID_VARIANTS,SQUARE_HYBRID_LEVEL,chooseSquareHybridMove,squareHybridModelInfo};\n})();';
 const cpuEngine=stripImports(read('src/cpu-engine.js'));
 const insights=stripImports(read('src/insights.js'));
 const online=stripImports(read('src/online.js'));
@@ -37,7 +41,7 @@ const cssTag='<link rel="stylesheet" href="./src/style.css" />';
 const jsTag='<script type="module" src="./src/main.js"></script>';
 if(!index.includes(cssTag)||!index.includes(jsTag)) throw Error('index.html template changed');
 const bundled=index.replace(cssTag,'<style>\n'+style+'\n</style>')
- .replace(jsTag,'<script>\n'+game+'\n'+boardLayout+'\n'+cpuCatalog+'\n'+agent+'\n'+strong+'\n'+neuralWeights+'\n'+neural+'\n'+pv2+'\n'+direct+ '\n'+checkpointData+'\n'+passCheckpointData+'\n'+trained+'\n'+comparison+'\n'+eliteWeights+'\n'+elite+'\n'+squareWeights+'\n'+square+'\n'+deepWeights+'\n'+squareDeep+'\n'+squareBoostWeights+'\n'+squareBoost+'\n'+cpuEngine+'\n'+insights+'\n'+online+'\n'+matchmaking+'\n'+ui+'\n</script>')
+ .replace(jsTag,'<script>\n'+game+'\n'+boardLayout+'\n'+cpuCatalog+'\n'+agent+'\n'+strong+'\n'+neuralWeights+'\n'+neural+'\n'+pv2+'\n'+direct+ '\n'+checkpointData+'\n'+passCheckpointData+'\n'+trained+'\n'+comparison+'\n'+eliteWeights+'\n'+elite+'\n'+squareWeights+'\n'+square+'\n'+deepWeights+'\n'+squareDeep+'\n'+squareBoostWeights+'\n'+squareBoost+'\n'+squareHybrid+'\n'+cpuEngine+'\n'+insights+'\n'+online+'\n'+matchmaking+'\n'+ui+'\n</script>')
  .replace('</title>',' · オフライン版</title>')
  .replace('<script src="./match-config.js"></script>','<script>window.THREE_COLOR_MATCH_URL="";</script>');
 const output=new URL('../play.html',import.meta.url);

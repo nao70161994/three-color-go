@@ -1,4 +1,4 @@
-const CACHE='three-color-go-v1.9.4-square19-beta';
+const CACHE='three-color-go-v1.9.5-square-hybrid';
 const CORE=['./','./index.html','./manifest.webmanifest','./icons/app-icon.svg',
 './icons/icon-192.png','./icons/icon-512.png','./src/style.css',
 './src/game.js','./src/board-layout.js','./src/cpu-catalog.js','./src/cpu-engine.js','./src/agent.js','./src/strong-ai.js','./src/neural-weights.js','./src/neural-ai.js','./src/pv2-ai.js','./src/direct-policy.js',
@@ -6,7 +6,7 @@ const CORE=['./','./index.html','./manifest.webmanifest','./icons/app-icon.svg',
  './src/architecture-comparison.js','./src/elite-model-data.js','./src/elite-models.js',
  './src/square-policy.js','./src/square-policy-weights.js',
  './src/square-deep-model-data.js','./src/square-deep-ai.js',
- './src/square-boost-model-data.js','./src/square-boost-ai.js','./src/insights.js',
+ './src/square-boost-model-data.js','./src/square-boost-ai.js','./src/square-hybrid-ai.js','./src/insights.js',
 './src/online.js','./src/matchmaking.js','./src/ai-worker.js','./src/main.js',
 './play.html','./match-config.js'];
 self.addEventListener('install',event=>event.waitUntil(
