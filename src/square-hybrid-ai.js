@@ -119,3 +119,16 @@ export function chooseSquareHybridMove(state,inspection=null,variant='teacher-gu
   })));
   return chosen.move;
 }
+
+/** Public metadata: distinction between a stronger policy wrapper and a
+ * newly trained network is important when comparing reproducible results.
+ */
+export function squareHybridModelInfo(){
+  const base=getSquareBoostModel(-9);
+  return {id:SQUARE_HYBRID_LEVEL,board:9,
+    source:'gnn64-staged',architecture:base.kind,
+    selfPlayGames:base.metadata.games,teacherAssisted:true,
+    tacticalReview:true,independentTeacherPrior:true,
+    variant:'teacher-guard',newTrainingGames:0,
+    experimental:true,defaultCpuUnchanged:true};
+}
