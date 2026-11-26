@@ -1,0 +1,109 @@
+name: Screen square GNN64 neural/teacher/tactical fusion on independent matches
+on:
+  push:
+    branches: [experiment/square-hybrid-tactical-20261127]
+    paths: [.github/workflows/square-hybrid-screen.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: square-hybrid-screen-20261127
+  cancel-in-progress: false
+jobs:
+  screen:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [neural-guard,teacher-blend,teacher-guard]
+        third: [balanced,guarded]
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Test hybrid policies and legality
+        run: node --test tests/square-hybrid-ai.test.js
+      - name: Compare each approach directly to the exact existing GNN64
+        env:
+          VARIANT: ${{ matrix.variant }}
+          THIRD: ${{ matrix.third }}
+        run: |
+          set -euo pipefail
+          mkdir -p reports/square-hybrid-screen
+          node scripts/benchmark-square-hybrid.mjs \
+            --a "$VARIANT" --b neural --third "$THIRD" \
+            --games9 18 --games13 12 --games19 0 \
+            --seed 20261127 \
+            --out "reports/square-hybrid-screen/$VARIANT-$THIRD.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-hybrid-${{ matrix.variant }}-${{ matrix.third }}
+          path: reports/square-hybrid-screen/
+          retention-days: 90
+  report:
+    needs: screen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: true}
+      - uses: actions/download-artifact@v4
+        with: {pattern: 'square-hybrid-*',path: results/}
+      - name: Archive complete six-seat matches and calculate comparison
+        run: |
+          mkdir -p experiments/square-hybrid-screen docs
+          python3 - <<'PY'
+          import json,shutil,os
+          from pathlib import Path
+          rows=['# Square hybrid A/B screening: new tactics vs unchanged pretrained GNN64','',
+            'All candidates use the **same immutable self-play 512 + teacher-distilled GNN64** on each board. Every compared AI participates in the *same* three-player game, with all six seat permutations, independent seeds and a balanced or guarded third player. Any win rate below is a whole-game outcome, whereas outrank is relative stone count. No results were used in neural training.','',
+            '| Variant | 3rd CPU | Board | Natural finals | Hybrid win | Original win | Hybrid outranks original | Observed stones hybrid/original | Mean hybrid decision |',
+            '|---|---|---|---:|---:|---:|---:|---:|---:|']
+          summary={'seed':20261127,'boards':{},'selection':{}}
+          for variant in ['neural-guard','teacher-blend','teacher-guard']:
+            summary['boards'][variant]={}
+            for third in ['balanced','guarded']:
+              path=Path('results')/f'square-hybrid-{variant}-{third}'/f'{variant}-{third}.json'
+              raw=path.read_text()
+              data=json.loads(raw)
+              if data['seed']!=20261127 or len(data['results'])!=2:raise ValueError('Mismatched benchmark result')
+              shutil.copy(path,Path('experiments/square-hybrid-screen')/path.name)
+              by={}
+              for game in data['results']:
+                n=game['size']
+                if game['a']!=variant or game['b']!='neural' or game['third']!=third or game['totalGames']!=(18 if n==9 else 12):
+                  raise ValueError('Invalid candidate or seat rotation')
+                assert len(game['records'])==game['totalGames']
+                assert game['finished']+game['truncated']==game['totalGames']
+                def pct(x):return 'n/a' if x is None else f'{x:.1%}'
+                rows.append(f"| {variant} | {third} | {n}×{n} | {game['finished']}/{game['totalGames']} | {pct(game['winShareA'])} | {pct(game['winShareB'])} | {pct(game['rankAboveB'])} | {pct(game['observedStoneA'])}/{pct(game['observedStoneB'])} | {game['meanDecisionMsA']:.1f} ms |")
+                by[str(n)]={'outrank':game['rankAboveB'],'wins':game['winShareA'],
+                   'oldWins':game['winShareB'],'finish':game['finished'],
+                   'earlyPass':game['earlyPassA'],'meanMs':game['meanDecisionMsA']}
+              summary['boards'][variant][third]=by
+          for board in ['9','13']:
+            candidates=[]
+            for name in summary['boards']:
+              metrics=[summary['boards'][name][third][board] for third in ['balanced','guarded']]
+              eligible=all(m['finish']>=(17 if board=='9' else 11) and
+                m['earlyPass']==0 and m['outrank'] is not None and m['outrank']>.5 and
+                m['wins'] is not None and m['oldWins'] is not None and
+                m['wins']>=m['oldWins'] and m['meanMs']<600 for m in metrics)
+              score=sum(m['outrank'] for m in metrics)/2
+              if eligible:candidates.append((score,name))
+            summary['selection'][board]=max(candidates)[1] if candidates else None
+          rows+=['','Provisional screening picks: '+str(summary['selection'])+'. **A pick requires an entirely untouched confirmation seed and more complete games, then is still opt-in unless robustly superior.**','']
+          Path('experiments/square-hybrid-screen/summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          report='\n'.join(rows)
+          Path('docs/square-hybrid-screen.md').write_text(report)
+          print(report)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
+          PY
+      - name: Save actual full-game outcomes to experiment branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/square-hybrid-screen docs/square-hybrid-screen.md
+          git commit -m "Archive six-seat square neural tactical fusion screening scores"
+          git push origin HEAD:experiment/square-hybrid-tactical-20261127
