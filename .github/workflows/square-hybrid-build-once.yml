@@ -1,0 +1,50 @@
+name: One-time verify and regenerate square hybrid playable edition
+on:
+  push:
+    branches: [experiment/square-hybrid-tactical-20261127]
+    paths: [.github/workflows/square-hybrid-build-once.yml]
+permissions:
+  contents: write
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/square-hybrid-tactical-20261127
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Rebuild offline HTML from current modular sources
+        run: npm run build:standalone
+      - name: Execute all Node tests, including 9/13/19 legality and CPU compatibility
+        run: npm test
+      - name: Verify the exact complete offline edition
+        run: npm run check:standalone
+      - name: Real Chrome UI and offline smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8000 >/tmp/hybrid-http.log 2>&1 &
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --virtual-time-budget=40000 --dump-dom \
+            http://localhost:8000/tests/browser-smoke.html >/tmp/hybrid-smoke.html 2>/tmp/chrome.log
+          grep 'data-status="passed"' /tmp/hybrid-smoke.html || {
+            head -c 18000 /tmp/hybrid-smoke.html
+            tail -c 4500 /tmp/chrome.log
+            exit 1
+          }
+      - name: Save checked regenerated offline file to experiment PR
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add play.html
+          if ! git diff --cached --quiet; then
+            git commit -m "Regenerate offline 9x9 hybrid GNN game v1.9.5"
+            git pull --rebase origin experiment/square-hybrid-tactical-20261127
+            git push origin HEAD:experiment/square-hybrid-tactical-20261127
+          fi
