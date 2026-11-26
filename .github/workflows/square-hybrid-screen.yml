@@ -1,11 +1,8 @@
 name: Screen square GNN64 neural/teacher/tactical fusion on independent matches
 on:
-  push:
-    branches: [experiment/square-hybrid-tactical-20261127]
-    paths: [.github/workflows/square-hybrid-screen.yml]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: square-hybrid-screen-20261127
   cancel-in-progress: false
@@ -46,7 +43,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: {persist-credentials: true}
       - uses: actions/download-artifact@v4
         with: {pattern: 'square-hybrid-*',path: results/}
       - name: Archive complete six-seat matches and calculate comparison
@@ -99,11 +95,10 @@ jobs:
           print(report)
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
           PY
-      - name: Save actual full-game outcomes to experiment branch
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add experiments/square-hybrid-screen docs/square-hybrid-screen.md
-          git commit -m "Archive six-seat square neural tactical fusion screening scores"
-          git push origin HEAD:experiment/square-hybrid-tactical-20261127
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-hybrid-screen-verified
+          path: |
+            experiments/square-hybrid-screen/
+            docs/square-hybrid-screen.md
+          retention-days: 90
