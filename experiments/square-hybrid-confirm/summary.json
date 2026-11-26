@@ -1,0 +1,95 @@
+{
+  "selectedVariant": "teacher-guard",
+  "seedBalanced": 20271227,
+  "seedGuarded": 20271228,
+  "metrics": {
+    "neural": {
+      "balanced": {
+        "9": {
+          "wins": 0.3194444444444444,
+          "rivalWins": 0.1388888888888889,
+          "outrank": 0.5833333333333334,
+          "finished": 36,
+          "truncated": 0,
+          "earlyPass": 0,
+          "meanMs": 6.7432200807635185
+        },
+        "13": {
+          "wins": 0.16666666666666666,
+          "rivalWins": 0.3333333333333333,
+          "outrank": 0.5555555555555556,
+          "finished": 18,
+          "truncated": 0,
+          "earlyPass": 0,
+          "meanMs": 15.746889777577207
+        }
+      },
+      "guarded": {
+        "9": {
+          "wins": 0.4142857142857143,
+          "rivalWins": 0.14285714285714285,
+          "outrank": 0.6857142857142857,
+          "finished": 35,
+          "truncated": 1,
+          "earlyPass": 0,
+          "meanMs": 6.593847125225107
+        },
+        "13": {
+          "wins": 0.1111111111111111,
+          "rivalWins": 0.16666666666666666,
+          "outrank": 0.4444444444444444,
+          "finished": 18,
+          "truncated": 0,
+          "earlyPass": 0,
+          "meanMs": 15.81073944208078
+        }
+      }
+    },
+    "linear": {
+      "balanced": {
+        "9": {
+          "wins": 0.3939393939393939,
+          "rivalWins": 0.15151515151515152,
+          "outrank": 0.7575757575757576,
+          "finished": 33,
+          "truncated": 3,
+          "earlyPass": 0,
+          "meanMs": 5.1555262417546395
+        },
+        "13": {
+          "wins": 0.3888888888888889,
+          "rivalWins": 0.1111111111111111,
+          "outrank": 0.8888888888888888,
+          "finished": 18,
+          "truncated": 0,
+          "earlyPass": 0,
+          "meanMs": 12.8961588171651
+        }
+      },
+      "guarded": {
+        "9": {
+          "wins": 0.3548387096774194,
+          "rivalWins": 0.1774193548387097,
+          "outrank": 0.5161290322580645,
+          "finished": 31,
+          "truncated": 5,
+          "earlyPass": 0,
+          "meanMs": 4.926598357026145
+        },
+        "13": {
+          "wins": 0.4444444444444444,
+          "rivalWins": 0.05555555555555555,
+          "outrank": 0.9444444444444444,
+          "finished": 18,
+          "truncated": 0,
+          "earlyPass": 0,
+          "meanMs": 12.559448147751368
+        }
+      }
+    }
+  },
+  "conclusions": {
+    "9": "remain research-only",
+    "13": "remain research-only"
+  }
+}
