@@ -1,0 +1,120 @@
+name: Confirm square hybrid GNN64 tactical improvement on unseen seeds
+on:
+  push:
+    branches: [experiment/square-hybrid-tactical-20261127]
+    paths: [.github/workflows/square-hybrid-confirm.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: square-hybrid-confirm-20261127
+  cancel-in-progress: false
+jobs:
+  confirm:
+    strategy:
+      fail-fast: false
+      matrix:
+        competitor: [neural,linear]
+        third: [balanced,guarded]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: 54 independent real games with 6-seat rotations against old GNN or linear
+        env:
+          RIVAL: ${{ matrix.competitor }}
+          THIRD: ${{ matrix.third }}
+        run: |
+          set -euo pipefail
+          mkdir -p reports/square-hybrid-confirm
+          case "$THIRD" in
+            balanced) SEED=20271227 ;;
+            guarded) SEED=20271228 ;;
+            *) exit 1 ;;
+          esac
+          node scripts/benchmark-square-hybrid.mjs \
+            --a teacher-guard --b "$RIVAL" --third "$THIRD" \
+            --games9 36 --games13 18 --games19 0 --seed "$SEED" \
+            --out "reports/square-hybrid-confirm/$RIVAL-$THIRD.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-hybrid-confirm-${{ matrix.competitor }}-${{ matrix.third }}
+          path: reports/square-hybrid-confirm/
+          retention-days: 90
+  summary:
+    needs: confirm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: true}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: 'square-hybrid-confirm-*'
+          path: results/
+      - name: Archive independent tests and evaluate guarded promotion threshold
+        run: |
+          mkdir -p experiments/square-hybrid-confirm docs
+          python3 - <<'PY'
+          import json,shutil,os
+          from pathlib import Path
+          lines=['# Square GNN64 teacher+tactics fusion: independent confirmation','',
+            'The teacher-guard variant was selected on prior 20261127 screening, **not on this data**. This is an independent 20271227/20271228-seed tournament against the unchanged pretrained GNN64 or the independent learned linear CPU, with balanced and guarded third-player policies. All six seat assignments are rotated in each batch.','',
+            '| Rival | Third CPU | Board | Natural finals | Hybrid win | Rival win | Hybrid outranks rival | Hybrid stone share | Rival stone share | Mean CPU time |',
+            '|---|---|---|---:|---:|---:|---:|---:|---:|---:|']
+          metrics={}
+          for rival in ['neural','linear']:
+            metrics[rival]={}
+            for third,seed in [('balanced',20271227),('guarded',20271228)]:
+              filename=f'{rival}-{third}.json'
+              path=Path('results')/f'square-hybrid-confirm-{rival}-{third}'/filename
+              data=json.loads(path.read_text())
+              if data['seed']!=seed or len(data['results'])!=2:raise ValueError('Wrong heldout seed or record count')
+              shutil.copy(path,Path('experiments/square-hybrid-confirm')/filename)
+              metrics[rival][third]={}
+              for row in data['results']:
+                size=row['size'];expected=36 if size==9 else 18
+                if row['a']!='teacher-guard' or row['b']!=rival or row['third']!=third or row['totalGames']!=expected:
+                  raise ValueError('Wrong compared A/B policies or game count')
+                if row['finished']+row['truncated']!=expected:raise ValueError('Invalid completed-game accounting')
+                if row['meanDecisionMsA']>=600:raise ValueError('Tactical CPU far too slow')
+                def pct(x):return 'n/a' if x is None else f'{x:.1%}'
+                lines.append(f"| {rival} | {third} | {size}×{size} | {row['finished']}/{expected} | {pct(row['winShareA'])} | {pct(row['winShareB'])} | {pct(row['rankAboveB'])} | {pct(row['observedStoneA'])} | {pct(row['observedStoneB'])} | {row['meanDecisionMsA']:.1f} ms |")
+                metrics[rival][third][str(size)]={'wins':row['winShareA'],
+                  'rivalWins':row['winShareB'],'outrank':row['rankAboveB'],
+                  'finished':row['finished'],'truncated':row['truncated'],
+                  'earlyPass':row['earlyPassA'],'meanMs':row['meanDecisionMsA']}
+          conclusions={}
+          for size in ['9','13']:
+            base=[metrics['neural'][third][size] for third in ['balanced','guarded']]
+            cross=[metrics['linear'][third][size] for third in ['balanced','guarded']]
+            # The new CPU must beat the unmodified source with both opponents;
+            # a separate linear CPU check protects against exploiting only one.
+            good=all(x['outrank'] is not None and x['outrank']>0.52
+              and x['wins'] is not None and x['rivalWins'] is not None
+              and x['wins']>x['rivalWins'] and x['earlyPass']==0
+              and x['truncated']<=1 for x in base)
+            good=good and all(x['outrank'] is not None and x['outrank']>0.5
+              and x['earlyPass']==0 and x['truncated']<=1 for x in cross)
+            conclusions[size]='eligible as optional new CPU' if good else 'remain research-only'
+          lines+=['','Independent adoption check: '+json.dumps(conclusions,ensure_ascii=False)+'.','',
+            'Evidence is still limited to preset CPU matchups; it is not proof of human-level or general optimal Go play. Mobile device benchmarks have not been performed.']
+          report='\n'.join(lines)+'\n'
+          Path('docs/square-hybrid-confirm.md').write_text(report)
+          Path('experiments/square-hybrid-confirm/summary.json').write_text(json.dumps({
+            'selectedVariant':'teacher-guard','seedBalanced':20271227,'seedGuarded':20271228,
+            'metrics':metrics,'conclusions':conclusions
+          },indent=2)+'\n')
+          print(report)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
+          PY
+      - name: Commit independent test evidence; never alter production CPU automatically
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/square-hybrid-confirm docs/square-hybrid-confirm.md
+          git commit -m "Record true independent 9/13 hybrid confirmation against GNN and learned linear CPU"
+          git pull --rebase origin experiment/square-hybrid-tactical-20261127
+          git push origin HEAD:experiment/square-hybrid-tactical-20261127
