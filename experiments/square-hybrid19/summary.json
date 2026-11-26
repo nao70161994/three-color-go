@@ -1,0 +1,24 @@
+{
+  "seed": 20261219,
+  "metrics": {
+    "balanced": {
+      "rankAboveB": 0.6666666666666666,
+      "winShareA": 0.25,
+      "winShareB": 0.25,
+      "finished": 12,
+      "truncated": 0,
+      "meanDecisionMsA": 32.30368379218374,
+      "earlyPassA": 0
+    },
+    "guarded": {
+      "rankAboveB": 0.5833333333333334,
+      "winShareA": 0.2916666666666667,
+      "winShareB": 0.041666666666666664,
+      "finished": 12,
+      "truncated": 0,
+      "meanDecisionMsA": 35.15806413404346,
+      "earlyPassA": 0
+    }
+  },
+  "decision": "do not adopt"
+}
