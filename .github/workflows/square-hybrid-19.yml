@@ -1,0 +1,92 @@
+name: Screen square 19x19 hybrid tactical GNN against unchanged 19-beta
+on:
+  push:
+    branches: [experiment/square-hybrid-tactical-20261127]
+    paths: [.github/workflows/square-hybrid-19.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: square-hybrid19-20261127
+  cancel-in-progress: false
+jobs:
+  evaluate:
+    strategy:
+      fail-fast: false
+      matrix:
+        third: [balanced,guarded]
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: 19x19 six-seat all-real GNN beta versus hybrid A/B
+        env:
+          THIRD: ${{ matrix.third }}
+        run: |
+          set -euo pipefail
+          mkdir -p reports/square-hybrid19
+          node scripts/benchmark-square-hybrid.mjs \
+            --a teacher-guard --b neural --third "$THIRD" \
+            --games9 0 --games13 0 --games19 12 \
+            --seed 20261219 \
+            --out "reports/square-hybrid19/$THIRD.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: square-hybrid19-${{ matrix.third }}
+          path: reports/square-hybrid19/
+          retention-days: 90
+  report:
+    needs: evaluate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: true}
+      - uses: actions/download-artifact@v4
+        with: {pattern: 'square-hybrid19-*',path: results/}
+      - name: Summarize untrained-19 neural beta versus neural-tactical hybrid
+        run: |
+          mkdir -p docs experiments/square-hybrid19
+          python3 - <<'PY'
+          import json,shutil,os
+          from pathlib import Path
+          lines=['# 19×19 unchanged 13x13 GNN64 vs teacher-tactical hybrid screening','',
+            'Both candidates use the same 13x13-trained GNN64 weights, neither policy has been retrained on 19x19. Results are on actual 19x19 geometry; the third-player policy varies. Sample sizes are small, and mobile latency is not measured.','',
+            '| Third player | Natural finals | Hybrid whole-game win | Original whole-game win | Relative hybrid stone outrank | Hybrid observed stones | GNN observed stones | Mean hybrid decision |',
+            '|---|---:|---:|---:|---:|---:|---:|---:|']
+          summary={'seed':20261219,'metrics':{}}
+          for third in ['balanced','guarded']:
+            p=Path('results')/('square-hybrid19-'+third)/(third+'.json')
+            obj=json.loads(p.read_text())
+            if obj['seed']!=20261219 or len(obj['results'])!=1:raise ValueError('Invalid 19-board screening')
+            d=obj['results'][0]
+            if d['size']!=19 or d['a']!='teacher-guard' or d['b']!='neural' or d['third']!=third or d['totalGames']!=12:
+              raise ValueError('Wrong 19-board matchup')
+            if d['finished']+d['truncated']!=12:raise ValueError('Incomplete games')
+            def pc(v):return 'n/a' if v is None else f'{v:.1%}'
+            lines.append(f"| {third} | {d['finished']}/12 | {pc(d['winShareA'])} | {pc(d['winShareB'])} | {pc(d['rankAboveB'])} | {pc(d['observedStoneA'])} | {pc(d['observedStoneB'])} | {d['meanDecisionMsA']:.1f} ms |")
+            summary['metrics'][third]={k:d[k] for k in ['rankAboveB','winShareA','winShareB','finished','truncated','meanDecisionMsA','earlyPassA']}
+            shutil.copy(p,Path('experiments/square-hybrid19')/(third+'.json'))
+          safe=all(r['rankAboveB'] is not None and r['rankAboveB']>.5 and
+            r['winShareA'] is not None and r['winShareB'] is not None and
+            r['winShareA']>r['winShareB'] and r['earlyPassA']==0 and
+            r['truncated']==0 and r['meanDecisionMsA']<600
+            for r in summary['metrics'].values())
+          summary['decision']='eligible for independent confirmation' if safe else 'do not adopt'
+          lines+=['','Decision: **'+summary['decision']+'**. Even an eligible candidate must pass untouched-seed validation.']
+          (Path('experiments/square-hybrid19')/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          report='\n'.join(lines)+'\n'
+          Path('docs/square-hybrid19.md').write_text(report)
+          print(report)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(report)
+          PY
+      - name: Archive actual 19-board matches, never promote without validation
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/square-hybrid19.md experiments/square-hybrid19
+          git commit -m "Archive true 19x19 hybrid GNN six-seat matches"
+          git pull --rebase origin experiment/square-hybrid-tactical-20261127
+          git push origin HEAD:experiment/square-hybrid-tactical-20261127
