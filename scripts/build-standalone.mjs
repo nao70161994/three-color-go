@@ -29,9 +29,9 @@ const squareDeep=stripImports(read('src/square-deep-ai.js'));
 const squareBoostWeights=stripImports(read('src/square-boost-model-data.js'));
 const squareBoost=stripImports(read('src/square-boost-ai.js'));
 // Isolate hybrid helper names from other non-module scripts in play.html.
-const squareHybrid='const {SQUARE_HYBRID_VARIANTS,SQUARE_HYBRID_LEVEL,chooseSquareHybridMove,squareHybridModelInfo}=(()=>{\\n'+
+const squareHybrid='const {SQUARE_HYBRID_VARIANTS,SQUARE_HYBRID_LEVEL,chooseSquareHybridMove,squareHybridModelInfo}=(()=>{\n'+
   stripImports(read('src/square-hybrid-ai.js'))+
-  '\\nreturn {SQUARE_HYBRID_VARIANTS,SQUARE_HYBRID_LEVEL,chooseSquareHybridMove,squareHybridModelInfo};\\n})();';
+  '\nreturn {SQUARE_HYBRID_VARIANTS,SQUARE_HYBRID_LEVEL,chooseSquareHybridMove,squareHybridModelInfo};\n})();';
 const cpuEngine=stripImports(read('src/cpu-engine.js'));
 const insights=stripImports(read('src/insights.js'));
 const online=stripImports(read('src/online.js'));
