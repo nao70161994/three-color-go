@@ -5,7 +5,9 @@ import {seededRandom} from '../src/agent.js';
 import {getSquareBoostModel} from '../src/square-boost-ai.js';
 import {selectComparisonMove} from '../src/architecture-comparison.js';
 import {getHybridSourceModel,evaluateHybridCandidates,chooseSquareHybridMove,
-  SQUARE_HYBRID_VARIANTS} from '../src/square-hybrid-ai.js';
+  SQUARE_HYBRID_VARIANTS,SQUARE_HYBRID_LEVEL,squareHybridModelInfo} from '../src/square-hybrid-ai.js';
+import {isCpuLevelSupported} from '../src/cpu-catalog.js';
+import {selectCpuMove} from '../src/cpu-engine.js';
 
 test('hybrid variants preserve actual pretrained model provenance',()=>{
  assert.deepEqual(Object.keys(SQUARE_HYBRID_VARIANTS).sort(),
@@ -63,4 +65,24 @@ test('configuration rejects malformed settings and unsupported boards',()=>{
  for(const topK of [-1,1.2,33,NaN])
    assert.throws(()=>evaluateHybridCandidates(square,{topK}),/不正/);
  assert.throws(()=>evaluateHybridCandidates(createGame(4)),/四角盤/);
+});
+
+test('Opt-in production dispatch preserves trained defaults and is square-9-only',()=>{
+  assert.equal(SQUARE_HYBRID_LEVEL,'square-gnn64-hybrid-v1');
+  const meta=squareHybridModelInfo();
+  assert.equal(meta.board,9);
+  assert.equal(meta.newTrainingGames,0,'Policy fusion is not new self-play training');
+  assert.equal(meta.experimental,true);
+  for(const radius of [3,4,-13,-19]){
+    assert.equal(isCpuLevelSupported(SQUARE_HYBRID_LEVEL,radius),false);
+    assert.throws(()=>selectCpuMove(createGame(radius),SQUARE_HYBRID_LEVEL),
+      /9×9|四角盤|9路/);
+  }
+  const s=createGame(-9);
+  assert.equal(isCpuLevelSupported(SQUARE_HYBRID_LEVEL,-9),true);
+  const d=selectCpuMove(s,SQUARE_HYBRID_LEVEL);
+  const m=chooseSquareHybridMove(s);
+  assert.deepEqual(d.move,m);
+  assert.equal(d.decision.level,SQUARE_HYBRID_LEVEL);
+  assert.ok(d.decision.candidates.length>0);
 });
